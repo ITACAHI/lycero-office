@@ -33,13 +33,12 @@ interface Slide {
 
 const SLIDES: readonly Slide[] = [
   { titleKey: 'onbTitle1', subtitleKey: 'onbSubtitle1', bodyKey: 'onbBody1', art: 'logo' },
-  { titleKey: 'onbTitle2', subtitleKey: 'onbBody2', showOffer: true, art: 'gift' },
+  { titleKey: 'onbTitle2', subtitleKey: 'onbBody2', bodyKey: 'onbCredits', art: 'gift' },
   {
     titleKey: 'onbTitle3',
     subtitleKey: 'onbBody3',
     bodyKey: 'onbNote3',
     bodyDim: true,
-    showStar: true,
     showAnalyticsNotice: true,
     art: 'check',
   },
@@ -195,7 +194,9 @@ export function Onboarding({ onDone }: OnboardingProps) {
               <h2 className="onb-title">{t(s.titleKey)}</h2>
               <p className="onb-subtitle">{t(s.subtitleKey)}</p>
               {s.bodyKey && (
-                <p className={`onb-body${s.bodyDim ? ' onb-body-dim' : ''}`}>{t(s.bodyKey)}</p>
+                <p className={`onb-body${s.bodyDim ? ' onb-body-dim' : ''}`}>
+                  {renderEmphasis(t(s.bodyKey))}
+                </p>
               )}
               {s.showStar && (
                 <div className="onb-star">

@@ -3,6 +3,12 @@
  * Copyright © 2026 ITAC AI Heavy Industries. All rights reserved.
  */
 
+import {
+  DEFAULT_CLOUD_SKILL_CATALOG,
+  classifySkillsForContext,
+  type ClassifySkillsInput,
+} from './skill-classifier'
+
 /**
  * Field configuration schema for a Cloud Skill.
  * Used to dynamically render input controls in the Desktop UI without hardcoding.
@@ -250,13 +256,15 @@ export class CloudCapabilitiesManager {
         // Persist to storage
         await this.storage.setItem(CACHE_KEY_MANIFEST, JSON.stringify(data))
 
-        // If no active skills were explicitly chosen yet, default to activating 'lycero-office'
+        // Automatically activate all synced Cloud Skills if no custom active set was configured yet
         if (this.activeSlugs.size === 0) {
-          const defaultOfficeSkill = this.skills.find((s) => s.slug === 'lycero-office')
-          if (defaultOfficeSkill) {
-            this.activeSlugs.add('lycero-office')
-            await this.storage.setItem(CACHE_KEY_ACTIVE, JSON.stringify(['lycero-office']))
+          for (const s of this.skills) {
+            this.activeSlugs.add(s.slug)
           }
+          await this.storage.setItem(
+            CACHE_KEY_ACTIVE,
+            JSON.stringify(Array.from(this.activeSlugs)),
+          )
         }
 
         // Set default configs for newly discovered fields
@@ -307,6 +315,26 @@ export class CloudCapabilitiesManager {
 
   public getSkills(): readonly CloudSkillManifest[] {
     return this.skills
+  }
+
+  /**
+   * Returns all available Cloud Skills (merging synced server skills with the built-in catalog).
+   */
+  public getCatalogSkills(): readonly CloudSkillManifest[] {
+    if (this.skills.length === 0) return DEFAULT_CLOUD_SKILL_CATALOG
+    const seen = new Set(this.skills.map((s) => s.slug))
+    return [...this.skills, ...DEFAULT_CLOUD_SKILL_CATALOG.filter((s) => !seen.has(s.slug))]
+  }
+
+  /**
+   * Automatically classifies and selects the relevant Cloud Skills for a turn
+   * based on the user's prompt, document context, active editor module, and pipeline stage.
+   */
+  public classifySkillsForTurn(input: Omit<ClassifySkillsInput, 'availableSkills'>): string[] {
+    return classifySkillsForContext({
+      ...input,
+      availableSkills: this.getCatalogSkills(),
+    })
   }
 
   public getMcpEndpoints(): readonly CloudMcpEndpoint[] {

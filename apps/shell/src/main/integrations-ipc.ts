@@ -42,6 +42,7 @@ import {
   removeSkill,
   recommendedSkills,
   skillsRoot,
+  syncAllCloudSkillsToUserData,
   usableSkills,
 } from './imported-skills'
 import { lyceroAccessToken } from '@lycero/ai-auth/main'
@@ -70,6 +71,12 @@ export interface IntegrationsDeps {
 
 /** Settings → Integrations: probe, install, uninstall, zip. No write happens without a click in that pane. */
 export function registerIntegrationsIpc(deps: IntegrationsDeps): void {
+  if (!process.env.VITEST) {
+    // Auto-load and sync all Cloud Skills into <userData>/skills on startup
+    void Promise.resolve().then(() =>
+      syncAllCloudSkillsToUserData(app.getPath('userData'), lyceroAccessToken() ?? undefined),
+    )
+  }
   const bundled = (): BundledSkill => bundledSkillFrom(readFileSync(deps.skillPath))
   const ledger = (): SkillLedger => ledgerFromSettings(readAppSettings(deps.settingsPath()))
   const saveLedger = (l: SkillLedger) => writeAppSetting(deps.settingsPath(), LEDGER_KEY, l)

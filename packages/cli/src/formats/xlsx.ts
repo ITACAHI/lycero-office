@@ -41,7 +41,10 @@ import {
   parseStylesheetFormats,
   type StylesheetFormats,
 } from '@lycero/xlsx-gateway/gateway/xlsx-style-read'
-import { readFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { extname, join } from 'node:path'
+import { xlsToText } from '@lycero/file-parse'
 import { atomicWriteFile } from '../../../../apps/sheets/src/main/atomic-write'
 import { XlsxSidecarClient } from '../../../../apps/sheets/src/main/xlsx-sidecar-client'
 import { CliError, EXIT } from '../result'
@@ -203,16 +206,68 @@ async function withSidecar<T>(fn: (client: XlsxSidecarClient) => Promise<T>): Pr
   }
 }
 
+const LEGACY_CONVERT_EXTS = new Set(['.xls', '.xlsb', '.ods', '.ots'])
+
+async function convertLegacyOrHtmlXlsToTarget(
+  client: XlsxSidecarClient,
+  sourcePath: string,
+  targetPath: string,
+): Promise<{ sheets: number; cells: number }> {
+  try {
+    return (await client.convertWorkbook({ path: sourcePath, targetPath })) as {
+      sheets: number
+      cells: number
+    }
+  } catch (err) {
+    const ext = extname(sourcePath).toLowerCase()
+    if (ext === '.xls') {
+      // Many school/government portals export HTML <table> or XML Spreadsheet 2003 as .xls
+      const bytes = await readFile(sourcePath)
+      const parsedText = await xlsToText(bytes)
+      const rows: Scalar[][] = parsedText
+        .split(/\r?\n/)
+        .filter((line) => line.length > 0 && !line.startsWith('## '))
+        .map((line) =>
+          line.split('\t').map((cell) => {
+            const trimmed = cell.trim()
+            return isNumericCell(trimmed) ? Number(trimmed) : trimmed
+          }),
+        )
+      const blank = await blankWorkbook('Sheet1')
+      const edits = cellEditsFromTable('Sheet1', rows)
+      const mutation = await planCellEditsToXlsx(await createBufferEntrySource(blank), edits)
+      const assembled = await assembleWithJsZip(blank, mutation)
+      await writeFile(targetPath, assembled.buffer)
+      return { sheets: 1, cells: edits.length }
+    }
+    throw err
+  }
+}
+
 async function withOpenWorkbook<T>(
   path: string,
   fn: (client: XlsxSidecarClient, wb: OpenedWorkbook) => Promise<T>,
 ): Promise<T> {
   return withSidecar(async (client) => {
-    const wb = (await client.open(path, 'en')) as OpenedWorkbook
+    const ext = extname(path).toLowerCase()
+    let openPath = path
+    let tempDir: string | null = null
     try {
-      return await fn(client, wb)
+      if (LEGACY_CONVERT_EXTS.has(ext)) {
+        tempDir = await mkdtemp(join(tmpdir(), 'lycero-xls-'))
+        openPath = join(tempDir, 'converted.xlsx')
+        await convertLegacyOrHtmlXlsToTarget(client, path, openPath)
+      }
+      const wb = (await client.open(openPath, 'en')) as OpenedWorkbook
+      try {
+        return await fn(client, wb)
+      } finally {
+        await client.close(wb.sessionId)
+      }
     } finally {
-      await client.close(wb.sessionId)
+      if (tempDir) {
+        await rm(tempDir, { recursive: true, force: true }).catch(() => undefined)
+      }
     }
   })
 }
@@ -243,7 +298,7 @@ export async function convertLegacyWorkbook(
   targetPath: string,
 ): Promise<{ sheets: number; cells: number }> {
   return withSidecar(async (client) => {
-    return (await client.convertWorkbook({ path, targetPath })) as { sheets: number; cells: number }
+    return convertLegacyOrHtmlXlsToTarget(client, path, targetPath)
   })
 }
 

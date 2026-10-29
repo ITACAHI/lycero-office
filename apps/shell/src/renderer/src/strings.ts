@@ -910,16 +910,16 @@ export const strings = {
     intgExample2: 'Make a 6-slide deck about our Q3 results',
     intgExample3: 'Convert budget.xlsx to PDF and open it in Lycero Office',
     intgStep2Note:
-      'The assistant runs the genoffice command line itself; you never have to type it.',
+      'The assistant runs the lycero-office command line itself; you never have to type it.',
     intgCliPartTitle: 'CLI · command line + skill',
     intgCliPartDesc:
-      'For assistants that can run terminal commands (Claude Code, Codex, Cursor and others). Once the skill is installed, the assistant calls the genoffice command line itself to create, convert, read and edit files; you never type a command.',
+      'For assistants that can run terminal commands (Claude Code, Codex, Cursor and others). Once the skill is installed, the assistant calls the lycero-office command line itself to create, convert, read and edit files; you never type a command.',
     intgMcpPartTitle: 'MCP',
     intgMcpPartDesc:
       'MCP is the common protocol AI assistants use to call external tools. Use it when your assistant cannot run commands (Claude Desktop, for example) or when you want it to drive the Lycero Office window directly. Pick either of the two ways below.',
     intgMcpStdioTitle: 'Started by the assistant (recommended)',
     intgMcpStdioDesc:
-      'The assistant launches genoffice mcp itself: nothing to switch on here, and Lycero Office does not need to be open. Same features as the CLI.',
+      'The assistant launches lycero-office mcp itself: nothing to switch on here, and Lycero Office does not need to be open. Same features as the CLI.',
     intgMcpHttpTitle: 'Local HTTP server',
     intgMcpHttpDesc:
       'Runs inside Lycero Office; the assistant connects to a URL and you can watch it build the document step by step in the Word editor. Lycero Office must stay open; Word documents only for now.',
@@ -932,10 +932,10 @@ export const strings = {
       'Add this to its MCP server settings (a JSON file, or "Add MCP server" in its settings):',
     intgMcpNote:
       'The skill and MCP can be set up side by side; the assistant picks one. They do exactly the same things.',
-    intgCliTitle: 'Advanced: genoffice command line',
-    intgCliReady: 'genoffice {v} · ready in your terminal ({path})',
+    intgCliTitle: 'Advanced: lycero-office command line',
+    intgCliReady: 'lycero-office {v} · ready in your terminal ({path})',
     intgCliNotOnPath:
-      "genoffice {v} · not on your terminal's PATH. Assistants still find it through ~/.lycero-office/launcher, so the skill works. To type genoffice yourself, run this once:",
+      "lycero-office {v} · not on your terminal's PATH. Assistants still find it through ~/.lycero-office/launcher, so the skill works. To type lycero-office yourself, run this once:",
     intgCliLauncher: 'Launcher folder',
     intgStateOutdated: 'Installed {v}, update to {next} available',
     intgStateModified: 'Installed {v} (modified)',
@@ -1039,14 +1039,14 @@ export const strings = {
     newTab: 'New tab',
     // First-run onboarding
     onbTitle1: 'Welcome to Lycero Office',
-    onbSubtitle1: 'The first open-source, AI-native office suite',
+    onbSubtitle1: 'AI-native office suite for work & education',
     onbBody1:
-      'Create docs, build sheets, make slides, and review PDFs. AI is built into every step.',
-    onbTitle2: 'This is just the beginning',
+      'Create docs, build sheets, make slides, and review PDFs. Lycero Mate AI is built into every step.',
+    onbTitle2: 'Powered by Lycero Cloud Skills',
     onbBody2:
-      'Lycero Office is still in alpha. Join the group chat on GenTeam to share feedback and help shape what comes next.',
-    onbCredits: 'Active contributors get **1,000+ Lycero credits**',
-    onbJoinGenTeam: 'Join GenTeam',
+      'Specialized AI skills for Office, EdTech, Finance, and Legal workflows are synced automatically and routed intelligently based on your document context.',
+    onbCredits: 'Built-in **Lycero Mate AI** with local-first privacy',
+    onbJoinGenTeam: 'Explore Lycero',
     onbSkip: 'Skip',
     onbNext: 'Next',
     onbStart: 'Get started',
@@ -1519,16 +1519,16 @@ export const strings = {
     intgExample1: 'Chuyển đổi ~/Downloads/report.md thành tài liệu Word',
     intgExample2: 'Tạo bài thuyết trình 6 trang trình bày về kết quả quý 3 của chúng tôi',
     intgExample3: 'Chuyển đổi budget.xlsx sang PDF và mở trong Lycero Office',
-    intgStep2Note: 'Trợ lý tự chạy dòng lệnh genoffice; bạn không bao giờ phải nhập lệnh.',
+    intgStep2Note: 'Trợ lý tự chạy dòng lệnh lycero-office; bạn không bao giờ phải nhập lệnh.',
     intgCliPartTitle: 'CLI · dòng lệnh + kỹ năng',
     intgCliPartDesc:
-      'Dành cho các trợ lý có thể chạy lệnh terminal (Claude Code, Codex, Cursor và các trợ lý khác). Khi kỹ năng đã được cài đặt, trợ lý sẽ tự gọi dòng lệnh genoffice để tạo, chuyển đổi, đọc và chỉnh sửa tệp; bạn không cần nhập lệnh.',
+      'Dành cho các trợ lý có thể chạy lệnh terminal (Claude Code, Codex, Cursor và các trợ lý khác). Khi kỹ năng đã được cài đặt, trợ lý sẽ tự gọi dòng lệnh lycero-office để tạo, chuyển đổi, đọc và chỉnh sửa tệp; bạn không cần nhập lệnh.',
     intgMcpPartTitle: 'MCP',
     intgMcpPartDesc:
       'MCP là giao thức tiêu chuẩn mà các trợ lý AI dùng để gọi công cụ bên ngoài. Sử dụng khi trợ lý của bạn không thể chạy lệnh (ví dụ Claude Desktop) hoặc khi bạn muốn trợ lý điều khiển trực tiếp cửa sổ Lycero Office. Chọn một trong hai cách bên dưới.',
     intgMcpStdioTitle: 'Được khởi động bởi trợ lý (khuyến nghị)',
     intgMcpStdioDesc:
-      'Trợ lý sẽ tự khởi chạy genoffice mcp: không cần bật gì ở đây và Lycero Office không cần phải mở. Có đầy đủ tính năng tương tự CLI.',
+      'Trợ lý sẽ tự khởi chạy lycero-office mcp: không cần bật gì ở đây và Lycero Office không cần phải mở. Có đầy đủ tính năng tương tự CLI.',
     intgMcpHttpTitle: 'Máy chủ HTTP cục bộ',
     intgMcpHttpDesc:
       'Chạy bên trong Lycero Office; trợ lý kết nối với một URL và bạn có thể theo dõi nó tạo tài liệu từng bước trong trình chỉnh sửa Word. Lycero Office phải luôn mở; hiện tại chỉ hỗ trợ tài liệu Word.',
@@ -1541,10 +1541,10 @@ export const strings = {
       'Thêm nội dung này vào cài đặt máy chủ MCP của trợ lý (tệp JSON hoặc "Add MCP server" trong phần cài đặt):',
     intgMcpNote:
       'Kỹ năng và MCP có thể được thiết lập song song; trợ lý sẽ chọn một trong hai. Chúng thực hiện chức năng hoàn toàn giống nhau.',
-    intgCliTitle: 'Nâng cao: dòng lệnh genoffice',
-    intgCliReady: 'genoffice {v} · đã sẵn sàng trong terminal của bạn ({path})',
+    intgCliTitle: 'Nâng cao: dòng lệnh lycero-office',
+    intgCliReady: 'lycero-office {v} · đã sẵn sàng trong terminal của bạn ({path})',
     intgCliNotOnPath:
-      'genoffice {v} · không có trong PATH của terminal. Trợ lý vẫn tìm thấy qua ~/.lycero-office/launcher, vì vậy kỹ năng vẫn hoạt động. Để tự chạy lệnh genoffice, hãy thực hiện lệnh này một lần:',
+      'lycero-office {v} · không có trong PATH của terminal. Trợ lý vẫn tìm thấy qua ~/.lycero-office/launcher, vì vậy kỹ năng vẫn hoạt động. Để tự chạy lệnh lycero-office, hãy thực hiện lệnh này một lần:',
     intgCliLauncher: 'Thư mục trình khởi chạy',
     intgStateOutdated: 'Đã cài đặt {v}, có bản cập nhật lên {next}',
     intgStateModified: 'Đã cài đặt {v} (đã sửa đổi)',
@@ -1651,14 +1651,14 @@ export const strings = {
     newTab: 'Tab mới',
     // First-run onboarding
     onbTitle1: 'Chào mừng đến với Lycero Office',
-    onbSubtitle1: 'Bộ ứng dụng văn phòng AI nguồn mở đầu tiên',
+    onbSubtitle1: 'Không gian làm việc & giáo dục tích hợp AI chuyên sâu',
     onbBody1:
-      'Tạo tài liệu, xây dựng bảng tính, tạo bản trình bày và xem lại PDF. AI được tích hợp trong từng bước.',
-    onbTitle2: 'Đây mới chỉ là khởi đầu',
+      'Soạn thảo văn bản, lập bảng tính, thiết kế bài trình chiếu và phân tích PDF. Trợ lý Lycero Mate đồng hành trong từng bước.',
+    onbTitle2: 'Tích hợp Hệ sinh thái Kỹ năng AI (Cloud Skills)',
     onbBody2:
-      'Lycero Office vẫn đang trong giai đoạn alpha. Hãy tham gia nhóm trò chuyện trên GenTeam để chia sẻ phản hồi và định hình những bước phát triển tiếp theo.',
-    onbCredits: 'Thành viên đóng góp tích cực nhận được **1.000+ credit Lycero**',
-    onbJoinGenTeam: 'Tham gia GenTeam',
+      'Tự động đồng bộ kho kỹ năng chuyên sâu cho Văn phòng, Giáo dục, Tài chính và Pháp chế — tự động nhận diện ngữ cảnh tài liệu và yêu cầu của bạn.',
+    onbCredits: 'Trợ lý **Lycero Mate AI** chuẩn bảo mật Local-First',
+    onbJoinGenTeam: 'Khám phá Lycero',
     onbSkip: 'Bỏ qua',
     onbNext: 'Tiếp theo',
     onbStart: 'Bắt đầu',

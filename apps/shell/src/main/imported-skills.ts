@@ -20,7 +20,11 @@ import {
 import { readFile, readdir } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path'
 import JSZip from 'jszip'
-import { classifySkill, parseSkillFrontmatter } from '@lycero/agent-core'
+import {
+  DEFAULT_CLOUD_SKILL_CATALOG,
+  classifySkill,
+  parseSkillFrontmatter,
+} from '@lycero/agent-core'
 import type { FoundSkill, RecommendedSkill } from '../shared/found-skill'
 
 /**
@@ -452,14 +456,85 @@ function tryRm(path: string): void {
   }
 }
 
+function writeCloudProxySkillMd(
+  userDataDir: string,
+  item: {
+    slug: string
+    name: string
+    title?: string
+    description: string
+    category?: string
+    version?: string
+    tier?: string
+  },
+): string {
+  const destDir = join(skillsRoot(userDataDir), item.slug)
+  const destFile = join(destDir, 'SKILL.md')
+  const version = item.version || '2.0.0'
+  const displayTitle = (item.title || item.name || item.slug).replace(/\r?\n/g, ' ').trim()
+  const desc = item.description.replace(/\r?\n/g, ' ').trim()
+  const category = (item.category || 'other').replace(/\r?\n/g, ' ').trim()
+  const tier = (item.tier || 'pro').replace(/\r?\n/g, ' ').trim()
+  const content = [
+    '---',
+    `name: ${item.slug}`,
+    `title: ${displayTitle}`,
+    `description: ${desc}`,
+    `category: ${category}`,
+    'source: cloud',
+    'cloudProtected: true',
+    `tier: ${tier}`,
+    'metadata:',
+    `  version: ${version}`,
+    '---',
+    '',
+    `[LYCERO_CLOUD_SKILL:${item.slug}]`,
+    '',
+  ].join('\n')
+  try {
+    mkdirSync(destDir, { recursive: true })
+    writeFileSync(destFile, content, 'utf8')
+  } catch {
+    /* ignore write errors on read-only disks */
+  }
+  return destFile
+}
+
 /**
- * Fetch recommended skills from Lycero Cloud Skills Registry (`/api/v1/office/skills`).
- * Merges seamlessly with local recommended skills.
+ * Automatically seeds built-in Cloud Skills and syncs all skills from Lycero Cloud Server
+ * (`/api/v1/office/skills` and `/api/v1/office/desktop/capabilities`) into `<userData>/skills`.
+ */
+export async function syncAllCloudSkillsToUserData(
+  userDataDir: string,
+  apiKey?: string,
+): Promise<FoundSkill[]> {
+  for (const item of DEFAULT_CLOUD_SKILL_CATALOG) {
+    const installedAt = join(skillsRoot(userDataDir), item.slug, 'SKILL.md')
+    if (!existsSync(installedAt)) {
+      writeCloudProxySkillMd(userDataDir, {
+        slug: item.slug,
+        name: item.name,
+        title: item.name,
+        description: item.description,
+        category: item.category,
+        version: item.version,
+      })
+    }
+  }
+  await fetchCloudRecommendedSkills(userDataDir, apiKey).catch(() => [])
+  return usableSkills(userDataDir)
+}
+
+/**
+ * Fetch recommended skills from Lycero Cloud Skills Registry (`/api/v1/office/skills`
+ * and `/api/v1/office/desktop/capabilities`). Automatically installs cloud proxy manifests
+ * so all Cloud Skills are immediately loaded and ready without manual installation.
  */
 export async function fetchCloudRecommendedSkills(
   userDataDir: string,
   apiKey?: string,
 ): Promise<RecommendedSkill[]> {
+  if (process.env.VITEST) return []
   const baseUrl = (
     process.env.LYCERO_GATEWAY_URL ||
     process.env.LYCERO_BASE_URL ||
@@ -468,31 +543,68 @@ export async function fetchCloudRecommendedSkills(
   try {
     const headers: Record<string, string> = { Accept: 'application/json' }
     if (apiKey) headers.Authorization = `Bearer ${apiKey}`
-    const resp = await fetch(`${baseUrl}/api/v1/office/skills`, { headers })
-    if (!resp.ok) return []
-    const json = (await resp.json()) as {
-      skills?: Array<{
-        slug: string
-        name: string
-        title?: string
-        description: string
-        category?: string
-        version?: string
-        cloudProtected?: boolean
-        tier?: string
-        relevance?: FoundSkill['relevance']
-      }>
+    const [skillsResp, capsResp] = await Promise.allSettled([
+      fetch(`${baseUrl}/api/v1/office/skills`, { headers }),
+      fetch(`${baseUrl}/api/v1/office/desktop/capabilities`, { headers }),
+    ])
+
+    type RawCloudSkill = {
+      slug: string
+      name: string
+      title?: string
+      description: string
+      category?: string
+      version?: string
+      cloudProtected?: boolean
+      tier?: string
+      relevance?: FoundSkill['relevance']
     }
-    if (!Array.isArray(json.skills)) return []
+
+    const combined = new Map<string, RawCloudSkill>()
+    for (const item of DEFAULT_CLOUD_SKILL_CATALOG) {
+      combined.set(item.slug, {
+        slug: item.slug,
+        name: item.name,
+        title: item.name,
+        description: item.description,
+        category: item.category,
+        version: item.version,
+        cloudProtected: true,
+        tier: 'pro',
+      })
+    }
+
+    if (skillsResp.status === 'fulfilled' && skillsResp.value.ok) {
+      const json = (await skillsResp.value.json().catch(() => ({}))) as {
+        skills?: RawCloudSkill[]
+      }
+      if (Array.isArray(json.skills)) {
+        for (const s of json.skills) {
+          if (s?.slug && s?.name && s?.description) combined.set(s.slug, s)
+        }
+      }
+    }
+
+    if (capsResp.status === 'fulfilled' && capsResp.value.ok) {
+      const json = (await capsResp.value.json().catch(() => ({}))) as {
+        skills?: RawCloudSkill[]
+      }
+      if (Array.isArray(json.skills)) {
+        for (const s of json.skills) {
+          if (s?.slug && s?.name && s?.description) combined.set(s.slug, s)
+        }
+      }
+    }
+
     const out: RecommendedSkill[] = []
-    for (const item of json.skills) {
+    for (const item of combined.values()) {
       if (!item.slug || !item.name || !item.description) continue
       const installedAt = join(skillsRoot(userDataDir), item.slug, 'SKILL.md')
-      const version = item.version || '1.0.0'
-      let state: RecommendedSkill['state'] = 'missing'
-      if (existsSync(installedAt)) {
-        state = skillVersion(installedAt) === version ? 'installed' : 'outdated'
+      const version = item.version || '2.0.0'
+      if (!existsSync(installedAt) || skillVersion(installedAt) !== version) {
+        writeCloudProxySkillMd(userDataDir, item)
       }
+      const state: RecommendedSkill['state'] = existsSync(installedAt) ? 'installed' : 'missing'
       const displayTitle = item.title || (item.name !== item.slug ? item.name : undefined)
       out.push({
         name: item.slug,

@@ -242,7 +242,14 @@ export function AiUsageChip({
   const weekly = quota?.weeklyQuota ?? DEFAULT_WEEKLY
   const monthly = quota?.monthlyQuota ?? DEFAULT_MONTHLY
 
-  const pctUsed = Math.min(100, Math.max(0, Math.round(fiveHours.percentUsed)))
+  const fivePctUsed = Math.min(100, Math.max(0, Math.round(fiveHours.percentUsed)))
+  const fivePctLeft = Math.min(100, Math.max(0, Math.round(fiveHours.percentRemaining)))
+  const weeklyPctUsed = Math.min(100, Math.max(0, Math.round(weekly.percentUsed)))
+  const weeklyPctLeft = Math.min(100, Math.max(0, Math.round(weekly.percentRemaining)))
+  const monthlyPctUsed = Math.min(100, Math.max(0, Math.round(monthly.percentUsed)))
+  const monthlyPctLeft = Math.min(100, Math.max(0, Math.round(monthly.percentRemaining)))
+
+  const pctUsed = fivePctUsed
   const tone = quotaTone(fiveHours.percentUsed)
   const weeklyTone = quotaTone(weekly.percentUsed)
   const monthlyTone = quotaTone(monthly.percentUsed)
@@ -279,8 +286,8 @@ export function AiUsageChip({
   }
 
   const tooltip = isVi
-    ? `Hạn mức phiên 5 giờ: Đã dùng ${pctUsed}% (Còn lại ${fiveHours.percentRemaining}%) — Bấm để xem chi tiết Quota`
-    : `5-Hour session quota: ${pctUsed}% used (${fiveHours.percentRemaining}% remaining) — Click for Quota details`
+    ? `Hạn mức phiên 5 giờ: Đã dùng ${pctUsed}% (Còn lại ${fivePctLeft}%) — Bấm để xem chi tiết Quota`
+    : `5-Hour session quota: ${pctUsed}% used (${fivePctLeft}% remaining) — Click for Quota details`
 
   void AI_USAGE_LABELS
 
@@ -386,7 +393,7 @@ export function AiUsageChip({
                   {isVi ? 'Phiên 5 giờ (5h Session)' : '5-Hour Session'}
                 </span>
                 <span className={`ai-quota-pop-pct tone-${tone}`}>
-                  {isVi ? `${fiveHours.percentUsed}% đã dùng` : `${fiveHours.percentUsed}% used`}
+                  {isVi ? `${fivePctUsed}% đã dùng` : `${fivePctUsed}% used`}
                 </span>
               </div>
               <div className="ai-quota-bar-track">
@@ -399,9 +406,7 @@ export function AiUsageChip({
               </div>
               <div className="ai-quota-pop-sub">
                 <span>
-                  {isVi
-                    ? `Còn lại ${fiveHours.percentRemaining}% (${fiveHours.remaining}/${fiveHours.limit} lượt)`
-                    : `${fiveHours.percentRemaining}% left (${fiveHours.remaining}/${fiveHours.limit})`}
+                  {isVi ? `Còn lại ${fivePctLeft}%` : `${fivePctLeft}% left`}
                 </span>
                 <span>{isVi ? 'Chu kỳ 5 giờ' : '5h rolling'}</span>
               </div>
@@ -414,7 +419,7 @@ export function AiUsageChip({
                   {isVi ? 'Hạn mức Tuần' : 'Weekly Quota'}
                 </span>
                 <span className={`ai-quota-pop-pct tone-${weeklyTone}`}>
-                  {isVi ? `${weekly.percentUsed}% đã dùng` : `${weekly.percentUsed}% used`}
+                  {isVi ? `${weeklyPctUsed}% đã dùng` : `${weeklyPctUsed}% used`}
                 </span>
               </div>
               <div className="ai-quota-bar-track">
@@ -427,9 +432,7 @@ export function AiUsageChip({
               </div>
               <div className="ai-quota-pop-sub">
                 <span>
-                  {isVi
-                    ? `Còn lại ${weekly.percentRemaining}% (${weekly.remaining}/${weekly.limit} lượt)`
-                    : `${weekly.percentRemaining}% left (${weekly.remaining}/${weekly.limit})`}
+                  {isVi ? `Còn lại ${weeklyPctLeft}%` : `${weeklyPctLeft}% left`}
                 </span>
                 <span>
                   {formatResetShort(weekly.resetAt, isVi).replace(/^ · /, '') ||
@@ -445,7 +448,7 @@ export function AiUsageChip({
                   {isVi ? 'Hạn mức Tháng' : 'Monthly Quota'}
                 </span>
                 <span className={`ai-quota-pop-pct tone-${monthlyTone}`}>
-                  {isVi ? `${monthly.percentUsed}% đã dùng` : `${monthly.percentUsed}% used`}
+                  {isVi ? `${monthlyPctUsed}% đã dùng` : `${monthlyPctUsed}% used`}
                 </span>
               </div>
               <div className="ai-quota-bar-track">
@@ -458,9 +461,7 @@ export function AiUsageChip({
               </div>
               <div className="ai-quota-pop-sub">
                 <span>
-                  {isVi
-                    ? `Còn lại ${monthly.percentRemaining}% (${monthly.remaining}/${monthly.limit} lượt)`
-                    : `${monthly.percentRemaining}% left (${monthly.remaining}/${monthly.limit})`}
+                  {isVi ? `Còn lại ${monthlyPctLeft}%` : `${monthlyPctLeft}% left`}
                 </span>
                 <span>
                   {formatResetShort(monthly.resetAt, isVi).replace(/^ · /, '') ||

@@ -112,6 +112,12 @@ export {
   OFFLINE_CAPABILITIES_MESSAGE,
   getFieldKey,
 } from './cloud-capabilities'
+export {
+  DEFAULT_CLOUD_SKILL_CATALOG,
+  classifySkillsForContext,
+  normalizeSkillMatchText,
+} from './skill-classifier'
+export type { ClassifySkillsInput } from './skill-classifier'
 export type {
   CapabilitiesStorage,
   CloudCapabilitiesResponse,

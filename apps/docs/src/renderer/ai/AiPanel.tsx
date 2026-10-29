@@ -621,15 +621,20 @@ export function AiPanel({
       token: settingsRef.current?.providers?.lycero?.apiKey || undefined,
     })
   }, [])
-  const getActiveSkillSlugs = () => [
-    ...new Set(
-      [
-        ...attachedSkillsRef.current,
-        ...lastSentSkillsRef.current,
-        ...(cloudCapabilitiesRef.current?.getActiveSkillSlugs() ?? []),
-      ].filter(Boolean),
-    ),
-  ]
+  const getActiveSkillSlugs = () => {
+    const docHeadings = blocksRef.current
+      .slice(0, 12)
+      .map((b) => b.text)
+      .join(' ')
+    return (
+      cloudCapabilitiesRef.current?.classifySkillsForTurn({
+        prompt: instructionRef.current || lastInstructionRef.current,
+        system: docHeadings,
+        editorModule: 'office_docx',
+        manualSlugs: [...attachedSkillsRef.current, ...lastSentSkillsRef.current],
+      }) ?? [...new Set([...attachedSkillsRef.current, ...lastSentSkillsRef.current])]
+    )
+  }
   const getUserSkillConfig = () =>
     (cloudCapabilitiesRef.current?.getUserSkillConfig() as Record<string, unknown> | undefined) ??
     undefined
@@ -1382,7 +1387,7 @@ export function AiPanel({
   /** the attached skills' full text in front of the request; a skill that vanished is skipped */
   const withSkillBodies = async (instruction: string, names: readonly string[]) => {
     if (names.length === 0) return instruction
-    const cloudSkills = cloudCapabilitiesRef.current?.getSkills() ?? []
+    const cloudSkills = cloudCapabilitiesRef.current?.getCatalogSkills() ?? []
     const bodies = await Promise.all(
       names.map(async (name) => {
         try {
@@ -1407,7 +1412,7 @@ export function AiPanel({
       description,
     }))
     const seen = new Set(local.map((s) => s.name))
-    for (const cs of cloudCapabilitiesRef.current?.getSkills() ?? []) {
+    for (const cs of cloudCapabilitiesRef.current?.getCatalogSkills() ?? []) {
       if (!seen.has(cs.slug)) {
         seen.add(cs.slug)
         local.push({ name: cs.slug, description: cs.description || cs.name })

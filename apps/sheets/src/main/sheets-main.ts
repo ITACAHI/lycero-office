@@ -5045,7 +5045,26 @@ async function prepareWorkbookForOpen(
       emptyCsv = converted.empty
       await writeFile(openPath, converted.buffer)
     } else {
-      await client.convertWorkbook({ path, targetPath: openPath })
+      try {
+        await client.convertWorkbook({ path, targetPath: openPath })
+      } catch (convErr) {
+        if (extension === 'xls') {
+          const parsed = await parseFileToText(path)
+          if (parsed.ok && parsed.kind === 'text' && parsed.text) {
+            const tsvLines = parsed.text
+              .split(/\r?\n/)
+              .filter((line) => !line.startsWith('## '))
+              .join('\n')
+            const converted = await csvToXlsxBufferForOpen(tsvLines, 'Sheet1', '\t')
+            emptyCsv = converted.empty
+            await writeFile(openPath, converted.buffer)
+          } else {
+            throw convErr
+          }
+        } else {
+          throw convErr
+        }
+      }
     }
   } catch (error) {
     await cleanupImportTempDirectory(app.getPath('temp'), directory)

@@ -10,6 +10,7 @@ import { docxToText } from './docx'
 import { pdfToText } from './pdf'
 import { pptToText } from './ppt'
 import { pptxToText } from './pptx'
+import { xlsToText } from './xls'
 import { xlsxToText } from './xlsx'
 
 export type ParsedFileKind = 'text' | 'image' | 'unsupported'
@@ -140,7 +141,8 @@ export async function parseFileToText(
     // a DOCX saved under a .doc name is common enough that it parses as OOXML
     if (
       (ext === 'doc' && sniffed !== 'ole2' && sniffed !== 'zip') ||
-      (ext === 'ppt' && sniffed !== 'ole2')
+      (ext === 'ppt' && sniffed !== 'ole2') ||
+      (ext === 'xls' && sniffed === 'pdf')
     ) {
       return {
         ok: false,
@@ -161,6 +163,8 @@ export async function parseFileToText(
         return { ok: true, kind: 'text', text: await pptToText(bytes) }
       case 'pptx':
         return { ok: true, kind: 'text', text: await pptxToText(bytes) }
+      case 'xls':
+        return { ok: true, kind: 'text', text: await xlsToText(bytes, opts) }
       case 'xlsx':
       case 'xlsm':
         return { ok: true, kind: 'text', text: await xlsxToText(bytes, opts) }

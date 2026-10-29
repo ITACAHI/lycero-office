@@ -3,7 +3,11 @@
  * Copyright © 2026 ITAC AI Heavy Industries.
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
-import type { AgentMessage, AgentToolCall } from '@lycero/agent-core'
+import {
+  classifySkillsForContext,
+  type AgentMessage,
+  type AgentToolCall,
+} from '@lycero/agent-core'
 import type { AiTokenUsage, LyceroEditorModule, LyceroPipelineStage } from '../types'
 
 // ---- endpoint URL composition ----
@@ -374,7 +378,9 @@ export function resolveLyceroGatewayContext(options: {
     editorModule = 'office_html'
   }
 
-  // 3. Collect activeSkillSlugs from explicit list, <skill name="..."> blocks, and [LYCERO_CLOUD_SKILL:...] markers
+  // 3. Collect activeSkillSlugs from explicit list, <skill name="..."> blocks, and [LYCERO_CLOUD_SKILL:...] markers.
+  // When no explicit skills were pinned, automatically classify the relevant Cloud Skills from
+  // the user's prompt, document context (system), active editorModule, and pipelineStage.
   const slugs = new Set<string>()
   if (Array.isArray(explicitSlugs)) {
     for (const s of explicitSlugs) {
@@ -390,8 +396,23 @@ export function resolveLyceroGatewayContext(options: {
     }
   }
   if (system) scanText(system)
+  let latestUserPrompt = ''
   for (const msg of messages) {
-    if (msg.role === 'user' && msg.text) scanText(msg.text)
+    if (msg.role === 'user' && msg.text) {
+      scanText(msg.text)
+      latestUserPrompt = msg.text
+    }
+  }
+  if (slugs.size === 0 && (latestUserPrompt || system)) {
+    const autoClassified = classifySkillsForContext({
+      prompt: latestUserPrompt,
+      system,
+      editorModule,
+      pipelineStage,
+    })
+    for (const autoSlug of autoClassified) {
+      slugs.add(autoSlug)
+    }
   }
   const activeSkillSlugs = [...slugs]
 
