@@ -8,6 +8,8 @@ name: Release Build & Sign (Windows, macOS, Linux)
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*.*.*'
   workflow_dispatch:
@@ -20,7 +22,7 @@ on:
 
 concurrency:
   group: release-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -30,6 +32,9 @@ jobs:
     name: Security & Public Hygiene Gate
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -49,6 +54,13 @@ jobs:
 
       - name: Check production dependency licenses
         run: node tools/check-licenses.mjs
+
+      - name: Resolve release version from package.json
+        id: meta
+        run: |
+          VER=$(node -p "require('./package.json').version")
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VER" >> "$GITHUB_OUTPUT"
 
   build-windows:
     name: Build Windows (x64 NSIS)
@@ -211,6 +223,7 @@ jobs:
   publish-release:
     name: Publish Installers to GitHub Releases
     needs:
+      - hygiene-gate
       - build-windows
       - build-macos
       - build-linux
@@ -227,14 +240,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
+          GH_SHA: ${{ github.sha }}
+          PKG_TAG: ${{ needs.hygiene-gate.outputs.tag }}
           REF_NAME: ${{ github.ref_name }}
           REF_TYPE: ${{ github.ref_type }}
         run: |
-          TAG="v2.0.0"
-          if [ "$REF_TYPE" = "tag" ]; then
+          TAG="$PKG_TAG"
+          if [ "$REF_TYPE" = "tag" ] && [ -n "$REF_NAME" ]; then
             TAG="$REF_NAME"
           fi
           if ! gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
-            gh release create "$TAG" --repo "$GH_REPO" --title "Lycero Office $TAG" --notes "Official multi-platform installers for Windows (x64), macOS (Apple Silicon ARM64 & Intel x64), and Linux (AppImage, DEB, RPM)."
+            gh release create "$TAG" --repo "$GH_REPO" --target "$GH_SHA" --latest --title "Lycero Office $TAG" --notes "Official multi-platform installers for Windows (x64), macOS (Apple Silicon ARM64 & Intel x64), and Linux (AppImage, DEB, RPM)."
           fi
           gh release upload "$TAG" release-assets/* --repo "$GH_REPO" --clobber
