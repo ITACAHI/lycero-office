@@ -3,9 +3,14 @@
  * Copyright © 2026 ITAC AI Heavy Industries.
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
-import { ANTHROPIC_BASE_URL } from './protocols/anthropic'
-import { GEMINI_BASE_URL } from './protocols/gemini'
-import { AI_PROVIDERS, DEEPSEEK_V41_FLASH, LYCERO_GATEWAY_URL, LYCERO_LLM_BASE_URLS } from './providers'
+import {
+  AI_PROVIDERS,
+  ANTHROPIC_BASE_URL,
+  DEEPSEEK_V41_FLASH,
+  GEMINI_BASE_URL,
+  LYCERO_GATEWAY_URL,
+  LYCERO_LLM_BASE_URLS,
+} from './providers'
 import {
   customProtocolBaseUrl,
   normalizeCustomProfile,

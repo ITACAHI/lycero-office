@@ -26,7 +26,8 @@ npm run version:bump                 # tăng phiên bản đồng bộ toàn b�
 npm run check:version-sync           # kiểm tra 100% đồng bộ giữa root, apps/*, packages/*, Cargo, SKILL.md
 npm run typecheck                    # typecheck toàn monorepo
 # (optional) npm test -- <package>    # test package bị ảnh hưởng
-# (optional) npm run build:all        # build toàn bộ
+npm run build:all                    # build toàn bộ + verify:bundle (kiểm tra preload/main/renderer/CSP/NSIS updater)
+npm run verify:bundle                # chặn tuyệt đối lỗi trắng trang (unbundled preload/main deps, duplicate Univer, process.env)
 
 # D. Commit CHỈ KHI verify PASS
 git add -A

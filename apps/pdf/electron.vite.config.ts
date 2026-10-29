@@ -16,23 +16,45 @@ const pdfjsRoot = dirname(dirname(require.resolve('pdfjs-dist/package.json')))
 // vite-plugin-static-copy globs require POSIX separators; join() breaks on Windows
 const pdfjsDir = (sub: string) => normalizePath(join(pdfjsRoot, 'pdfjs-dist', sub))
 
+const LYCERO_WORKSPACE_PACKAGES = [
+  '@lycero/agent-core',
+  '@lycero/ai-auth',
+  '@lycero/ai-provider',
+  '@lycero/ai-search',
+  '@lycero/cli',
+  '@lycero/cloud-sync',
+  '@lycero/docx-engine',
+  '@lycero/electron-utils',
+  '@lycero/file-parse',
+  '@lycero/font-metrics',
+  '@lycero/html2docx',
+  '@lycero/i18n',
+  '@lycero/odf2ooxml',
+  '@lycero/pdf2docx',
+  '@lycero/pipelines',
+  '@lycero/pptx-engine',
+  '@lycero/pptx-ops',
+  '@lycero/pptx-render',
+  '@lycero/project-store',
+  '@lycero/ui',
+  '@lycero/xlsx-gateway',
+  '@lycero/zip-gate',
+]
+
 export default defineConfig({
-  // @lycero/i18n ships as TS source; pdf-lib's package only includes out/** — both must be bundled
+  // @lycero/* ships as TS source; pdf-lib's package only includes out/** — both must be bundled
   main: {
     plugins: [
       externalizeDepsPlugin({
-        exclude: [
-          '@lycero/i18n',
-          'pdf-lib',
-          '@lycero/electron-utils',
-          '@lycero/font-metrics',
-        ],
+        exclude: [...LYCERO_WORKSPACE_PACKAGES, 'pdf-lib'],
       }),
     ],
   },
   preload: {
-    // i18n and electron-utils ship as TS source — must be bundled, not left external
-    plugins: [externalizeDepsPlugin({ exclude: ['@lycero/i18n', '@lycero/electron-utils'] })],
+    // Sandboxed preload scripts cannot require arbitrary npm packages at runtime
+    build: {
+      externalizeDeps: false,
+    },
   },
   renderer: {
     plugins: [

@@ -25,6 +25,7 @@ import {
   setUpdateParentWindow,
   showUpdateWindow,
 } from './update-window'
+import { markInstallingUpdate } from './window-close-guard'
 
 /**
  * Full-package auto-update over the generic provider (Azure CDN).
@@ -732,6 +733,7 @@ export function initAutoUpdater(
     onInstall: () => {
       closeUpdateWindow()
       if (latestSeenVersion === null) return
+      markInstallingUpdate()
       // let the window fully close before tearing the app down
       setImmediate(() => autoUpdater.quitAndInstall(true, true))
     },

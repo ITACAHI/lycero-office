@@ -6,7 +6,12 @@
 import type { AgentMessage, AgentToolCall, AgentToolDef } from '@lycero/agent-core'
 import { aiFetch } from '../fetch'
 import { httpBodyDetail } from '../http-error'
-import { lyceroAttributionHeaders, opencodeSessionHeaders } from '../providers'
+import {
+  GEMINI_BASE_URL,
+  lyceroAttributionHeaders,
+  opencodeSessionHeaders,
+} from '../providers'
+export { GEMINI_BASE_URL }
 import type { AiChatResponse, AiProviderConfig, AiTokenUsage } from '../types'
 import { createStreamWatchdog, type StreamWatchdog } from '../watchdog'
 import { toGeminiSchema } from './gemini-schema'
@@ -23,7 +28,6 @@ import {
   type StreamCallbacks,
 } from './shared'
 
-export const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
 
 /** Merge a Gemini usageMetadata object into an accumulator (every stream chunk carries
  * one; the last chunk's counts are the turn's totals). */

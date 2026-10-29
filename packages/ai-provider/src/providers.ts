@@ -14,7 +14,11 @@ import type { AiProviderId, AiProviderMeta, AiSettings, LegacyAiSettings } from 
  * api_key from the gsk login; model ids follow the proxy's own naming scheme,
  * which differs from the official vendor ids.
  */
-export const LYCERO_GATEWAY_URL = process.env.LYCERO_GATEWAY_URL || 'https://lycero.com'
+export const LYCERO_GATEWAY_URL =
+  (typeof process !== 'undefined' && process.env?.LYCERO_GATEWAY_URL) || 'https://lycero.com'
+
+export const ANTHROPIC_BASE_URL = 'https://api.anthropic.com'
+export const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
 
 export const LYCERO_LLM_BASE_URLS = {
   anthropic: `${LYCERO_GATEWAY_URL}/api/v1/office/ai/anthropic`,

@@ -6,13 +6,40 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 
+const LYCERO_WORKSPACE_PACKAGES = [
+  '@lycero/agent-core',
+  '@lycero/ai-auth',
+  '@lycero/ai-provider',
+  '@lycero/ai-search',
+  '@lycero/cli',
+  '@lycero/cloud-sync',
+  '@lycero/docx-engine',
+  '@lycero/electron-utils',
+  '@lycero/file-parse',
+  '@lycero/font-metrics',
+  '@lycero/html2docx',
+  '@lycero/i18n',
+  '@lycero/odf2ooxml',
+  '@lycero/pdf2docx',
+  '@lycero/pipelines',
+  '@lycero/pptx-engine',
+  '@lycero/pptx-ops',
+  '@lycero/pptx-render',
+  '@lycero/project-store',
+  '@lycero/ui',
+  '@lycero/xlsx-gateway',
+  '@lycero/zip-gate',
+]
+
 export default defineConfig({
-  // @lycero/i18n and @lycero/electron-utils ship as TS source — must be bundled
+  // @lycero/* workspace packages ship as TS source — must be bundled
   main: {
-    plugins: [externalizeDepsPlugin({ exclude: ['@lycero/i18n', '@lycero/electron-utils'] })],
+    plugins: [externalizeDepsPlugin({ exclude: LYCERO_WORKSPACE_PACKAGES })],
   },
   preload: {
-    plugins: [externalizeDepsPlugin({ exclude: ['@lycero/i18n', '@lycero/electron-utils'] })],
+    build: {
+      externalizeDeps: false,
+    },
   },
   renderer: {
     plugins: [react()],

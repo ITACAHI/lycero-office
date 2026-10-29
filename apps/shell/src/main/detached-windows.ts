@@ -29,7 +29,7 @@ import { markdownIsDirty, requestMarkdownClose } from '../../../markdown/src/mai
 import { htmlIsDirty, requestHtmlClose } from '../../../html/src/main/html-main'
 import { canonicalPath } from './tab-manager'
 import type { DetachedTab } from './tab-manager'
-import { shellQuitTracker } from './window-close-guard'
+import { isInstallingUpdate, shellQuitTracker } from './window-close-guard'
 import type { OpenDocumentTab, TabKind } from '../shared/tabs-api'
 import {
   DOCK_BAND_SLACK,
@@ -549,7 +549,7 @@ export function createDetachedEditorWindow(options: {
     shellQuitTracker().reset()
   }
   win.on('close', (event) => {
-    if (closeConfirmed || rec.released) return
+    if (closeConfirmed || rec.released || isInstallingUpdate()) return
     event.preventDefault()
     if (promptInFlight) return
     promptInFlight = true

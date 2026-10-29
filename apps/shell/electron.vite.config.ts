@@ -23,6 +23,7 @@ export default defineConfig({
   main: {
     resolve: { alias: aiAuthAlias },
     build: {
+      externalizeDeps: false,
       rollupOptions: {
         external: ['node:sqlite'],
       },
@@ -31,6 +32,7 @@ export default defineConfig({
   preload: {
     resolve: { alias: aiAuthAlias },
     build: {
+      externalizeDeps: false,
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/preload/index.ts'),

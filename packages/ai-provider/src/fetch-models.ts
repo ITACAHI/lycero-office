@@ -5,7 +5,7 @@
  */
 import { aiFetch } from './fetch'
 import type { AiProviderConfig, AiProviderId } from './types'
-import { AI_PROVIDERS } from './providers'
+import { AI_PROVIDERS, LYCERO_GATEWAY_URL } from './providers'
 import { applyRemoteTokenOptimizerPolicy } from './token-compactor'
 
 /**
@@ -19,7 +19,7 @@ export async function fetchRemoteModels(
   let endpoint = ''
 
   if (provider === 'lycero') {
-    const gateway = process.env.LYCERO_GATEWAY_URL || 'https://lycero.com'
+    const gateway = LYCERO_GATEWAY_URL
     endpoint = (config.baseUrl || `${gateway}/api/v1/office/ai`).replace(/\/$/, '') + '/models'
   } else if (
     provider === 'openai' ||

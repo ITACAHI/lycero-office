@@ -22,6 +22,31 @@ const localAlias = {
   '@lycero/docx-engine': resolve(__dirname, '../../packages/docx-engine/src/index.ts'),
 }
 
+const LYCERO_WORKSPACE_PACKAGES = [
+  '@lycero/agent-core',
+  '@lycero/ai-auth',
+  '@lycero/ai-provider',
+  '@lycero/ai-search',
+  '@lycero/cli',
+  '@lycero/cloud-sync',
+  '@lycero/docx-engine',
+  '@lycero/electron-utils',
+  '@lycero/file-parse',
+  '@lycero/font-metrics',
+  '@lycero/html2docx',
+  '@lycero/i18n',
+  '@lycero/odf2ooxml',
+  '@lycero/pdf2docx',
+  '@lycero/pipelines',
+  '@lycero/pptx-engine',
+  '@lycero/pptx-ops',
+  '@lycero/pptx-render',
+  '@lycero/project-store',
+  '@lycero/ui',
+  '@lycero/xlsx-gateway',
+  '@lycero/zip-gate',
+]
+
 export default defineConfig({
   // Main and preload use only electron + node builtins; bundle everything so
   // the packaged app doesn't rely on node_modules at runtime.
@@ -31,20 +56,17 @@ export default defineConfig({
   main: {
     plugins: [
       externalizeDepsPlugin({
-        exclude: [
-          '@lycero/docx-engine',
-          '@lycero/electron-utils',
-          '@lycero/font-metrics',
-          '@lycero/xlsx-gateway',
-        ],
+        exclude: [...LYCERO_WORKSPACE_PACKAGES, 'pdf-lib'],
       }),
     ],
     resolve: { alias: localAlias },
   },
   preload: {
     // Sandboxed preload scripts cannot require arbitrary npm packages at
-    // runtime, so the drop-open bridge must be bundled, not externalized.
-    plugins: [externalizeDepsPlugin({ exclude: ['@lycero/electron-utils'] })],
+    // runtime, so all workspace and npm deps must be bundled, not externalized.
+    build: {
+      externalizeDeps: false,
+    },
   },
   renderer: {
     plugins: [react()],

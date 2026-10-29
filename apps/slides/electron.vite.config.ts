@@ -52,6 +52,31 @@ const workspaceAlias = {
   '@lycero/docx-engine/math': resolve(here, '../../packages/docx-engine/src/math.ts'),
 }
 
+const LYCERO_WORKSPACE_PACKAGES = [
+  '@lycero/agent-core',
+  '@lycero/ai-auth',
+  '@lycero/ai-provider',
+  '@lycero/ai-search',
+  '@lycero/cli',
+  '@lycero/cloud-sync',
+  '@lycero/docx-engine',
+  '@lycero/electron-utils',
+  '@lycero/file-parse',
+  '@lycero/font-metrics',
+  '@lycero/html2docx',
+  '@lycero/i18n',
+  '@lycero/odf2ooxml',
+  '@lycero/pdf2docx',
+  '@lycero/pipelines',
+  '@lycero/pptx-engine',
+  '@lycero/pptx-ops',
+  '@lycero/pptx-render',
+  '@lycero/project-store',
+  '@lycero/ui',
+  '@lycero/xlsx-gateway',
+  '@lycero/zip-gate',
+]
+
 export default defineConfig({
   // Main process/preload must bundle @lycero/* sources (they are pulled in as TS
   // source with extensionless relative imports; externalizing them under Node
@@ -61,22 +86,16 @@ export default defineConfig({
     // Bundle opentype.js too (the packaged app ships only out/**, so external deps are unresolvable at runtime)
     plugins: [
       externalizeDepsPlugin({
-        exclude: [
-          '@lycero/pptx-engine',
-          '@lycero/pptx-ops',
-          '@lycero/pptx-render',
-          '@lycero/pipelines',
-          '@lycero/ai-search',
-          '@lycero/file-parse',
-          '@lycero/electron-utils',
-          'opentype.js',
-        ],
+        exclude: [...LYCERO_WORKSPACE_PACKAGES, 'opentype.js'],
       }),
     ],
   },
   preload: {
-    // electron-utils ships raw TS source — must be bundled, not left external
-    plugins: [externalizeDepsPlugin({ exclude: ['@lycero/electron-utils'] })],
+    // Sandboxed preload scripts cannot require arbitrary npm packages at
+    // runtime — bundle all workspace and npm deps into preload.
+    build: {
+      externalizeDeps: false,
+    },
   },
   renderer: {
     resolve: { alias: workspaceAlias },

@@ -240,6 +240,9 @@ function assertModuleTreesPresent() {
       )
     }
   }
+  execFileSync(process.execPath, [join(__dirname, '../../tools/verify-release-bundle.mjs')], {
+    stdio: 'inherit',
+  })
 }
 
 /** @type {import('electron-builder').Configuration} */
@@ -591,6 +594,7 @@ const config = {
   nsis: {
     oneClick: false,
     allowToChangeInstallationDirectory: true,
+    include: 'build/installer.nsh',
   },
   beforePack: async (context) => {
     assertModuleTreesPresent()

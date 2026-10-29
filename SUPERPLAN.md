@@ -44,8 +44,9 @@ git add -A && git commit -m "checkpoint before <task-id>" --allow-empty
 npm run version:bump       # 1) tăng số phiên bản đồng bộ 37 manifests (root, apps/*, packages/*, Cargo, SKILL.md)
 npm run check:version-sync # 2) xác nhận đồng bộ 100%
 npm run typecheck          # 3) typecheck toàn monorepo
-npm run build:all          # 4) build toàn bộ (optional nếu task nhỏ)
-npm test -- <package>      # 5) test package bị ảnh hưởng (nếu có test)
+npm run build:all          # 4) build toàn bộ + tự động chạy verify-release-bundle.mjs (chống trắng trang & lỗi auto-update)
+npm run verify:bundle      # 5) xác nhận preload/main/renderer/CSP/NSIS updater không có unbundled deps
+npm test -- <package>      # 6) test package bị ảnh hưởng (nếu có test)
 
 # D. Commit (CHỈ KHI verify PASS)
 git add -A

@@ -76,6 +76,15 @@ function electronQuitTracker(): QuitTracker {
 }
 
 let shared: QuitTracker | undefined
+let installingUpdate = false
+
+export function markInstallingUpdate(): void {
+  installingUpdate = true
+}
+
+export function isInstallingUpdate(): boolean {
+  return installingUpdate
+}
 
 export function shellQuitTracker(): QuitTracker {
   return (shared ??= electronQuitTracker())
@@ -93,7 +102,7 @@ export function installShellCloseGuard(
   let holdingQuit = false
 
   win.on('close', (event) => {
-    if (closeConfirmed) return
+    if (closeConfirmed || installingUpdate) return
     const dirtySheets = manager.dirtySheetsTabs()
     const dirtyPdf = manager.dirtyPdfTabs()
     const dirtyMarkdown = manager.dirtyMarkdownTabs()

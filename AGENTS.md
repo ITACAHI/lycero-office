@@ -178,8 +178,9 @@ npm run typecheck
 npm test -- packages/agent-core
 npm test -- packages/ai-provider
 
-# 4. Build toàn bộ monorepo đảm bảo không có lỗi đóng gói
+# 4. Build toàn bộ monorepo và kiểm chứng bundle (preload/main/renderer/CSP/Univer/NSIS updater)
 npm run build:all
+npm run verify:bundle
 ```
 
 <!-- AI_CTO_BRIDGE_START -->

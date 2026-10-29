@@ -6,6 +6,31 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 
+const LYCERO_WORKSPACE_PACKAGES = [
+  '@lycero/agent-core',
+  '@lycero/ai-auth',
+  '@lycero/ai-provider',
+  '@lycero/ai-search',
+  '@lycero/cli',
+  '@lycero/cloud-sync',
+  '@lycero/docx-engine',
+  '@lycero/electron-utils',
+  '@lycero/file-parse',
+  '@lycero/font-metrics',
+  '@lycero/html2docx',
+  '@lycero/i18n',
+  '@lycero/odf2ooxml',
+  '@lycero/pdf2docx',
+  '@lycero/pipelines',
+  '@lycero/pptx-engine',
+  '@lycero/pptx-ops',
+  '@lycero/pptx-render',
+  '@lycero/project-store',
+  '@lycero/ui',
+  '@lycero/xlsx-gateway',
+  '@lycero/zip-gate',
+]
+
 export default defineConfig({
   main: {
     // @lycero/* workspace packages ship TS source (no build step, no
@@ -14,24 +39,16 @@ export default defineConfig({
     // externalize everything else (Electron, zod, node builtins).
     plugins: [
       externalizeDepsPlugin({
-        exclude: [
-          '@lycero/ai-provider',
-          '@lycero/agent-core',
-          '@lycero/ai-search',
-          '@lycero/docx-engine',
-          '@lycero/file-parse',
-          '@lycero/electron-utils',
-          '@lycero/i18n',
-          '@lycero/pptx-render',
-          '@lycero/xlsx-gateway',
-        ],
+        exclude: LYCERO_WORKSPACE_PACKAGES,
       }),
     ],
   },
   preload: {
     // Sandboxed preload scripts cannot require arbitrary npm packages at
-    // runtime, so the drop-open bridge must be bundled, not externalized.
-    plugins: [externalizeDepsPlugin({ exclude: ['@lycero/electron-utils'] })],
+    // runtime, so all workspace and npm deps must be bundled, not externalized.
+    build: {
+      externalizeDeps: false,
+    },
   },
   renderer: {
     plugins: [react()],

@@ -6,7 +6,12 @@
 import type { AgentMessage, AgentToolCall, AgentToolDef } from '@lycero/agent-core'
 import { aiFetch } from '../fetch'
 import { httpBodyDetail } from '../http-error'
-import { lyceroAttributionHeaders, opencodeSessionHeaders } from '../providers'
+import {
+  ANTHROPIC_BASE_URL,
+  lyceroAttributionHeaders,
+  opencodeSessionHeaders,
+} from '../providers'
+export { ANTHROPIC_BASE_URL }
 import type { AiChatResponse, AiProviderConfig, AiTokenUsage } from '../types'
 import { createStreamWatchdog, type StreamWatchdog } from '../watchdog'
 import {
@@ -23,7 +28,6 @@ import {
   type StreamCallbacks,
 } from './shared'
 
-export const ANTHROPIC_BASE_URL = 'https://api.anthropic.com'
 
 function anthropicMessages(messages: AgentMessage[]): unknown[] {
   return messages.map((m) => {
