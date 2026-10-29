@@ -60,6 +60,13 @@ const fontCdnUrl = normalizeHttpsBaseUrl(
 // alias) keys off which dmgs exist, so flipping this flag is the single
 // switch.
 const includeMacX64 = process.env.LYCERO_MAC_X64 === '1'
+const hasAppleSignIdentity = Boolean(process.env.CSC_LINK || process.env.CSC_NAME)
+const hasAppleNotarizeCreds = Boolean(
+  (process.env.APPLE_ID &&
+    process.env.APPLE_APP_SPECIFIC_PASSWORD &&
+    process.env.APPLE_TEAM_ID) ||
+    process.env.APPLE_KEYCHAIN_PROFILE,
+)
 
 // LYCERO_WIN_ARM64=1 — package the Windows ARM64 installer instead of x64.
 // CI runs it as a second electron-builder pass (own BUILD_DIR) after the
@@ -493,7 +500,8 @@ const config = {
     gatekeeperAssess: false,
     entitlements: 'build/entitlements.mac.plist',
     entitlementsInherit: 'build/entitlements.mac.plist',
-    notarize: true,
+    ...(hasAppleSignIdentity ? {} : { identity: '-' }),
+    notarize: hasAppleSignIdentity && hasAppleNotarizeCreds,
     extraResources: [
       {
         from: '../sheets/native/xlsx-engine/target/release/xlsx-sidecar',
@@ -591,7 +599,7 @@ const config = {
     }
   },
   dmg: {
-    sign: true,
+    sign: hasAppleSignIdentity,
   },
   afterAllArtifactBuild: 'build/notarize-dmg.js',
 }
