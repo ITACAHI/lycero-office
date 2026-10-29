@@ -60,7 +60,19 @@ const fontCdnUrl = normalizeHttpsBaseUrl(
 // alias) keys off which dmgs exist, so flipping this flag is the single
 // switch.
 const includeMacX64 = process.env.LYCERO_MAC_X64 === '1'
-const hasAppleSignIdentity = Boolean(process.env.CSC_LINK || process.env.CSC_NAME)
+if (process.env.CSC_LINK !== undefined && !process.env.CSC_LINK.trim()) {
+  delete process.env.CSC_LINK
+}
+if (process.env.CSC_KEY_PASSWORD !== undefined && !process.env.CSC_KEY_PASSWORD.trim()) {
+  delete process.env.CSC_KEY_PASSWORD
+}
+const hasAppleSignIdentity = Boolean(
+  (process.env.CSC_LINK && process.env.CSC_LINK.trim()) ||
+    (process.env.CSC_NAME && process.env.CSC_NAME.trim()),
+)
+if (!hasAppleSignIdentity) {
+  process.env.CSC_IDENTITY_AUTO_DISCOVERY = 'false'
+}
 const hasAppleNotarizeCreds = Boolean(
   (process.env.APPLE_ID &&
     process.env.APPLE_APP_SPECIFIC_PASSWORD &&
@@ -500,7 +512,7 @@ const config = {
     gatekeeperAssess: false,
     entitlements: 'build/entitlements.mac.plist',
     entitlementsInherit: 'build/entitlements.mac.plist',
-    ...(hasAppleSignIdentity ? {} : { identity: '-' }),
+    ...(hasAppleSignIdentity ? {} : { identity: null }),
     notarize: hasAppleSignIdentity && hasAppleNotarizeCreds,
     extraResources: [
       {
