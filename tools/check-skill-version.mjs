@@ -63,6 +63,13 @@ export function compareSemver(a, b) {
 }
 
 const problems = []
+let rootMonorepoVersion = null
+try {
+  rootMonorepoVersion = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')).version
+} catch {
+  // standalone test repo without root package.json
+}
+
 for (const file of changed) {
   const head = parseSkill(readFileSync(join(repoRoot, file), 'utf8'))
   const dir = basename(dirname(file))
@@ -78,7 +85,8 @@ for (const file of changed) {
   const prev = parseSkill(base.stdout)
   if (!prev.version) continue
   const cmp = compareSemver(head.version, prev.version)
-  if (cmp < 0)
+  const alignedToMonorepo = Boolean(rootMonorepoVersion && head.version === rootMonorepoVersion)
+  if (cmp < 0 && !alignedToMonorepo)
     problems.push(`${file}: metadata.version went backwards (${prev.version} -> ${head.version})`)
   else if (cmp === 0 && head.body !== prev.body)
     problems.push(`${file}: body changed but metadata.version is still ${prev.version}; bump it`)

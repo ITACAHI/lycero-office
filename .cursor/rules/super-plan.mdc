@@ -21,7 +21,9 @@ git add -A && git commit -m "checkpoint before <task-id>" --allow-empty
 
 # B. Làm task (copy file / edit / wire)
 
-# C. Verify (BẮT BUỘC — không bao giờ bỏ qua)
+# C. Verify & Bump Lockstep Version (BẮT BUỘC — không bao giờ bỏ qua)
+npm run version:bump                 # tăng phiên bản đồng bộ toàn bộ 37 manifests (patch/minor/major)
+npm run check:version-sync           # kiểm tra 100% đồng bộ giữa root, apps/*, packages/*, Cargo, SKILL.md
 npm run typecheck                    # typecheck toàn monorepo
 # (optional) npm test -- <package>    # test package bị ảnh hưởng
 # (optional) npm run build:all        # build toàn bộ

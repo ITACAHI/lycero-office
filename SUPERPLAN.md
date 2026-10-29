@@ -39,10 +39,12 @@ git add -A && git commit -m "checkpoint before <task-id>" --allow-empty
 
 # B. Làm task (copy file / edit / wire)
 
-# C. Verify (BẮT BUỘC — không bỏ qua)
-npm run typecheck          # 1) typecheck toàn monorepo
-npm run build:all          # 2) build toàn bộ (optional nếu task nhỏ)
-npm test -- <package>      # 3) test package bị ảnh hưởng (nếu có test)
+# C. Verify & Bump Lockstep Version (BẮT BUỘC — không bỏ qua)
+npm run version:bump       # 1) tăng số phiên bản đồng bộ 37 manifests (root, apps/*, packages/*, Cargo, SKILL.md)
+npm run check:version-sync # 2) xác nhận đồng bộ 100%
+npm run typecheck          # 3) typecheck toàn monorepo
+npm run build:all          # 4) build toàn bộ (optional nếu task nhỏ)
+npm test -- <package>      # 5) test package bị ảnh hưởng (nếu có test)
 
 # D. Commit (CHỈ KHI verify PASS)
 git add -A

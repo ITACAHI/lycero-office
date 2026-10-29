@@ -132,19 +132,52 @@ D:\Lycero Office\
 
 ---
 
-## 7. Quy Trình Kiểm Thử & Biên Dịch (Verification)
+## 7. Quy Trình Kiểm Thử, Biên Dịch & Đánh Số Phiên Bản Đồng Bộ (Verification & Lockstep Versioning)
+
+### 7.1. Quy Tắc Đánh Số Phiên Bản Đồng Bộ (Lockstep Versioning — BẮT BUỘC)
+
+Mọi thay đổi mã nguồn hoặc cấu hình trong **Lycero Office Desktop** đều **BẮT BUỘC** phải tăng số phiên bản (`x.y.z`) đồng bộ 100% trên toàn bộ **37 manifest thành phần** của monorepo (không bao giờ sửa tay lẻ tẻ từng file):
+
+1. **Danh mục 37 thành phần đồng bộ tuyệt đối:**
+   - `package.json` gốc (SSOT phiên bản toàn dự án)
+   - Toàn bộ 7 ứng dụng trong `apps/*/package.json` (`docs`, `html`, `markdown`, `pdf`, `sheets`, `shell`, `slides`)
+   - Toàn bộ 22 gói nội bộ trong `packages/*/package.json` (`agent-core`, `ai-auth`, `ai-provider`, `ai-search`, `cli`, `cloud-sync`, `docx-engine`, `electron-utils`, `file-parse`, `font-metrics`, `html2docx`, `i18n`, `odf2ooxml`, `pdf2docx`, `pipelines`, `pptx-engine`, `pptx-ops`, `pptx-render`, `project-store`, `ui`, `xlsx-gateway`, `zip-gate`)
+   - `package-lock.json` (`version` gốc, `packages[""].version`, và toàn bộ 29 workspace entries)
+   - Rust Native Sidecar: `apps/sheets/native/xlsx-engine/Cargo.toml` và `apps/sheets/native/xlsx-engine/Cargo.lock` (`xlsx-sidecar`)
+   - Core Agent Skills: `skills/lycero-office/SKILL.md`, `skills/genoffice/SKILL.md`, `.agents/skills/lycero-office/SKILL.md`, `.claude/skills/lycero-office/SKILL.md` (`metadata.version`)
+   - CLI Bundle (nếu đã build): `packages/cli/dist/lycero-office.cjs` (`__cliAppVersion`)
+
+2. **Lệnh chuẩn bắt buộc cho AI Agent khi có thay đổi:**
+   ```bash
+   # Tăng bản vá (patch: x.y.z -> x.y.z+1) — mặc định cho mọi bản sửa lỗi / tinh chỉnh
+   npm run version:bump
+
+   # Hoặc tăng minor (tính năng mới) / major (thay đổi kiến trúc lớn)
+   npm run version:minor
+   npm run version:major
+
+   # Kiểm tra đồng bộ phiên bản toàn bộ 37 thành phần
+   npm run check:version-sync
+   ```
+   *(Lưu ý: Git hook `.githooks/pre-commit` cũng tự động kích hoạt `node tools/bump-version.mjs --if-unchanged --stage` và `node tools/check-version-sync.mjs --require-bump` để chặn tuyệt đối mọi commit lệch phiên bản).*
+
+### 7.2. Quy Trình Kiểm Thử & Biên Dịch
 
 Mọi thay đổi code phải được kiểm chứng qua các lệnh sau trước khi hoàn tất:
 
 ```bash
-# 1. Kiểm tra kiểu TypeScript toàn bộ monorepo
+# 1. Đồng bộ và kiểm tra phiên bản toàn monorepo
+npm run version:bump
+npm run check:version-sync
+
+# 2. Kiểm tra kiểu TypeScript toàn bộ monorepo
 npm run typecheck
 
-# 2. Chạy kiểm thử tự động cho lõi AI và Agent
+# 3. Chạy kiểm thử tự động cho lõi AI và Agent
 npm test -- packages/agent-core
 npm test -- packages/ai-provider
 
-# 3. Build toàn bộ monorepo đảm bảo không có lỗi đóng gói
+# 4. Build toàn bộ monorepo đảm bảo không có lỗi đóng gói
 npm run build:all
 ```
 

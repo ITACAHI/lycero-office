@@ -44,6 +44,9 @@ jobs:
       - name: Run public-repo secret & hygiene gate
         run: node tools/check-public-hygiene.mjs
 
+      - name: Verify lockstep version synchronization across all modules
+        run: node tools/check-version-sync.mjs
+
       - name: Check production dependency licenses
         run: node tools/check-licenses.mjs
 

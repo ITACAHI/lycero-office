@@ -1,6 +1,18 @@
 #!/usr/bin/env sh
-# Lycero Office Desktop — Pre-commit Secret & Hygiene Gate
-# Blocks any staged commit containing certificates, .env files, API keys,
-# hardcoded passwords, internal IPs, or personal developer paths.
+# Lycero Office Desktop — Pre-commit Secret, Hygiene & Lockstep Version Gate
+# 1. Blocks any staged commit containing certificates, .env files, API keys,
+#    hardcoded passwords, internal IPs, or personal developer paths.
+# 2. Automatically bumps the lockstep patch version (or synchronizes all 37
+#    manifests if already bumped) and stages all component manifests.
+# 3. Verifies 100% version equality across root, apps/*, packages/*, Cargo,
+#    package-lock.json, and core SKILL.md files.
+
+set -e
 
 node tools/check-public-hygiene.mjs --staged
+
+if [ "${SKIP_VERSION_BUMP:-0}" != "1" ]; then
+  node tools/bump-version.mjs --if-unchanged --stage
+fi
+
+node tools/check-version-sync.mjs --require-bump

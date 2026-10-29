@@ -75,3 +75,11 @@ Kim chỉ nam bắt buộc cho AI Agent khi lập trình, tái cấu trúc hoặ
 2. **Reuse:** Repo đã có chưa? Tái sử dụng từ `packages/*`.
 3. **Stdlib & Native Web/Node API:** Đã có thẻ native / API native chưa? -> Dùng trực tiếp.
 4. **Minimal Diff:** Giải quyết tận gốc vấn đề, giữ diff ngắn gọn, không tạo thêm các lớp trừu tượng thừa thãi.
+
+---
+
+## 6. Quy Tắc Đánh Số Phiên Bản Đồng Bộ (Lockstep Versioning — Bắt Buộc)
+
+Mọi thay đổi mã nguồn hoặc cấu hình trong repo **BẮT BUỘC** phải tăng số phiên bản (`x.y.z`) đồng bộ 100% trên toàn bộ **37 manifest thành phần** (`package.json`, `apps/*/package.json`, `packages/*/package.json`, `package-lock.json`, `apps/sheets/native/xlsx-engine/Cargo.toml` & `Cargo.lock`, và các file `SKILL.md` cốt lõi):
+- Chạy `npm run version:bump` (hoặc `npm run version:minor` / `npm run version:major`) và kiểm chứng bằng `npm run check:version-sync` trước khi hoàn tất task.
+- Tuyệt đối không sửa tay số phiên bản lẻ tẻ ở một module đơn lẻ.

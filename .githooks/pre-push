@@ -1,6 +1,9 @@
 #!/usr/bin/env sh
-# Lycero Office Desktop — Pre-push Secret & License Gate
+# Lycero Office Desktop — Pre-push Secret, Lockstep Version & License Gate
 # Scans the full tracked tree before pushing to any remote repository.
 
+set -e
+
 node tools/check-public-hygiene.mjs
+node tools/check-version-sync.mjs
 node tools/check-licenses.mjs

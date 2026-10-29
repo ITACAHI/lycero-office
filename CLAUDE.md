@@ -59,6 +59,24 @@ system mode).
   missing or extra key into a type error. Never grow the aggregator back into
   a single 19-locale object.
 
+## Lockstep Versioning (mandatory on every change)
+
+Every code or configuration change in this monorepo MUST bump and synchronize
+the version (`x.y.z`) in lockstep across all **37 component manifests**:
+- Root `package.json` + all 7 `apps/*/package.json` + all 22 `packages/*/package.json`
+- `package-lock.json` (root `version`, `packages[""].version`, and all 29 workspace entries)
+- `apps/sheets/native/xlsx-engine/Cargo.toml` and `Cargo.lock` (`xlsx-sidecar`)
+- Core Agent Skills: `skills/lycero-office/SKILL.md`, `skills/genoffice/SKILL.md`,
+  `.agents/skills/lycero-office/SKILL.md`, `.claude/skills/lycero-office/SKILL.md`
+- Built CLI bundle (`packages/cli/dist/lycero-office.cjs`, if present)
+
+Never hand-edit a single `package.json` version in isolation. Always run:
+```bash
+npm run version:bump        # patch bump (or version:minor / version:major)
+npm run check:version-sync  # verifies all 37 component manifests match
+```
+(`.githooks/pre-commit`, `.githooks/pre-push`, and CI enforce `tools/check-version-sync.mjs`).
+
 
 <!-- AI_CTO_BRIDGE_START -->
 ## Quy trình CTO dùng chung
