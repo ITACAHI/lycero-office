@@ -1,7 +1,7 @@
 {
   "name": "@lycero/pdf",
   "productName": "Lycero Office PDF",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "license": "Apache-2.0",
   "private": true,
   "description": "PDF viewer module: PDF.js render + text layer + thumbnails, hosted by shell tabs",

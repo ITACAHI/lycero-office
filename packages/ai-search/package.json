@@ -1,6 +1,6 @@
 {
   "name": "@lycero/ai-search",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "license": "Apache-2.0",
   "private": true,
   "type": "module",
@@ -15,7 +15,8 @@
   },
   "dependencies": {
     "@lycero/ai-provider": "*",
-    "@lycero/electron-utils": "*"
+    "@lycero/electron-utils": "*",
+    "@modelcontextprotocol/sdk": "^1.32.1"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
