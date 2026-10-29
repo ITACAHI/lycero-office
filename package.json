@@ -1,6 +1,6 @@
 {
   "name": "lycero-office",
-  "version": "2.0.7",
+  "version": "2.0.8",
   "private": true,
   "description": "AI-native office suite (docs, sheets, slides, pdf, markdown, html)",
   "license": "Apache-2.0",

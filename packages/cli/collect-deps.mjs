@@ -1,3 +1,8 @@
+/**
+ * Lycero Office Desktop
+ * Copyright © 2026 ITAC AI Heavy Industries.
+ * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
+ */
 // Copies the runtime dependencies the bundle leaves external (jsdom and its
 // tree) into dist/node_modules, resolving every hop from its realpath so both
 // pnpm (.pnpm virtual store symlinks) and npm hoisted/nested layouts yield the
@@ -54,7 +59,7 @@ const walkedPairs = new Set()
 
 function walk(name, fromRealDir, parentDest) {
   const realDir = resolvePkgReal(name, fromRealDir)
-  if (!realDir) throw new Error(`genoffice deps: cannot resolve ${name} from ${fromRealDir}`)
+  if (!realDir) throw new Error(`lycero-office deps: cannot resolve ${name} from ${fromRealDir}`)
 
   const existing = findPlacedInAncestors(name, parentDest, placedByDest)
   let destDir
@@ -96,4 +101,4 @@ for (const [destDir, realDir] of placedByDest.entries()) {
     filter: (src) => !relative(realDir, src).split(sep).includes('node_modules'),
   })
 }
-console.log(`genoffice deps: ${placedByDest.size} packages → ${relative(here, out)}`)
+console.log(`lycero-office deps: ${placedByDest.size} packages → ${relative(here, out)}`)

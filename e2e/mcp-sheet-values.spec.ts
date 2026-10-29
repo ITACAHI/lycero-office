@@ -170,7 +170,7 @@ test.describe('MCP sheet values and addressing', () => {
 
       const created = await call('create_session', { family: 'xlsx' })
       expect(created.isError, created.text).toBeFalsy()
-      await waitForPageWithUrl(app, 'genoffice-app://sheets')
+      await waitForPageWithUrl(app, 'lycero-app://sheets')
 
       // =1/3 in a default-width column is the case that rendered as "0.333333"
       const applied = await call('apply_sheet_ops', {
@@ -236,7 +236,7 @@ test.describe('MCP sheet values and addressing', () => {
     execFileSync(
       process.execPath,
       [
-        join(APP_ROOT, 'packages', 'cli', 'dist', 'genoffice.cjs'),
+        join(APP_ROOT, 'packages', 'cli', 'dist', 'lycero-office.cjs'),
         'create',
         '--type',
         'xlsx',
@@ -270,7 +270,7 @@ test.describe('MCP sheet values and addressing', () => {
       expect(opened.isError, opened.text).toBeFalsy()
       const editorTab = page.locator('.tab-bar .tab-item:not(.tab-home)')
       await expect(editorTab).toHaveCount(1)
-      const editorPage = await waitForPageWithUrl(app, 'genoffice-app://sheets')
+      const editorPage = await waitForPageWithUrl(app, 'lycero-app://sheets')
 
       const activeSheetName = async (): Promise<string | null> =>
         editorPage.evaluate(() => {

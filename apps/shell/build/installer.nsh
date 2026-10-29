@@ -42,25 +42,10 @@
     ${if} ${isForceRun}
     ${andIf} ${Silent}
       ${if} ${UAC_IsInnerInstance}
-        !insertmacro UAC_AsUser_ExecShell "open" "$appExe" "--updated" "$INSTDIR" "${SW_SHOWNORMAL}"
+        !insertmacro UAC_AsUser_ExecShell "open" "$appExe" "--updated" "$INSTDIR" SW_SHOWNORMAL
       ${endIf}
     ${endIf}
   !endif
 !macroend
-
-Function .onInstSuccess
-  # Guaranteed fallback relaunch for silent auto-update (--updated /S --force-run):
-  # if neither UAC_AsUser_ExecShell nor StdUtils.ExecShellAsUser started the process,
-  # launch $appExe directly so "Restart to update" always reopens Lycero Office.
-  ${if} ${isForceRun}
-  ${andIf} ${Silent}
-    Sleep 1000
-    nsProcess::_FindProcess "${APP_EXECUTABLE_FILENAME}"
-    Pop $R0
-    ${if} $R0 != 0
-      Exec '"$appExe" --updated'
-    ${endIf}
-  ${endIf}
-FunctionEnd
 
 !endif

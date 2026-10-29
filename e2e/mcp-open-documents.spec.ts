@@ -218,7 +218,7 @@ test.describe('MCP open documents', () => {
     execFileSync(
       process.execPath,
       [
-        join(APP_ROOT, 'packages', 'cli', 'dist', 'genoffice.cjs'),
+        join(APP_ROOT, 'packages', 'cli', 'dist', 'lycero-office.cjs'),
         'create',
         '--type',
         'docx',
@@ -338,7 +338,7 @@ test.describe('MCP open documents', () => {
 
       const opened = await call('open_in_genoffice', { path: docPath })
       expect(opened.isError, opened.text).toBeFalsy()
-      const editorPage = await waitForPageWithUrl(app, 'genoffice-app://markdown')
+      const editorPage = await waitForPageWithUrl(app, 'lycero-app://markdown')
       await expect(editorPage.locator('.doc-editor')).toBeVisible()
 
       // type into the live editor: the tab is now dirty, and the change exists

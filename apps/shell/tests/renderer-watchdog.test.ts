@@ -36,7 +36,7 @@ function fakeWc(id: number, pid: number) {
     id,
     isDestroyed: () => false,
     getOSProcessId: () => pid,
-    getURL: () => 'genoffice-app://sheets/index.html',
+    getURL: () => 'lycero-app://sheets/index.html',
     debugger: { isAttached: () => true },
   }
 }

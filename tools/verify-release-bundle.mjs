@@ -112,9 +112,14 @@ for (const app of APPS) {
     }
   }
 
-  // 3. Check main bundles: zero unbundled @lycero/* workspace requires allowed
+  // 3. Check main bundles: zero unbundled @lycero/* workspace requires allowed, and no legacy genoffice-app scheme
   for (const mainFile of listJsFiles(join(outDir, 'main'))) {
     const code = readFileSync(mainFile, 'utf8')
+    if (code.includes('genoffice-app') || code.includes('genoffice-docx-media')) {
+      fail(
+        `[${app}] Main bundle "${mainFile}" still references legacy scheme "genoffice-app" / "genoffice-docx-media" instead of "lycero-app" / "lycero-docx-media".`,
+      )
+    }
     for (const spec of extractRequireSpecifiers(code)) {
       if (spec.startsWith('@lycero/')) {
         fail(
@@ -192,8 +197,11 @@ if (!existsSync(installerNshPath)) {
   if (!nsh.includes('StrCpy $launchLink "$appExe"')) {
     fail('[shell] apps/shell/build/installer.nsh is missing StrCpy $launchLink "$appExe"')
   }
-  if (!nsh.includes('Function .onInstSuccess')) {
-    fail('[shell] apps/shell/build/installer.nsh is missing Function .onInstSuccess fallback relaunch')
+  if (!nsh.includes('!macro customInstall') || !nsh.includes('UAC_AsUser_ExecShell')) {
+    fail('[shell] apps/shell/build/installer.nsh is missing !macro customInstall / UAC_AsUser_ExecShell relaunch hook')
+  }
+  if (/^\s*Function\s+/m.test(nsh)) {
+    fail('[shell] apps/shell/build/installer.nsh must not contain top-level Function blocks outside !macro (included before LogicLib.nsh)')
   }
 }
 
