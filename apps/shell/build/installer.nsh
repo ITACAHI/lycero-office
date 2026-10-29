@@ -37,15 +37,6 @@
   # On Windows 10/11, StdUtils.ExecShellAsUser silently fails when passing
   # "--updated" arguments to a .lnk file in %ProgramData%.
   StrCpy $launchLink "$appExe"
-
-  !ifndef ONE_CLICK
-    ${if} ${isForceRun}
-    ${andIf} ${Silent}
-      ${if} ${UAC_IsInnerInstance}
-        !insertmacro UAC_AsUser_ExecShell "open" "$appExe" "--updated" "$INSTDIR" SW_SHOWNORMAL
-      ${endIf}
-    ${endIf}
-  !endif
 !macroend
 
 !endif

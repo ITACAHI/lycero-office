@@ -197,8 +197,13 @@ if (!existsSync(installerNshPath)) {
   if (!nsh.includes('StrCpy $launchLink "$appExe"')) {
     fail('[shell] apps/shell/build/installer.nsh is missing StrCpy $launchLink "$appExe"')
   }
-  if (!nsh.includes('!macro customInstall') || !nsh.includes('UAC_AsUser_ExecShell')) {
-    fail('[shell] apps/shell/build/installer.nsh is missing !macro customInstall / UAC_AsUser_ExecShell relaunch hook')
+  if (!nsh.includes('!macro customInstall')) {
+    fail('[shell] apps/shell/build/installer.nsh is missing !macro customInstall relaunch hook')
+  }
+  if (nsh.includes('UAC_AsUser_ExecShell')) {
+    fail(
+      '[shell] apps/shell/build/installer.nsh must not use UAC_AsUser_ExecShell with custom Vars (unsynced Var in outer UAC instance opens Explorer on $INSTDIR)',
+    )
   }
   if (/^\s*Function\s+/m.test(nsh)) {
     fail('[shell] apps/shell/build/installer.nsh must not contain top-level Function blocks outside !macro (included before LogicLib.nsh)')
