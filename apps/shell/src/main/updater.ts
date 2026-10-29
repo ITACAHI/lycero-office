@@ -420,7 +420,7 @@ const tUpd = createI18n({
   },
 })
 
-const FIRST_CHECK_DELAY_MS = 15_000
+const FIRST_CHECK_DELAY_MS = 2_500
 const RECHECK_INTERVAL_MS = 4 * 60 * 60 * 1000
 
 // After this many failed download/apply attempts for the same version the
@@ -804,6 +804,13 @@ export function initAutoUpdater(
     downloadInFlight = false
     failedAttempts = 0
     setPhase({ phase: 'downloaded', percent: 100 })
+    if (!isUpdateWindowOpen() && info.version !== dismissedVersion) {
+      showUpdateWindow(
+        getWindow(),
+        { ...initialState(info.version), phase: 'downloaded', percent: 100 },
+        actions,
+      )
+    }
   })
 
   const check = (): void => {
