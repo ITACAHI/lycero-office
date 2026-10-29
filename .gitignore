@@ -1,0 +1,78 @@
+node_modules
+out/
+dist/
+release/
+*.log
+.DS_Store
+.refs/
+.env
+.env.*
+!.env.example
+electron-builder.env
+*.pfx
+*.p12
+*.cer
+*.key
+*.pem
+/certs/
+~$*
+
+# Local ad-hoc e2e driver scripts (not pushed); the folder and README are tracked, the scripts are not
+/scripts/drivers/driver.*.mjs
+/probe*.mjs
+/apps/shell/build/THIRD-PARTY-NOTICES.txt
+/example/
+/.task/
+/docs-archive/
+.idea/
+.claude/
+.agents/review-reports/
+.agents/review-rules/
+pnpm-lock.yaml
+
+# Local build artifacts dropped in the repo root
+/*.dmg
+/*.exe
+/*.zip
+/windows/
+
+# Playwright artifacts
+/test-results/
+
+.cursor/rules/git-remote.mdc
+__pycache__/
+/notes/
+/MEMORY.md
+
+# Local fidelity-run scratch space: production repro documents and pack caches.
+# Never committable — a stray `git add -A` would push user files public.
+/working_dir/
+
+# One-off verification tests kept while chasing a fix; promote to a real test
+# file (or delete) instead of committing them under this name.
+_scratch-*
+.scratch/
+/scratch/
+/build-artifacts/
+/test-output/
+/_backup_cursor_skeleton/
+/packaging/
+/screenshot-*.png
+/ss-*.png
+/HUB_DEPLOY_PROMPT*.md
+/HUB_E2E_TEST_REPORT*.md
+/HANDOFF-*.md
+/AUDIT_*.md
+active-code-matches.json
+non-copyright-matches.json
+
+# Ad-hoc scratch from the 2026-10-05 auth/i18n sessions. One-shot helper
+# scripts and pulled-down server copies, not project source.
+.tmp-authwork/
+.tmp-prod.sh
+/add_slides_i18n*.py
+/check_i18n.py
+/check_slides_i18n.py
+/fix_i18n.py
+/fix_slides_i18n.py
+

@@ -1,0 +1,31 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    // Pin resolution to this repo's workspace sources (avoids stale types when node_modules links point elsewhere)
+    "baseUrl": ".",
+    "paths": {
+      "@lycero/pptx-engine": ["../../packages/pptx-engine/src/index.ts"],
+      "@lycero/pptx-engine/table-grid": ["../../packages/pptx-engine/src/table-grid.ts"],
+      "@lycero/pptx-engine/identity": ["../../packages/pptx-engine/src/identity.ts"],
+      "@lycero/pptx-engine/named-action": ["../../packages/pptx-engine/src/named-action.ts"],
+      "@lycero/pptx-engine/background-promote": [
+        "../../packages/pptx-engine/src/background-promote.ts"
+      ],
+      "@lycero/pptx-ops": ["../../packages/pptx-ops/src/index.ts"],
+      "@lycero/pptx-ops/op-docs": ["../../packages/pptx-ops/src/op-docs.ts"],
+      "@lycero/pptx-ops/font-size": ["../../packages/pptx-ops/src/font-size.ts"],
+      "@lycero/pptx-render": ["../../packages/pptx-render/src/index.ts"],
+      "@lycero/pipelines/slides": ["../../packages/pipelines/src/slides/index.ts"],
+      "@lycero/pipelines/slides/layout-audit": [
+        "../../packages/pipelines/src/slides/layout-audit.ts"
+      ],
+      "@lycero/docx-engine/metafile": ["../../packages/docx-engine/src/metafile.ts"],
+      "@lycero/docx-engine/math": ["../../packages/docx-engine/src/math.ts"],
+      "@lycero/ai-auth": ["../../packages/ai-auth/src/index.ts"]
+    }
+  },
+  "include": ["src", "tests", "electron.vite.config.ts", "vitest.config.ts"]
+}

@@ -1,0 +1,14 @@
+packages:
+  - "packages/*"
+  - "apps/*"
+
+allowBuilds:
+  electron: set this to true or false
+  electron-winstaller: set this to true or false
+  esbuild: set this to true or false
+  protobufjs: set this to true or false
+
+# Liên kết nội bộ với dự án mẹ Lycero AI (teacherai).
+# Khi pnpm install, nó sẽ tìm @teacherai/lycero-office từ đây.
+# Nếu thư mục teacherai không tồn tại, pnpm sẽ fallback về npm registry.
+link-workspace-packages: true

@@ -1,0 +1,309 @@
+/**
+ * Lycero Office Desktop
+ * Copyright © 2026 ITAC AI Heavy Industries. All rights reserved.
+ *
+ * Astryx Dynamic Capabilities Panel Styles
+ */
+
+.lycero-cap-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  background-color: var(--surface);
+  color: var(--text-primary);
+  font-family: var(--gs-font-sans);
+  border-radius: var(--radius-8);
+  border: 1px solid var(--border);
+  box-sizing: border-box;
+}
+
+.lycero-cap-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lycero-cap-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.lycero-cap-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lycero-cap-active-badge {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: var(--radius-30);
+  background-color: var(--bg-hover-accent, #F5EBE7);
+  color: var(--color-ai-action, #8B3A1A);
+  border: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.lycero-cap-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background-color: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-6);
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.lycero-cap-refresh-btn:hover:not(:disabled) {
+  background-color: var(--hover);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.lycero-cap-refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.lycero-cap-spin {
+  animation: lycero-spin 1s linear infinite;
+}
+
+@keyframes lycero-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.lycero-cap-offline-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background-color: var(--danger-bg, #FAEEE8);
+  border: 1px solid var(--danger-border, #E8C7BD);
+  border-radius: var(--radius-6);
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--danger, #B43A28);
+  line-height: 1.45;
+}
+
+.lycero-cap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lycero-cap-card {
+  background-color: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-8);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color var(--transition-fast);
+}
+
+.lycero-cap-card.active {
+  border-color: var(--color-border-brand, #8B3A1A);
+  background-color: var(--surface);
+}
+
+.lycero-cap-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lycero-cap-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lycero-cap-card-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.lycero-cap-card-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.lycero-cap-category-tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: var(--radius-4, 4px);
+  background-color: var(--hover);
+  color: var(--text-muted);
+}
+
+.lycero-cap-card-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* Astryx Toggle Switch */
+.lycero-cap-toggle-label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.lycero-cap-toggle-input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.lycero-cap-toggle-track {
+  width: 38px;
+  height: 22px;
+  background-color: var(--border-strong);
+  border-radius: var(--radius-30);
+  transition: background-color var(--transition-fast);
+  position: relative;
+}
+
+.lycero-cap-toggle-input:checked + .lycero-cap-toggle-track {
+  background-color: var(--color-ai-action, #8B3A1A);
+}
+
+.lycero-cap-toggle-thumb {
+  width: 18px;
+  height: 18px;
+  background-color: #ffffff;
+  border-radius: 50%;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: transform var(--transition-fast);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.lycero-cap-toggle-input:checked + .lycero-cap-toggle-track .lycero-cap-toggle-thumb {
+  transform: translateX(16px);
+}
+
+/* Dynamic Configuration Form */
+.lycero-cap-config-form {
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lycero-cap-config-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.lycero-cap-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lycero-cap-field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.lycero-cap-field-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.lycero-cap-select {
+  padding: 6px 10px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-6);
+  background-color: var(--surface);
+  color: var(--text-primary);
+  outline: none;
+  font-family: inherit;
+  transition: border-color var(--transition-fast);
+}
+
+.lycero-cap-select:focus {
+  border-color: var(--color-border-brand, #8B3A1A);
+}
+
+.lycero-cap-slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lycero-cap-slider {
+  flex: 1;
+  accent-color: var(--color-ai-action, #8B3A1A);
+  cursor: pointer;
+}
+
+.lycero-cap-slider-val {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-ai-action, #8B3A1A);
+  min-width: 24px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.lycero-cap-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.lycero-cap-checkbox {
+  accent-color: var(--color-ai-action, #8B3A1A);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.lycero-cap-empty {
+  text-align: center;
+  padding: 24px 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+}

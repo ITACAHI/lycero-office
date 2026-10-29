@@ -1,0 +1,66 @@
+{
+  "name": "lycero-office",
+  "version": "2.0.0",
+  "private": true,
+  "description": "AI-native office suite (docs, sheets, slides, pdf, markdown, html)",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22.12.0",
+    "npm": ">=10"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ITACAHI/lycero-office.git"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "postinstall": "node tools/install-git-hooks.mjs && install-electron",
+    "format": "node tools/format-changed.mjs --write",
+    "format:check": "node tools/format-changed.mjs --check",
+    "check:theme-colors": "node tools/check-theme-colors.mjs",
+    "check:english-comments": "node tools/check-english-comments.mjs",
+    "check:skill-version": "node tools/check-skill-version.mjs",
+    "check:public-hygiene": "node tools/check-public-hygiene.mjs",
+    "lint": "eslint .",
+    "fixtures": "npm run fixtures -w @lycero/docx-engine",
+    "test": "npm run test -w @lycero/i18n && npm run test -w @lycero/electron-utils && npm run test -w @lycero/font-metrics && npm run test -w @lycero/docx-engine && npm run test -w @lycero/pdf2docx && npm run test -w @lycero/html2docx && npm run test -w @lycero/file-parse && npm run test -w @lycero/pptx-engine && npm run test -w @lycero/xlsx-gateway && npm run test -w @lycero/pptx-ops && npm run test -w @lycero/pptx-render && npm run test -w @lycero/pipelines && npm run test -w @lycero/ai-search && npm run test -w @lycero/agent-core && npm run test -w @lycero/ai-provider && npm run test -w @lycero/ai-auth && npm run test -w @lycero/project-store && npm run test -w @lycero/zip-gate && npm run test -w @lycero/cli && npm run test -w @lycero/ui && npm run test -w @lycero/docs && npm run test -w @lycero/sheets && npm run test -w @lycero/shell && npm run test -w @lycero/slides && npm run test -w @lycero/pdf && npm run test -w @lycero/markdown && npm run test -w @lycero/html",
+    "typecheck": "npm run typecheck -w @lycero/i18n && npm run typecheck -w @lycero/electron-utils && npm run typecheck -w @lycero/font-metrics && npm run typecheck -w @lycero/docx-engine && npm run typecheck -w @lycero/pdf2docx && npm run typecheck -w @lycero/html2docx && npm run typecheck -w @lycero/file-parse && npm run typecheck -w @lycero/pptx-engine && npm run typecheck -w @lycero/xlsx-gateway && npm run typecheck -w @lycero/pptx-ops && npm run typecheck -w @lycero/pptx-render && npm run typecheck -w @lycero/pipelines && npm run typecheck -w @lycero/ai-search && npm run typecheck -w @lycero/agent-core && npm run typecheck -w @lycero/ai-provider && npm run typecheck -w @lycero/ai-auth && npm run typecheck -w @lycero/project-store && npm run typecheck -w @lycero/zip-gate && npm run typecheck -w @lycero/cli && npm run typecheck -w @lycero/ui && npm run typecheck -w @lycero/docs && npm run typecheck -w @lycero/sheets && npm run typecheck -w @lycero/shell && npm run typecheck -w @lycero/slides && npm run typecheck -w @lycero/pdf && npm run typecheck -w @lycero/markdown && npm run typecheck -w @lycero/html",
+    "predev": "node tools/install-git-hooks.mjs && node tools/build-stale-preloads.mjs",
+    "dev": "concurrently -k -n docs,sheets,slides,pdf,markdown,html,shell -c blue,green,yellow,red,cyan,white,magenta \"npm run dev:renderer -w @lycero/docs\" \"npm run dev:renderer -w @lycero/sheets\" \"npm run dev:renderer -w @lycero/slides\" \"npm run dev:renderer -w @lycero/pdf\" \"npm run dev:renderer -w @lycero/markdown\" \"npm run dev:renderer -w @lycero/html\" \"cross-env DOCS_RENDERER_URL=http://localhost:5173 SHEETS_RENDERER_URL=http://localhost:5174 SLIDES_RENDERER_URL=http://localhost:5175 PDF_RENDERER_URL=http://localhost:5176 MARKDOWN_RENDERER_URL=http://localhost:5177 HTML_RENDERER_URL=http://localhost:5178 npm run dev -w @lycero/shell\"",
+    "dev:docs": "npm run dev -w @lycero/docs",
+    "build": "npm run build -w @lycero/docs",
+    "build:all": "npm run build -w @lycero/docs && npm run build -w @lycero/sheets && npm run build -w @lycero/slides && npm run build -w @lycero/pdf && npm run build -w @lycero/markdown && npm run build -w @lycero/html && npm run build -w @lycero/cli && npm run build -w @lycero/shell",
+    "shell": "npm run build:all && electron apps/shell",
+    "test:e2e": "playwright test --config e2e/playwright.config.ts",
+    "notices": "node tools/gen-third-party-notices.mjs",
+    "licenses": "node tools/check-licenses.mjs",
+    "dist:mac": "npm run notices && npm run build:all && npm run native:build:universal -w @lycero/sheets && npm run dist:mac -w @lycero/shell",
+    "dist:win": "npm run notices && npm run build:all && npm run dist:win -w @lycero/shell",
+    "dist:linux": "npm run notices && npm run build:all && npm run dist:linux -w @lycero/shell"
+  },
+  "dependencies": {
+    "ws": "^8.21.1"
+  },
+  "overrides": {
+    "nanoid@3": "^3.3.17",
+    "nanoid@5": "^5.1.16"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.61.1",
+    "concurrently": "^9.2.4",
+    "cross-env": "^10.1.0",
+    "eslint": "^10.8.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.8.0",
+    "pixelmatch": "^7.2.0",
+    "playwright-core": "^1.61.1",
+    "png-to-icns": "^1.0.0",
+    "pngjs": "^7.0.0",
+    "prettier": "^3.9.6",
+    "typescript-eslint": "^8.65.0"
+  }
+}

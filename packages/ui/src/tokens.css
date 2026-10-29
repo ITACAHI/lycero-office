@@ -1,0 +1,242 @@
+/**
+ * Lycero Office Desktop
+ * Copyright © 2026 ITAC AI Heavy Industries.
+ * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
+ */
+/* Lycero Office design tokens — single source of truth for UI chrome colors.
+ * Theme switching: light defaults in :root, [data-theme='dark'] overrides,
+ * prefers-color-scheme fallback for system mode (no data-theme attribute).
+ * Per-app accents (--accent / --accent-dark / --accent-soft) live in each
+ * app's styles.css. Document content colors (paper, cells, exports, chart
+ * palettes) never live here and never reference these tokens.
+ *
+ * Astryx palette (DESIGN.md §2):
+ *   Day  — Matte Warm Ivory & Terracotta:    #F4F2EB bg, #F9F8F3 paper,
+ *                                             #1C1B18 ink, #DDD9CE border,
+ *                                             #8B3A1A terracotta accent.
+ *   Night — Claude-Warm Charcoal & Radiant Terracotta:
+ *                                             #262624 bg (not #000), #2E2D2A paper,
+ *                                             #F5F4EF ink, #403E3A border,
+ *                                             #D97757 terracotta accent.
+ * Anti-slop: tints are warm (no cold blue/gray), and the brand terracotta is
+ * the only saturated hue in the chrome. */
+
+:root {
+  --ui-scale: 1;
+  --docs-revision-bar: #c00000;
+  /* ── Day chrome (Warm Ivory) ─────────────────────────────────────────── */
+  --surface: #F9F8F3;                /* paper — soft, gentle, anti-glare */
+  --surface-subtle: #F4F2EB;         /* canvas background, behind paper */
+  --chrome-bg: #F4F2EB;
+  --canvas: #E8E4DA;
+  --border: #DDD9CE;                 /* hairline — thin, warm */
+  --border-subtle: #E5E1D6;
+  --border-strong: #C9C4B6;
+  --border-hover: #BDB7A7;
+
+  /* Warm-ink text scale. Each step is a tint darker / lighter than the
+   * previous, never pure black or pure white. */
+  --text: #1C1B18;
+  --text-primary: #1C1B18;
+  --text-secondary: #56544D;
+  --text-tertiary: #7A776C;
+  --text-muted: #6B6860;
+  --text-dim: #8E8B7E;
+
+  /* Hover/pressed/active — warm gray tints, never cool blue */
+  --hover: #EFECE3;
+  --pressed: #E8E4D9;
+  --active-bg: #E0DBCD;
+  --bg-hover: #EFECE3;
+  --bg-hover-subtle: #F1EEE5;
+  --bg-hover-strong: #E8E4D9;
+  --bg-hover-accent: #F5EBE7;
+  --bg-content: #FBFAF6;
+  --icon-muted: #A39E92;
+
+  /* Semantic states — terracotta-tinted, not blue/red */
+  --danger: #B43A28;
+  --danger-bg: #FAEEE8;
+  --danger-border: #E8C7BD;
+  --success: #4D6B3D;
+  --success-bg: #EEF3E4;
+  --success-border: #C9D7B7;
+  --search-hit-bg: #F5E6C8;
+  --search-hit-active-bg: #D97757;
+  --search-hit-active-ink: #FBFAF6;
+
+  /* Shadows — soft, warm, never harsh black */
+  --color-bg-overlay: rgb(28 27 24 / 45%);
+  --shadow-modal-strong: 0 20px 25px rgb(60 50 35 / 12%);
+  --shadow-btn-hover: 0 2px 8px rgb(60 50 35 / 12%);
+  --shadow-menu: 0 8px 24px rgb(60 50 35 / 14%);
+
+  /* ── AI panel & shared chrome aliases ────────────────────────────────── */
+  /* Typography: Be Vietnam Pro is the system font (DESIGN.md §3). Falls back
+   * to native UI sans (system fonts guarantee zero CLS). */
+  --gs-font-sans:
+    'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --color-btn-primary: #1C1B18;
+  --color-btn-primary-hover: #38362F;
+  --color-btn-primary-text: #FBFAF6;
+  --color-ai-action: #8B3A1A;        /* terracotta brand */
+  --color-ai-action-hover: #6D2D14;
+  --color-ai-action-text: #FBFAF6;
+  --color-brand-secondary: #6B5A3E;  /* warm olive — used rarely */
+  --color-text-primary: #1C1B18;
+  --color-text-secondary: #56544D;
+  --color-text-tertiary: #7A776C;
+  --color-bg-page: #F9F8F3;
+  --color-bg-subtle: #F4F2EB;
+  --color-border-default: #DDD9CE;
+  --color-border-strong: #C9C4B6;
+  --color-border-brand: #8B3A1A;
+  --color-error: #B43A28;
+  --color-error-hover: #8E2D1E;
+
+  /* ── Geometry ─────────────────────────────────────────────────────────── */
+  --radius-6: 6px;
+  --radius-8: 8px;
+  --radius-12: 12px;
+  --radius-16: 16px;
+  --radius-30: 30px;
+
+  /* ── Motion (Astryx easing per DESIGN.md §6) ──────────────────────────── */
+  /* cubic-bezier(0.16, 1, 0.3, 1) — gentle out-ease, never rubber-band */
+  --transition-fast: 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-medium: 200ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ── Type scale ───────────────────────────────────────────────────────── */
+  --text-body-lg: 18px;
+  --text-small: 14px;
+  --text-caption: 12px;
+
+  color-scheme: light;
+}
+
+/* ── Night chrome (Claude-Warm Charcoal) ────────────────────────────────── */
+[data-theme='dark'] {
+  --surface: #2E2D2A;                /* paper (elevated surface) */
+  --surface-subtle: #262624;         /* canvas background */
+  --chrome-bg: #262624;
+  --canvas: #1F1E1C;
+  --border: #403E3A;                 /* warm charcoal, never cool */
+  --border-subtle: #35332F;
+  --border-strong: #4F4C46;
+  --border-hover: #5B574F;
+
+  --text: #F5F4EF;                   /* warm off-white, never pure white */
+  --text-primary: #F5F4EF;
+  --text-secondary: #C8C5BB;
+  --text-tertiary: #9A968A;
+  --text-muted: #8A8780;
+  --text-dim: #74716B;
+
+  --hover: #34322E;
+  --pressed: #3A3833;
+  --active-bg: #42403B;
+  --bg-hover: #34322E;
+  --bg-hover-subtle: #2F2D29;
+  --bg-hover-strong: #3A3833;
+  --bg-hover-accent: #3D2A24;
+  --bg-content: #1F1E1C;
+  --icon-muted: #6E6B65;
+
+  --danger: #D97757;                 /* terracotta-tinted danger in dark */
+  --danger-bg: #3D2A24;
+  --danger-border: #5B3D34;
+  --success: #88B074;
+  --success-bg: #2A3324;
+  --success-border: #43533A;
+  --search-hit-bg: #5C4A1F;
+  --search-hit-active-bg: #D97757;
+  --search-hit-active-ink: #1F1E1C;
+
+  --color-bg-overlay: rgb(0 0 0 / 65%);
+  --shadow-modal-strong: 0 20px 25px rgb(0 0 0 / 50%);
+  --shadow-btn-hover: 0 2px 8px rgb(0 0 0 / 40%);
+  --shadow-menu: 0 8px 24px rgb(0 0 0 / 55%);
+
+  --color-btn-primary: #F5F4EF;
+  --color-btn-primary-hover: #D9D6CB;
+  --color-btn-primary-text: #1F1E1C;
+  --color-ai-action: #D97757;        /* radiant terracotta in dark */
+  --color-ai-action-hover: #C46647;
+  --color-ai-action-text: #1F1E1C;
+  --color-brand-secondary: #B8A47E;
+  --color-text-primary: #F5F4EF;
+  --color-text-secondary: #C8C5BB;
+  --color-text-tertiary: #9A968A;
+  --color-bg-page: #2E2D2A;
+  --color-bg-subtle: #262624;
+  --color-border-default: #403E3A;
+  --color-border-strong: #4F4C46;
+  --color-border-brand: #D97757;
+
+  color-scheme: dark;
+}
+
+/* ── System dark fallback ──────────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']):not([data-theme='dark']) {
+    --surface: #2E2D2A;
+    --surface-subtle: #262624;
+    --chrome-bg: #262624;
+    --canvas: #1F1E1C;
+    --border: #403E3A;
+    --border-subtle: #35332F;
+    --border-strong: #4F4C46;
+    --border-hover: #5B574F;
+
+    --text: #F5F4EF;
+    --text-primary: #F5F4EF;
+    --text-secondary: #C8C5BB;
+    --text-tertiary: #9A968A;
+    --text-muted: #8A8780;
+    --text-dim: #74716B;
+
+    --hover: #34322E;
+    --pressed: #3A3833;
+    --active-bg: #42403B;
+    --bg-hover: #34322E;
+    --bg-hover-subtle: #2F2D29;
+    --bg-hover-strong: #3A3833;
+    --bg-hover-accent: #3D2A24;
+    --bg-content: #1F1E1C;
+    --icon-muted: #6E6B65;
+
+    --danger: #D97757;
+    --danger-bg: #3D2A24;
+    --danger-border: #5B3D34;
+    --success: #88B074;
+    --success-bg: #2A3324;
+    --success-border: #43533A;
+    --search-hit-bg: #5C4A1F;
+    --search-hit-active-bg: #D97757;
+    --search-hit-active-ink: #1F1E1C;
+
+    --color-bg-overlay: rgb(0 0 0 / 65%);
+    --shadow-modal-strong: 0 20px 25px rgb(0 0 0 / 50%);
+    --shadow-btn-hover: 0 2px 8px rgb(0 0 0 / 40%);
+    --shadow-menu: 0 8px 24px rgb(0 0 0 / 55%);
+
+    --color-btn-primary: #F5F4EF;
+    --color-btn-primary-hover: #D9D6CB;
+    --color-btn-primary-text: #1F1E1C;
+    --color-ai-action: #D97757;
+    --color-ai-action-hover: #C46647;
+    --color-ai-action-text: #1F1E1C;
+    --color-brand-secondary: #B8A47E;
+    --color-text-primary: #F5F4EF;
+    --color-text-secondary: #C8C5BB;
+    --color-text-tertiary: #9A968A;
+    --color-bg-page: #2E2D2A;
+    --color-bg-subtle: #262624;
+    --color-border-default: #403E3A;
+    --color-border-strong: #4F4C46;
+    --color-border-brand: #D97757;
+
+    color-scheme: dark;
+  }
+}

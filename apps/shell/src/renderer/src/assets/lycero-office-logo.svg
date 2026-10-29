@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 56" role="img" aria-label="Lycero Office">
+  <defs>
+    <style>
+      .wm { font-family: "Be Vietnam Pro", "Inter", system-ui, sans-serif; font-weight: 700; font-size: 28px; letter-spacing: -0.5px; }
+      .sub { font-family: "Be Vietnam Pro", "Inter", system-ui, sans-serif; font-weight: 500; font-size: 13px; letter-spacing: 4px; text-transform: uppercase; }
+    </style>
+  </defs>
+  <!-- mark: rounded square with lycero "L" -->
+  <rect x="4" y="8" width="40" height="40" rx="10" fill="#8B3A1A"/>
+  <path d="M16 18 L16 36 L30 36" stroke="#F4F2EB" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- wordmark -->
+  <text class="wm" x="56" y="32" fill="#1C1B18">Lycero</text>
+  <text class="sub" x="56" y="48" fill="#8B3A1A">Office</text>
+</svg>

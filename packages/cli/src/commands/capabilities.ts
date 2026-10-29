@@ -1,0 +1,73 @@
+/**
+ * Lycero Office Desktop
+ * Copyright © 2026 ITAC AI Heavy Industries.
+ * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
+ */
+import {
+  activeMediaProvider,
+  activeSearchProvider,
+  cloudToolsEnabled,
+  imageGenerationAvailable,
+  mediaAnalysisAvailable,
+} from '@lycero/ai-provider'
+import { hasGskAuth, readAiSettingsFile } from '@lycero/ai-search'
+import { aiSettingsPath, prepareCloud } from '../cloud'
+import type { CommandDef } from '../registry'
+import { appLaunch } from '../resources'
+
+/**
+ * What the cloud commands can do on this machine, decided from Lycero Office's
+ * own settings without a network call: a Lycero login with cloud tools on,
+ * a BYOK key, or explicitly selected free Parallel search. Unkeyed fallbacks in the
+ * default chain (free Parallel MCP, DuckDuckGo) do not count as configured. Agents
+ * check this once before planning work that needs photos or web facts.
+ */
+export const capabilitiesCommand: CommandDef = {
+  name: 'capabilities',
+  summary:
+    'Report which cloud features (search, image search, image generation, media analysis) are configured in Lycero Office, and whether the app is installed.',
+  usage: 'capabilities',
+  async run(_args, ctx) {
+    await prepareCloud(ctx.env)
+    const settings = readAiSettingsFile(aiSettingsPath(ctx.env))
+    const gsk = hasGskAuth() && cloudToolsEnabled(settings)
+    const searchProvider = activeSearchProvider(settings)
+    const gskSearch = gsk && searchProvider === 'lycero'
+    const customSearch = searchProvider !== 'lycero'
+    const search = gskSearch || customSearch
+    const keyedImageSearch = searchProvider === 'serper' || searchProvider === 'serply'
+    const imageSearch = gskSearch || keyedImageSearch
+    const imageGeneration = imageGenerationAvailable(settings, hasGskAuth())
+    const mediaAnalysis = mediaAnalysisAvailable(settings, hasGskAuth())
+    const via = (byok: string | null | undefined) => (byok ? byok : gsk ? 'lycero' : null)
+    const detail = {
+      search: {
+        available: search,
+        via: customSearch ? searchProvider : gskSearch ? 'lycero' : null,
+      },
+      image_search: {
+        available: imageSearch,
+        via: keyedImageSearch ? searchProvider : gskSearch ? 'lycero' : null,
+      },
+      image_generation: {
+        available: imageGeneration,
+        via: imageGeneration ? via(activeMediaProvider(settings, 'image')) : null,
+      },
+      media_analysis: {
+        available: mediaAnalysis,
+        via: mediaAnalysis ? via(activeMediaProvider(settings, 'analysis')) : null,
+      },
+      app: { available: appLaunch(ctx.env) !== null },
+      settings_path: aiSettingsPath(ctx.env),
+    }
+    const on = Object.entries(detail)
+      .filter(([k, v]) => k !== 'settings_path' && (v as { available: boolean }).available)
+      .map(([k]) => k)
+    return {
+      summary: on.length
+        ? `configured: ${on.join(', ')}`
+        : 'no cloud feature configured; the app is not installed',
+      detail,
+    }
+  },
+}

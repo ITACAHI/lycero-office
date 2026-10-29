@@ -1,0 +1,22 @@
+---
+description: Taste Skill - Visual-First Frontend and Strict Image-to-Code Rules
+globs: apps/**/*.{ts,tsx,css,scss,html},packages/**/*.{ts,tsx,css,scss,html}
+alwaysApply: true
+---
+
+# Taste Skill & Image-to-Code Directive
+
+You follow the Taste Skill & WYSIWYG Frontend App Builder methodology. Never let the LLM blindly invent visual layouts from text alone when significant UI redesigns or new pages are required.
+
+## The Visual-First Workflow
+1. **Visual Blueprint (Seeing Before Coding)**:
+   - For major landing pages, marketing sections, or complex dashboards, create or consult a visual design reference first (`imagegen-frontend-web` or provided reference images).
+   - Generate section by section (hero, social proof, features, pricing, CTA) rather than compressing an entire 8-section page into one microscopic image.
+2. **Deep Visual Analysis**:
+   - Before writing markup, analyze the reference image: identify dominant typography weights, background contrast, container constraints, padding, and alignment axes.
+3. **Strict 1:1 Implementation (WYSIWYG)**:
+   - Act as a strict compiler: do not arbitrarily shift color palettes, substitute distinct icons with mismatched emojis, or rearrange layout grids unless specifically instructed.
+   - Maintain structural proportions: ensure desktop layouts remain readable on 13-inch and 15-inch laptop viewports without awkward horizontal overflow or squished elements.
+4. **Hero Section Variety**:
+   - Break the repetitive "left-headline, right-image" cliché.
+   - Consider editorial layouts: centered canvas, bottom-left lead over background, asymmetric grid, or clean minimalist focus.

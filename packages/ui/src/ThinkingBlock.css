@@ -1,0 +1,169 @@
+/**
+ * Lycero Office Desktop
+ * Copyright © 2026 ITAC AI Heavy Industries.
+ * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
+ */
+/* Lycero Mate — ThinkingBlock (reasoning accordion).
+ * Auto-expands while reasoning streams, collapses when finished.
+ * Uses design tokens from packages/ui/src/tokens.css.
+ * Animations 200ms ease-out (anti-slop: no bounce, no elastic). */
+
+.lycero-thinking-block {
+  margin: 8px 0 10px 0;
+  border-radius: var(--radius-8, 8px);
+  border: 1px solid var(--color-border-subtle, #DDD9CE);
+  background-color: var(--color-bg-secondary, #F9F8F3);
+  overflow: hidden;
+  font-size: 12px;
+  transition:
+    border-color var(--transition-medium),
+    background-color var(--transition-medium);
+}
+
+.lycero-thinking-block.expanded {
+  border-color: var(--accent, #8B3A1A);
+}
+
+.lycero-thinking-block.collapsed {
+  /* gentle hover hint */
+}
+
+.lycero-thinking-block.collapsed:hover {
+  border-color: var(--border-hover, #BDB7A7);
+}
+
+.lycero-thinking-block.lycero-thinking-active {
+  /* animated gradient stripe when reasoning */
+  background-image: linear-gradient(
+    90deg,
+    var(--color-bg-secondary, #F9F8F3) 0%,
+    var(--bg-hover-accent, #F5EBE7) 50%,
+    var(--color-bg-secondary, #F9F8F3) 100%
+  );
+  background-size: 200% 100%;
+  animation: lycero-thinking-shimmer 2s linear infinite;
+}
+
+@keyframes lycero-thinking-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Dark mode: subtle terracotta-tinted shimmer */
+@media (prefers-color-scheme: dark) {
+  .lycero-thinking-block.lycero-thinking-active {
+    background-image: linear-gradient(
+      90deg,
+      var(--surface, #2E2D2A) 0%,
+      var(--bg-hover-accent, #3D2A24) 50%,
+      var(--surface, #2E2D2A) 100%
+    );
+  }
+}
+
+.lycero-thinking-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary, #56544D);
+  user-select: none;
+  text-align: left;
+  font-family: inherit;
+  /* gentle hover */
+}
+
+.lycero-thinking-header:hover {
+  background-color: var(--bg-hover-subtle, #F1EEE5);
+}
+
+.lycero-thinking-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lycero-thinking-pulse {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: var(--accent, #8B3A1A);
+  display: inline-block;
+  position: relative;
+  opacity: 0.9;
+}
+
+.lycero-thinking-pulse::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid var(--accent, #8B3A1A);
+  opacity: 0.5;
+  animation: lycero-thinking-pulse 1.2s ease-out infinite;
+}
+
+@keyframes lycero-thinking-pulse {
+  0% { transform: scale(0.85); opacity: 0.7; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+.lycero-thinking-title {
+  font-weight: 600;
+  color: var(--text-primary, #1C1B18);
+  font-size: 12.5px;
+  letter-spacing: 0;
+}
+
+.lycero-thinking-meta {
+  font-size: 11px;
+  color: var(--text-muted, #6B6860);
+}
+
+.lycero-thinking-header-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-muted, #6B6860);
+}
+
+.lycero-thinking-caret {
+  transition: transform var(--transition-medium);
+}
+
+.lycero-thinking-caret.open {
+  transform: rotate(180deg);
+}
+
+.lycero-thinking-content {
+  padding: 8px 12px 10px 12px;
+  border-top: 1px solid var(--color-border-subtle, #DDD9CE);
+  max-height: 260px;
+  overflow-y: auto;
+  color: var(--text-secondary, #56544D);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 11.5px;
+  background-color: var(--color-bg-subtle, #F4F2EB);
+}
+
+.lycero-thinking-cursor {
+  display: inline-block;
+  width: 6px;
+  height: 13px;
+  margin-left: 3px;
+  background-color: var(--accent, #8B3A1A);
+  vertical-align: middle;
+  animation: lycero-thinking-blink 1s steps(2) infinite;
+}
+
+@keyframes lycero-thinking-blink {
+  50% { opacity: 0; }
+}

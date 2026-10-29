@@ -1,0 +1,209 @@
+name: Release Build & Sign (Windows, macOS, Linux)
+
+# Zero-key source pipeline: builds official desktop installers across Windows,
+# macOS, and Linux. Signing credentials exist ONLY in GitHub Encrypted Secrets
+# (or SignPath cloud HSM) and are never stored in the repository.
+# If signing secrets are not yet configured, the workflow still builds unsigned
+# installers cleanly so CI verification never blocks.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      sign:
+        description: 'Enable code signing if repository secrets are configured'
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  hygiene-gate:
+    name: Security & Public Hygiene Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Run public-repo secret & hygiene gate
+        run: node tools/check-public-hygiene.mjs
+
+      - name: Check production dependency licenses
+        run: node tools/check-licenses.mjs
+
+  build-windows:
+    name: Build Windows (x64 NSIS)
+    needs: hygiene-gate
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Setup Rust (xlsx-sidecar)
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+          targets: x86_64-pc-windows-gnu
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Rust xlsx-sidecar (Windows x64)
+        run: cargo build --release --manifest-path apps/sheets/native/xlsx-engine/Cargo.toml
+
+      - name: Package Windows Installer
+        env:
+          LYCERO_UPDATE_URL: ${{ secrets.LYCERO_UPDATE_URL }}
+          LYCERO_FONT_CDN_URL: ${{ secrets.LYCERO_FONT_CDN_URL }}
+          LYCERO_GA4_MEASUREMENT_ID: ${{ secrets.LYCERO_GA4_MEASUREMENT_ID }}
+          LYCERO_GA4_API_SECRET: ${{ secrets.LYCERO_GA4_API_SECRET }}
+          LYCERO_WIN_SIGN_MODE: ${{ (inputs.sign != false && (secrets.AZURE_TRUSTED_SIGNING_DLIB != '' || secrets.SM_KEYPAIR_ALIAS != '' || secrets.CSC_LINK != '')) && 'production' || 'none' }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TRUSTED_SIGNING_DLIB: ${{ secrets.AZURE_TRUSTED_SIGNING_DLIB }}
+          AZURE_TRUSTED_SIGNING_METADATA: ${{ secrets.AZURE_TRUSTED_SIGNING_METADATA }}
+          SM_KEYPAIR_ALIAS: ${{ secrets.SM_KEYPAIR_ALIAS }}
+          CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: npm run dist:win
+
+      - name: Upload Windows Release Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lycero-office-windows-x64
+          path: |
+            apps/shell/release/*.exe
+            apps/shell/release/*.exe.blockmap
+            apps/shell/release/latest.yml
+
+  build-macos:
+    name: Build macOS (Apple Silicon DMG/ZIP)
+    needs: hygiene-gate
+    runs-on: macos-14
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Setup Rust (xlsx-sidecar universal)
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Package macOS Installer (Signed & Notarized when Apple secrets are present)
+        env:
+          LYCERO_UPDATE_URL: ${{ secrets.LYCERO_UPDATE_URL }}
+          LYCERO_FONT_CDN_URL: ${{ secrets.LYCERO_FONT_CDN_URL }}
+          LYCERO_GA4_MEASUREMENT_ID: ${{ secrets.LYCERO_GA4_MEASUREMENT_ID }}
+          LYCERO_GA4_API_SECRET: ${{ secrets.LYCERO_GA4_API_SECRET }}
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: npm run dist:mac
+
+      - name: Upload macOS Release Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lycero-office-macos-arm64
+          path: |
+            apps/shell/release/*.dmg
+            apps/shell/release/*.zip
+            apps/shell/release/latest-mac.yml
+
+  build-linux:
+    name: Build Linux (x64 AppImage, DEB, RPM)
+    needs: hygiene-gate
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Setup Rust (xlsx-sidecar)
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+
+      - name: Install Linux packaging tools (rpmbuild)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends rpm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Rust xlsx-sidecar (Linux x64)
+        run: cargo build --release --manifest-path apps/sheets/native/xlsx-engine/Cargo.toml
+
+      - name: Package Linux Installers (.AppImage, .deb, .rpm)
+        env:
+          LYCERO_UPDATE_URL: ${{ secrets.LYCERO_UPDATE_URL }}
+          LYCERO_FONT_CDN_URL: ${{ secrets.LYCERO_FONT_CDN_URL }}
+          LYCERO_GA4_MEASUREMENT_ID: ${{ secrets.LYCERO_GA4_MEASUREMENT_ID }}
+          LYCERO_GA4_API_SECRET: ${{ secrets.LYCERO_GA4_API_SECRET }}
+        run: npm run dist:linux
+
+      - name: Sign Linux packages with GPG (when GPG_PRIVATE_KEY secret is present)
+        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          for pkg in apps/shell/release/*.deb apps/shell/release/*.rpm apps/shell/release/*.AppImage; do
+            [ -f "$pkg" ] || continue
+            gpg --batch --yes --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" --armor --detach-sign "$pkg"
+          done
+
+      - name: Upload Linux Release Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lycero-office-linux-x64
+          path: |
+            apps/shell/release/*.AppImage*
+            apps/shell/release/*.deb*
+            apps/shell/release/*.rpm*
+            apps/shell/release/latest-linux.yml

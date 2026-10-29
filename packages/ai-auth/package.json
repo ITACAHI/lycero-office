@@ -1,0 +1,21 @@
+{
+  "name": "@lycero/ai-auth",
+  "version": "2.0.0",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "description": "Lycero OAuth authentication for desktop apps - OAuth 2.0 PKCE + Deep Link flow, token management, and user session handling.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./main": "./src/lycero-auth.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  }
+}

@@ -1,0 +1,136 @@
+/**
+ * Lycero Office Desktop
+ * Copyright © 2026 ITAC AI Heavy Industries.
+ * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
+ */
+/* Lycero Mate — Floating Bubble Toolbar.
+ * Positioned absolutely inside the host's overlay portal. Sits above the
+ * user's text selection; flips below the selection when the top edge is
+ * clipped by the viewport. Animations 200ms ease-out (anti-slop). */
+
+.lycero-mate-bubble {
+  position: fixed;
+  z-index: 9999;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background-color: var(--bg-elevated, #FFFFFF);
+  border: 1px solid var(--border, #DDD9CE);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px -4px rgba(28, 27, 24, 0.12),
+              0 2px 6px -2px rgba(28, 27, 24, 0.08);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary, #1C1B18);
+  transform: translateY(-100%);
+  /* Native-render right-to-left scripts (Arabic / Hebrew) inside the bubble */
+  direction: inherit;
+  user-select: none;
+  /* Prevent selection clearing when clicking buttons */
+  -webkit-user-select: none;
+  pointer-events: auto;
+  animation: lycero-mate-bubble-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.lycero-mate-bubble.lycero-mate-bubble-below {
+  transform: translateY(0);
+}
+
+.lycero-mate-bubble-btn {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary, #1C1B18);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast, 150ms ease-out),
+    border-color var(--transition-fast, 150ms ease-out),
+    color var(--transition-fast, 150ms ease-out);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.lycero-mate-bubble-btn:hover {
+  background-color: var(--bg-hover-subtle, #F1EEE5);
+  border-color: var(--border-hover, #BDB7A7);
+}
+
+.lycero-mate-bubble-btn:active {
+  background-color: var(--bg-hover-strong, #E8E3D6);
+}
+
+.lycero-mate-bubble-btn:focus-visible {
+  outline: 2px solid var(--accent, #8B3A1A);
+  outline-offset: 1px;
+}
+
+.lycero-mate-bubble-btn-cta {
+  color: var(--accent, #8B3A1A);
+  font-weight: 600;
+}
+
+.lycero-mate-bubble-btn-cta:hover {
+  background-color: var(--bg-hover-accent, #F5EBE7);
+  color: var(--accent-dark, #5F2812);
+}
+
+.lycero-mate-bubble-divider {
+  width: 1px;
+  height: 18px;
+  background-color: var(--border, #DDD9CE);
+  margin: 0 2px;
+}
+
+@keyframes lycero-mate-bubble-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-100%) translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(-100%) translateY(0);
+  }
+}
+
+.lycero-mate-bubble.lycero-mate-bubble-below {
+  animation-name: lycero-mate-bubble-in-below;
+}
+
+@keyframes lycero-mate-bubble-in-below {
+  0% {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  .lycero-mate-bubble {
+    background-color: var(--bg-elevated, #2E2D2A);
+    border-color: var(--border, #3D3B36);
+    box-shadow: 0 6px 20px -4px rgba(0, 0, 0, 0.4),
+                0 2px 6px -2px rgba(0, 0, 0, 0.25);
+  }
+  .lycero-mate-bubble-btn:hover {
+    background-color: var(--bg-hover-subtle, #353431);
+    border-color: var(--border-hover, #4D4A42);
+  }
+  .lycero-mate-bubble-btn:active {
+    background-color: var(--bg-hover-strong, #3F3D38);
+  }
+  .lycero-mate-bubble-divider {
+    background-color: var(--border, #3D3B36);
+  }
+}

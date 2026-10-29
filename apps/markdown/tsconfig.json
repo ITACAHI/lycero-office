@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "paths": {
+      "@lycero/ai-auth": ["../../packages/ai-auth/src/index.ts"]
+    }
+  },
+  "include": ["src", "electron.vite.config.ts", "vite.renderer.config.ts"]
+}

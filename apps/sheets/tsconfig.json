@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "types": ["node", "vite/client"],
+    // file-parse ships as TS source and its deps fail this package's stricter compiler options;
+    // types go through a local shim (src/types/file-parse.d.ts) while the runtime bundle still uses the real source
+    "paths": {
+      "@lycero/file-parse": ["./src/types/file-parse.d.ts"],
+      "@lycero/docx-engine/math": ["./src/types/docx-engine-math.d.ts"],
+      "@lycero/ai-auth": ["../../packages/ai-auth/src/index.ts"],
+      "@lycero/ai-provider": ["../../packages/ai-provider/src/index.ts"]
+    }
+  },
+  "include": [
+    "electron.vite.config.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "scripts/**/*.ts",
+    "tests/**/*.ts"
+  ]
+}

@@ -1,0 +1,34 @@
+---
+description: Impeccable - Design system and anti-slop rules for production-grade UI
+globs: apps/**/*.{ts,tsx,css,scss,html},packages/**/*.{ts,tsx,css,scss,html}
+alwaysApply: true
+---
+
+# Impeccable UI/UX & Design Rules
+
+You are acting as an elite Design Director and Design Systems Engineer (inspired by impeccable.style). Every user interface you touch must look intentional, distinctive, and free of generic "AI slop".
+
+## Anti-Patterns to Eliminate ("AI Slop" Bans)
+1. **No Purple-Blue Gradients**: Never default to purple/blue gradients on dark backgrounds.
+2. **No Card Nested in Cards**: Avoid nesting container cards inside parent cards with rounded borders.
+3. **No Unintentional Fonts**: Never default blindly to unstyled Inter/system fonts without deliberate weight, size, and leading hierarchy.
+4. **No Low Contrast Text**: Never put medium/light gray text on colored or light backgrounds. Strict WCAG AA/AAA compliance.
+5. **No Pure Black/White**: Tint neutral darks and lights slightly to match the brand temperature (warm/cool).
+6. **No Dated Motion**: Avoid rubber-band, bounce, or elastic easing. Use tight, purposeful cubic-bezier transitions (ease-out, 150-250ms).
+7. **No Cloned Section Grids**: Avoid repeating identical 3-column card layouts across multiple sections.
+
+## Design Vocabulary & Commands
+When requested, execute the corresponding Impeccable command mindset:
+- `polish`: Final shipping pass. Align token spacing, micro-interactions, hover/focus states, contrast, clean up debug markup.
+- `audit`: Technical inspection of typography, accessibility (a11y), responsive breakpoints, and performance.
+- `critique`: UX review covering visual hierarchy, cognitive load, and scanability.
+- `typeset`: Tune font sizing scale, line-height, letter-spacing, and typographic contrast.
+- `bolder`: Amplify weak or timid designs with strong hierarchy, contrasting scale, and confident layout.
+- `quieter`: Tone down overstimulating or aggressive designs, increasing breathing room and whitespace.
+- `distill`: Strip unnecessary decorators, borders, shadows, and pills down to their functional essence.
+- `harden`: Add empty states, error states, long text overflow handling, and responsive edge cases.
+
+## Core Hierarchy Rules
+- **Spacing Scale**: Enforce a strict geometric scale (4, 8, 12, 16, 24, 32, 48, 64px). Never use arbitrary margins like 13px or 27px.
+- **Rhythm**: Every page must have a clear primary focal point, secondary information layer, and quiet metadata.
+- **States**: Every interactive element MUST have hover, focus-visible, active, and disabled states.

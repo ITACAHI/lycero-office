@@ -1,0 +1,7 @@
+# License, legal, and CI/release workflow files require maintainer review.
+/LICENSE @ITACAHI
+/NOTICE @ITACAHI
+/LEGAL_AND_IP_COMPLIANCE.md @ITACAHI
+/.github/ @ITACAHI
+/.githooks/ @ITACAHI
+/scripts/win-sign.cjs @ITACAHI

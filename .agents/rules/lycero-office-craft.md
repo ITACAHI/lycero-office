@@ -1,0 +1,71 @@
+# Lycero Office Desktop Craft & Engineering Discipline
+
+Kim chỉ nam bắt buộc cho AI Agent khi lập trình, tái cấu trúc hoặc bảo trì mã nguồn trong **Lycero Office Desktop** (`D:\Lycero Office\`).
+
+---
+
+## 1. Định Vị & Mô Hình Trọng Yếu
+
+1. **Cạnh tranh sòng phẳng với Microsoft Office:**
+   - Bộ máy biên tập cốt lõi (Docs, Sheets, Slides, PDF, Markdown, HTML) **luôn miễn phí vĩnh viễn (Free Forever)**. Không chèn quảng cáo, không khóa tính năng mở/sửa/lưu file cục bộ, không bắt buộc đăng nhập để dùng tính năng văn phòng cơ bản.
+2. **Hạn ngạch AI Minh bạch (AI Quota System):**
+   - Free Tier: Có hạn ngạch sử dụng AI hàng tháng cố định.
+   - Pro / Enterprise Tier: Hạn ngạch lớn, mở khóa Deep Reasoning models, Private Server.
+   - Luôn hiển thị Quota rõ ràng trên giao diện Lycero Mate, không gây bất ngờ cho người dùng.
+3. **Đa Hình Tự Thích Ứng (Polymorphic Architecture):**
+   - **Mặc định:** Trung lập Doanh nghiệp (Corporate Neutral) với thuật ngữ chuẩn văn phòng quốc tế (Hợp đồng, Biên bản họp, Báo cáo, Kế hoạch, Slide thuyết trình).
+   - **Chế độ Giáo dục:** Tự động kích hoạt khi có token Lycero EdTech hoặc kết nối 1-chạm, mở ra 11 Archetype sư phạm chuyên biệt.
+
+---
+
+## 2. Bản Quyền & Tuân Thủ Apache 2.0 (Bắt Buộc)
+
+1. **Tuyệt đối không xóa header bản quyền:**
+   - Mọi tệp tin kế thừa từ GenOffice có header `Copyright © 2026 Mainfunc, Inc.` phải được giữ nguyên.
+   - Khi chỉnh sửa tệp tin, bổ sung dòng chú thích sửa đổi:
+     ```ts
+     /**
+      * Lycero Office Desktop
+      * Copyright © 2026 ITAC AI Heavy Industries.
+      * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
+      */
+     ```
+2. **Tệp tin mới tạo:**
+   - Luôn gắn header bản quyền của ITAC AI Heavy Industries.
+3. **Chính sách nhãn hiệu (Nominative Fair Use):**
+   - Các từ khóa *"Microsoft"*, *"Word"*, *"Excel"*, *"PowerPoint"* chỉ được sử dụng để mô tả khả năng tương thích định dạng tệp (`.docx`, `.xlsx`, `.pptx`).
+
+---
+
+## 3. Tiêu Chuẩn Giao Diện Astryx (Meta) & Chống "AI Slop"
+
+1. **Bảng màu chống mỏi mắt:**
+   - **Day:** Nền ngà `#F4F2EB`, Giấy mềm `#F9F8F3`, Mực than `#1C1B18`, Viền `#DDD9CE`, Điểm nhấn Terracotta ấm `#8B3A1A`.
+   - **Night:** Nền xám than `#262624`, Giấy `#2E2D2A`, Chữ `#F5F4EF`, Terracotta rực rỡ `#D97757`.
+2. **Kiểu chữ:** `Be Vietnam Pro` (chính thức toàn hệ thống) với font fallback chuẩn triệt tiêu CLS = 0.
+3. **Kỷ luật chống rác đồ họa (Anti-Slop):**
+   - Tuyệt đối không dùng gradient tím - hồng - xanh dương lộn xộn.
+   - Không lồng card trong card (no nested cards).
+   - Không dùng shadow đen đậm làm bẩn giao diện.
+   - Thời gian chuyển động vi mô (transition) từ 125ms đến 250ms với easing `cubic-bezier(0.16, 1, 0.3, 1)`.
+
+---
+
+## 4. Trợ Lý AI Lycero Mate & Stream Reasoning
+
+1. **Bóc tách khối suy luận (`ThinkingBlock` Accordion):**
+   - Các mô hình Reasoning (DeepSeek-R1, o1/o3-mini, Gemini Thinking...) phải được bóc tách phần thinking ra khỏi content chính và render trong component `ThinkingBlock` có hiệu ứng stream và co giãn tự nhiên.
+2. **Thẻ Hành Động (`ActionCardData`):**
+   - AI giao tiếp qua các thẻ hành động tương tác trực tiếp với tài liệu (Chèn văn bản, Thay thế đoạn chọn, Thêm slide, Điền công thức ô tính).
+3. **Cấu hình Model độc lập & Động:**
+   - Cung cấp tính năng tải model thực tế từ máy chủ (`fetchRemoteModels`).
+   - Cho phép người dùng cấu hình model riêng cho Lycero Mate độc lập với model hệ thống.
+
+---
+
+## 5. Triết Lý Kỹ Thuật: Ponytail (Senior Tối Giản)
+
+1. **YAGNI:** Có thật sự cần thiết không? Không -> Bỏ qua.
+2. **Reuse:** Repo đã có chưa? Tái sử dụng từ `packages/*`.
+3. **Stdlib & Native Web/Node API:** Đã có thẻ native / API native chưa? -> Dùng trực tiếp.
+4. **Minimal Diff:** Giải quyết tận gốc vấn đề, giữ diff ngắn gọn, không tạo thêm các lớp trừu tượng thừa thãi.

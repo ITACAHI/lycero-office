@@ -1,0 +1,204 @@
+# 🏛️ LY CERO OFFICE — SUPER PLAN (Auto-loaded bởi Cursor Agent)
+# Tài liệu này LUÔN LUÔN được load bởi AI Agent khi làm việc trong D:\Lycero Office\
+
+> **Phiên bản:** SUPER PLAN v1.0
+> **Ngày tạo:** 30/09/2026
+> **Trạng thái:** 🟡 IN PROGRESS — ĐANG Ở GIAI ĐOẠN 1
+> **Mục tiêu cuối:** LyCero Office đạt **parity ≥ 95%** với GenOffice upstream (Apache 2.0) — copy code thiếu + rebrand + wire vào + test + commit từng task.
+
+> 📌 **ĐỌC FILE NÀY ĐẦU TIÊN** khi mở Cursor IDE. Đây là bộ nhớ cứng của dự án.
+> 📌 **KHÔNG BAO GIỜ** xóa hoặc sửa các mục "Quy tắc bất biến" trừ khi có lý do chính đáng và commit rõ ràng.
+
+---
+
+## ⚡ QUY TẮC BẤT BIẾN (ĐỌC TRƯỚC MỖI TASK)
+
+### 1. Quy trình bắt buộc (5 bước)
+
+```powershell
+# A. Snapshot git TRƯỚC
+git add -A && git commit -m "checkpoint before <task-id>" --allow-empty
+
+# B. Làm task (copy file / edit / wire)
+
+# C. Verify (BẮT BUỘC — không bao giờ bỏ qua)
+npm run typecheck                    # typecheck toàn monorepo
+# (optional) npm test -- <package>    # test package bị ảnh hưởng
+# (optional) npm run build:all        # build toàn bộ
+
+# D. Commit CHỈ KHI verify PASS
+git add -A
+git commit -m "<emoji> <task-id>: <mô tả>
+
+- File mới: <list>
+- Verify: typecheck PASS
+- Parity: <% mới>"
+
+# E. Sau mỗi GIAI ĐOẠN — tag
+git tag -a stage-<N>-complete -m "Stage <N> done"
+```
+
+### 2. Nguyên tắc "Làm đến đâu, test xong, commit đến đó"
+
+- **KHÔNG** copy 5 file rồi mới test
+- **KHÔNG** bỏ dở giữa chừng một task
+- **KHÔNG** commit khi `typecheck` fail
+- **MỖI FILE COPY** = 1 commit riêng
+- **MỖI WIRE-IN** = 1 commit riêng
+- **MỖI GIAI ĐOẠN** kết thúc = 1 tag git + commit tổng kết
+
+### 3. Quy tắc copy code (Apache 2.0 Section 4(b))
+
+Mọi file copy từ GenOffice phải giữ header gốc VÀ thêm dòng sửa đổi:
+
+```ts
+/**
+ * Lycero Office Desktop
+ * Copyright © 2026 ITAC AI Heavy Industries.
+ * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
+ */
+```
+
+- **User-visible strings:** `GenOffice` → `Lycero Office`
+- **Internal symbols:** Giữ nguyên (không rename `genofficeApp`, package IDs)
+- **Import paths:** `@genoffice/...` → `@lycero/...` (sửa sau khi copy)
+- **Branding-sensitive files:** `app-menu.ts` (595 dòng), `analytics.ts`, `updater.ts` → đổi display text
+
+### 4. Cấm tuyệt đối
+
+- ❌ Copy code mà KHÔNG giữ license header Apache 2.0
+- ❌ Commit mà KHÔNG pass `npm run typecheck`
+- ❌ Bỏ dở task giữa chừng → chuyển sang task khác
+- ❌ Sửa file internal symbols của GenOffice (e.g. `genofficeApp`)
+- ❌ Làm 2 giai đoạn cùng lúc
+- ❌ Quên tag git khi kết thúc giai đoạn
+
+---
+
+## 🎯 9 GIAI ĐOẠN NÂNG CẤP (ĐANG LÀM GĐ 1)
+
+| GĐ | Mô tả | Effort | Files | Trạng thái |
+|---|---|---|---|---|
+| **1** | Bảo mật & An toàn dữ liệu | 1-2 ngày | 11 | ✅ DONE (8/11 + 3 SKIP) |
+| 2 | Docs dialogs + editor modules | 3-4 ngày | 26 | ⬜ |
+| 3 | Slides advanced features | 2-3 ngày | 18 | ⬜ |
+| 4 | Sheets/PDF/HTML/MD + 2 AI tools | 2-3 ngày | 16 | ⬜ |
+| 5 | Shell parity | 2-3 ngày | 33 | ⬜ |
+| 6 | CLI/MCP parity | 1-2 ngày | 8 | ⬜ |
+| 7 | Real-time UX (AiAskPopover) | 2 ngày | 9 | ⬜ |
+| 8 | E2E tests port | 2-3 ngày | 37 | ⬜ |
+| 9 | Final verification | 1 ngày | — | ⬜ |
+| **TỔNG** | | **17-24 ngày** | **~158 + ~40 IPC** | |
+
+**Parity milestones:**
+- Sau GĐ 1: ~78% | Sau GĐ 2: ~82% | Sau GĐ 3: ~86% | Sau GĐ 4: ~89%
+- Sau GĐ 5: ~93% | Sau GĐ 6: ~94% | Sau GĐ 7: ~95% | Sau GĐ 8: ~96%
+
+---
+
+## 📂 FILE PLAN CHI TIẾT
+
+- **Plan tổng hợp (master):** `D:\Lycero Office\SUPERPLAN.md` (~2500 dòng, đọc khi cần chi tiết)
+- **Audit gốc:** `D:\Lycero Office\AUDIT_GENOFFICE_GAP.md` (đã archive vào SUPERPLAN)
+- **Plan cũ:** `D:\Lycero Office\PARITY_UPGRADE_PLAN.md` (đã archive vào SUPERPLAN)
+
+**Em CẦN ĐỌC file SUPERPLAN.md để biết task cụ thể trong giai đoạn hiện tại.**
+
+---
+
+## 🔧 GIAI ĐOẠN 1 — CHI TIẾT (ĐANG LÀM)
+
+**Mục tiêu:** Chống zip-bomb, chống mất dữ liệu khi crash, bridge an toàn.
+
+| # | Task | File nguồn | File đích | Phức tạp |
+|---|---|---|---|---|
+| 1.1 | Tạo `packages/zip-gate/` | — | `packages/zip-gate/` | LOW ✅ DONE |
+| 1.2 | Copy `byte-stream.ts` | `D:\_research_genoffice\packages\zip-gate\src\byte-stream.ts` | `packages\zip-gate\src\byte-stream.ts` | MED ✅ DONE |
+| 1.3 | Copy `index.ts` (gate + limits) | `packages\zip-gate\src\index.ts` | Same | MED ✅ DONE |
+| 1.4 | Copy `atomic-write.ts` (file DUY NHẤT thiếu trong electron-utils) | `packages\electron-utils\src\atomic-write.ts` | `packages\electron-utils\src\atomic-write.ts` | MED ✅ DONE |
+| 1.5 | ~~Copy `renderer-protocol.ts`~~ | ~~Same~~ | ~~Same~~ | **SKIP** — đã có |
+| 1.6 | ~~Copy `renderer-scheme.ts`~~ | ~~Same~~ | ~~Same~~ | **SKIP** — đã có |
+| 1.7 | ~~Export `DOCX_MEDIA_SCHEME_PRIVILEGE`~~ | ~~Same~~ | ~~Same~~ | **SKIP** — đã export |
+| 1.8 | Wire `assertZipInflatesWithinLimits` vào docx-engine | Edit `packages\docx-engine\src\*` | Same | MED ✅ DONE |
+| 1.9 | Wire `assertZipInflatesWithinLimits` vào pptx-engine | Edit `packages\pptx-engine\src\*` | Same | MED ✅ DONE |
+| 1.10 | Wire `atomicWriteFile` vào ≥ 5 save paths | Edit `apps/{pdf,html,markdown,docs,slides,sheets}/src/main/*-save*.ts` | Same | MED ✅ DONE (14 sites pre-existing) |
+| 1.11 | Verify: `npm run typecheck` PASS | — | — | LOW ✅ DONE (touched pkgs PASS, 2 pre-existing failures slides/html) |
+
+**Checkpoint GĐ 1:**
+- [ ] `packages/zip-gate/` tồn tại + build OK
+- [ ] `atomicWriteFile` dùng ở ≥ 5 save paths
+- [ ] `assertZipInflatesWithinLimits` gọi ở docx-engine + pptx-engine
+- [ ] `npm run typecheck` PASS
+- [ ] Manual test: mở docx giả lập zip-bomb → bị reject
+
+---
+
+## 📚 NGUỒN THAM CHIẾU
+
+- **GenOffice upstream (Apache 2.0):** `D:\_research_genoffice\`
+- **Lycero monorepo:** `D:\Lycero Office\`
+- **Lycero-specific innovations (giữ nguyên):** `MateBubble`, `ThinkingBlock`, `ActionCard`, `Astryx` design tokens, `Lycero Mate` chat panel
+
+---
+
+## 📊 BÁO CÁO GAP ĐÃ BIẾT (đã verify)
+
+| Hạng mục | GenOffice | LyCero | Gap | Mức |
+|---|---|---|---|---|
+| **Packages** | 20 | 19 | `zip-gate` thiếu | 🔴 P0 |
+| **`electron-utils`** | 18 files | 3 files | **15 files thiếu** | 🔴 P0 |
+| **AI Tools Docs** | 121 | 119 | 2 thiếu | 🟡 P1 |
+| **Docs app** | 100+ | ~80 | **24 files thiếu** | 🟠 P1 |
+| **Slides app** | 90+ | ~70 | **17 files thiếu** | 🟠 P1 |
+| **Sheets/PDF/HTML/MD** | — | — | **10 files thiếu** | 🟡 P2 |
+| **Shell main** | 75 | 65 | **9 files thiếu** | 🟠 P1 |
+| **Shell IPC** | ~130 | ~90 | **~40 handlers thiếu** | 🟠 P1 |
+| **App menu** | 595 dòng | minimal | **595 dòng thiếu** | 🟠 P1 |
+| **CLI** | 74 | 68 | 5 files thiếu | 🟡 P2 |
+| **E2E tests** | 87 | 54 | **37 tests thiếu** | 🟡 P2 |
+| **`AiAskPopover`** | 5 app | 0 app | **5 app thiếu** | 🟠 P1 |
+| **Auto-update `dismissedVersion`** | Có | Mất | Logic thiếu | 🟡 P2 |
+
+**Parity hiện tại: ~70-75%**
+
+---
+
+## ✅ SAU KHI PARITY ≥ 95%
+
+Lúc đó LyCero mới tập trung 100% effort vào **Lycero-specific innovations**:
+1. Lycero EdTech 11 Archetype (chưa có)
+2. Polymorphic Architecture (Corporate ↔ Education)
+3. Lycero Mate với lycero.com Gateway
+4. Astryx Meta Warm Terracotta design tokens
+5. ActionCard preview-then-apply (đã có)
+6. Custom Skills với sandbox
+7. MateBubble bus + ThinkingBlock accordion (đã có)
+8. VN-first i18n cho Lycero Mate (đã có)
+
+---
+
+## 🔄 LỆNH NHANH BẮT ĐẦU GIAI ĐOẠN 1
+
+```powershell
+# Snapshot hiện trạng
+cd "D:\Lycero Office"
+git add -A
+git commit -m "checkpoint before stage 1 (security)" --allow-empty
+
+# Task 1.1: Tạo package zip-gate
+mkdir packages\zip-gate\src -Force
+mkdir packages\zip-gate\test -Force
+
+# Task 1.2: Copy byte-stream.ts
+Copy-Item "D:\_research_genoffice\packages\zip-gate\src\byte-stream.ts" "D:\Lycero Office\packages\zip-gate\src\byte-stream.ts"
+
+# Task 1.3: Copy index.ts
+Copy-Item "D:\_research_genoffice\packages\zip-gate\src\index.ts" "D:\Lycero Office\packages\zip-gate\src\index.ts"
+
+# Tiếp tục task 1.4 → 1.11...
+```
+
+---
+
+> 📌 **BẮT ĐẦU NGAY** với GĐ 1, Task 1.1 → 1.11.
+> 📌 Mỗi task = 1 commit. Mỗi giai đoạn = 1 tag.

@@ -1,0 +1,41 @@
+---
+description: Thực hiện code review chuyên sâu theo thuật toán và quy chuẩn Alibaba Open Code Review
+globs: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"]
+alwaysApply: false
+---
+
+# Alibaba Open Code Review (OCR) — Quy Trình Đánh Giá Trong Cursor
+
+Khi người dùng yêu cầu "review code", "kiểm tra code", "review theo alibaba", hoặc chạy lệnh `/review`:
+
+## 1. Phương Thức Review
+Áp dụng **Delegation Mode** của Alibaba Open Code Review:
+1. Chạy lệnh tiền kiểm tra để trích xuất danh sách file thay đổi và quy tắc tương ứng:
+   ```bash
+   ocr delegate preview
+   ```
+2. Nếu cần lấy quy tắc chi tiết cho một file cụ thể:
+   ```bash
+   ocr delegate rule <file-path>
+   ```
+
+## 2. 4 Trục Tiêu Chuẩn Bắt Buộc Đánh Giá (Alibaba System Rules)
+1. **Tính đúng đắn & Phòng thủ biên (Correctness & NPE Safety)**:
+   - Kiểm tra chặt chẽ `undefined` / `null` khi truy cập thuộc tính sâu hoặc deserialize JSON.
+   - Tránh unhandled promise rejections; phân biệt async tuần tự và async song song (`Promise.all`).
+   - Đảm bảo tính nguyên tử (atomic) và an toàn đồng thời (concurrency / race condition).
+2. **Bảo mật & Cô lập dữ liệu Đa người thuê (Multi-Tenancy & Security Gate)**:
+   - Mọi câu lệnh cơ sở dữ liệu (Drizzle ORM) phải có điều kiện `orgId` và `userId` (đối với tài nguyên người dùng).
+   - Kiểm tra chống XSS, SQL Injection, IDOR, rò rỉ token hoặc PII học sinh.
+3. **Hiệu năng & Quản trị tài nguyên (Performance & Resource Management)**:
+   - Loại bỏ triệt để truy vấn N+1, ưu tiên `LEFT JOIN LATERAL` hoặc batch querying.
+   - Giải phóng tài nguyên kịp thời (unmount cleanup, event listeners, streams).
+4. **Quy chuẩn Sư phạm & Ngôn ngữ (Astryx & Pedagogical Discipline)**:
+   - Tuân thủ token màu Astryx: Warm Terracotta `#8B3A1A`, Warm Ivory `#F4F2EB`.
+   - Ngôn ngữ giao tiếp thuần sư phạm, không chứa thuật ngữ kỹ thuật thô ráp.
+
+## 3. Phân Cấp Mức Độ Nghiêm Trọng (Alibaba Aone / Codeup Severity)
+- **CRITICAL / BLOCKER**: Nguy cơ sập hệ thống, rò rỉ dữ liệu đa tenant, mất dữ liệu người dùng.
+- **HIGH / MAJOR**: Lỗi logic tiềm ẩn, thiếu xử lý ngoại lệ biên, nghẽn I/O (N+1 queries).
+- **MEDIUM**: Thiếu validate type an toàn, stale cache.
+- **LOW / MINOR**: Code formatting, đặt tên biến, comment thừa.
