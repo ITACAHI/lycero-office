@@ -43,14 +43,10 @@ function normalizeHttpsBaseUrl(name, value) {
   }
 }
 
-const updateUrl =
-  process.env.LYCERO_UPDATE_URL || 'https://lycero.com/api/v1/office/updates'
+const updateUrl = process.env.LYCERO_UPDATE_URL || 'https://lycero.com/api/v1/office/updates'
 const ga4MeasurementId = process.env.LYCERO_GA4_MEASUREMENT_ID
 const ga4ApiSecret = process.env.LYCERO_GA4_API_SECRET
-const fontCdnUrl = normalizeHttpsBaseUrl(
-  'LYCERO_FONT_CDN_URL',
-  process.env.LYCERO_FONT_CDN_URL,
-)
+const fontCdnUrl = normalizeHttpsBaseUrl('LYCERO_FONT_CDN_URL', process.env.LYCERO_FONT_CDN_URL)
 
 // LYCERO_MAC_X64=1 — opt into packaging the Intel (x64) dmg/zip alongside
 // arm64. Off by default: Intel packages must only ever ship signed with the
@@ -68,16 +64,14 @@ if (process.env.CSC_KEY_PASSWORD !== undefined && !process.env.CSC_KEY_PASSWORD.
 }
 const hasAppleSignIdentity = Boolean(
   (process.env.CSC_LINK && process.env.CSC_LINK.trim()) ||
-    (process.env.CSC_NAME && process.env.CSC_NAME.trim()),
+  (process.env.CSC_NAME && process.env.CSC_NAME.trim()),
 )
 if (!hasAppleSignIdentity) {
   process.env.CSC_IDENTITY_AUTO_DISCOVERY = 'false'
 }
 const hasAppleNotarizeCreds = Boolean(
-  (process.env.APPLE_ID &&
-    process.env.APPLE_APP_SPECIFIC_PASSWORD &&
-    process.env.APPLE_TEAM_ID) ||
-    process.env.APPLE_KEYCHAIN_PROFILE,
+  (process.env.APPLE_ID && process.env.APPLE_APP_SPECIFIC_PASSWORD && process.env.APPLE_TEAM_ID) ||
+  process.env.APPLE_KEYCHAIN_PROFILE,
 )
 
 // LYCERO_WIN_ARM64=1 — package the Windows ARM64 installer instead of x64.

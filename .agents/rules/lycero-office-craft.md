@@ -33,7 +33,7 @@ Kim chỉ nam bắt buộc cho AI Agent khi lập trình, tái cấu trúc hoặ
 2. **Tệp tin mới tạo:**
    - Luôn gắn header bản quyền của ITAC AI Heavy Industries.
 3. **Chính sách nhãn hiệu (Nominative Fair Use):**
-   - Các từ khóa *"Microsoft"*, *"Word"*, *"Excel"*, *"PowerPoint"* chỉ được sử dụng để mô tả khả năng tương thích định dạng tệp (`.docx`, `.xlsx`, `.pptx`).
+   - Các từ khóa _"Microsoft"_, _"Word"_, _"Excel"_, _"PowerPoint"_ chỉ được sử dụng để mô tả khả năng tương thích định dạng tệp (`.docx`, `.xlsx`, `.pptx`).
 
 ---
 
@@ -75,5 +75,6 @@ Kim chỉ nam bắt buộc cho AI Agent khi lập trình, tái cấu trúc hoặ
 ## 6. Quy Tắc Đánh Số Phiên Bản Đồng Bộ (Lockstep Versioning — Bắt Buộc)
 
 Mọi thay đổi mã nguồn hoặc cấu hình trong repo **BẮT BUỘC** phải tăng số phiên bản (`x.y.z`) đồng bộ 100% trên toàn bộ **37 manifest thành phần** (`package.json`, `apps/*/package.json`, `packages/*/package.json`, `package-lock.json`, `apps/sheets/native/xlsx-engine/Cargo.toml` & `Cargo.lock`, và các file `SKILL.md` cốt lõi):
+
 - Chạy `npm run version:bump` (hoặc `npm run version:minor` / `npm run version:major`) và kiểm chứng bằng `npm run check:version-sync` trước khi hoàn tất task.
 - Tuyệt đối không sửa tay số phiên bản lẻ tẻ ở một module đơn lẻ.

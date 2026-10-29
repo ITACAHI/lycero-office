@@ -109,7 +109,9 @@ export function verifyVersionSync(repoRoot = REPO_ROOT) {
     const lock = JSON.parse(readFileSync(lockPath, 'utf8'))
     checked.push(`package-lock.json (${lock.version})`)
     if (lock.version !== expected) {
-      mismatches.push(`package-lock.json: root version is "${lock.version}", expected "${expected}"`)
+      mismatches.push(
+        `package-lock.json: root version is "${lock.version}", expected "${expected}"`,
+      )
     }
     const rootEntryVer = lock.packages?.['']?.version
     if (rootEntryVer !== expected) {
@@ -178,7 +180,8 @@ export function verifyVersionSync(repoRoot = REPO_ROOT) {
 }
 
 const isMain =
-  process.argv[1] && resolve(process.argv[1]).toLowerCase() === fileURLToPath(import.meta.url).toLowerCase()
+  process.argv[1] &&
+  resolve(process.argv[1]).toLowerCase() === fileURLToPath(import.meta.url).toLowerCase()
 
 if (isMain) {
   const args = process.argv.slice(2)
@@ -221,9 +224,13 @@ if (isMain) {
     for (const msg of mismatches) {
       console.error(`  - ${msg}`)
     }
-    console.error(`\n💡 Run "npm run version:bump" (or "node tools/bump-version.mjs --sync") to synchronize all modules.`)
+    console.error(
+      `\n💡 Run "npm run version:bump" (or "node tools/bump-version.mjs --sync") to synchronize all modules.`,
+    )
     process.exit(1)
   }
 
-  console.log(`✅ Lockstep version check passed: all ${checked.length} component manifests are synchronized at v${expected}.`)
+  console.log(
+    `✅ Lockstep version check passed: all ${checked.length} component manifests are synchronized at v${expected}.`,
+  )
 }

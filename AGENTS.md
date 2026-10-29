@@ -53,7 +53,7 @@ Lycero Office được xây dựng dựa trên nguyên tắc **minh bạch pháp
    - File `NOTICE` và `LICENSE` tại thư mục gốc phải luôn được phân phối kèm mọi bản cài đặt và gói phát hành phần mềm.
    - Xem chi tiết toàn văn tại [LEGAL_AND_IP_COMPLIANCE.md](file:///D:/Lycero%20Office/LEGAL_AND_IP_COMPLIANCE.md).
 3. **Chính sách Nhãn hiệu (Nominative Fair Use):**
-   - Tên gọi *"Microsoft"*, *"Word"*, *"Excel"*, *"PowerPoint"* thuộc bản quyền thương hiệu của Microsoft Corporation. Trong dự án Lycero Office, các tên này chỉ được dùng thuần túy theo nguyên tắc **Sử dụng Định danh Hợp lý (Nominative Fair Use)** để mô tả định dạng tệp tin tương thích (`.docx`, `.xlsx`, `.pptx`).
+   - Tên gọi _"Microsoft"_, _"Word"_, _"Excel"_, _"PowerPoint"_ thuộc bản quyền thương hiệu của Microsoft Corporation. Trong dự án Lycero Office, các tên này chỉ được dùng thuần túy theo nguyên tắc **Sử dụng Định danh Hợp lý (Nominative Fair Use)** để mô tả định dạng tệp tin tương thích (`.docx`, `.xlsx`, `.pptx`).
 
 ---
 
@@ -76,6 +76,7 @@ Giao diện Desktop xây dựng theo ngôn ngữ thiết kế **Astryx từ Meta
 
 "Code tốt nhất là code không cần phải viết."
 Trước khi viết code, dừng lại ở bậc thang đầu tiên thỏa mãn:
+
 1. **YAGNI:** Tính năng hay cấu trúc này có thật sự cần thiết không? Không -> Bỏ qua.
 2. **Reuse:** Repo hoặc package nội bộ đã có chưa? Tái sử dụng từ `packages/*`.
 3. **Stdlib & Native Web/Node API:** Đã có API native (dialog, input, fetch, stream, path, crypto) chưa? -> Dùng trực tiếp, không cài thêm thư viện phụ thuộc ngoài.
@@ -159,7 +160,7 @@ Mọi thay đổi mã nguồn hoặc cấu hình trong **Lycero Office Desktop**
    # Kiểm tra đồng bộ phiên bản toàn bộ 37 thành phần
    npm run check:version-sync
    ```
-   *(Lưu ý: Git hook `.githooks/pre-commit` cũng tự động kích hoạt `node tools/bump-version.mjs --if-unchanged --stage` và `node tools/check-version-sync.mjs --require-bump` để chặn tuyệt đối mọi commit lệch phiên bản).*
+   _(Lưu ý: Git hook `.githooks/pre-commit` cũng tự động kích hoạt `node tools/bump-version.mjs --if-unchanged --stage` và `node tools/check-version-sync.mjs --require-bump` để chặn tuyệt đối mọi commit lệch phiên bản)._
 
 ### 7.2. Quy Trình Kiểm Thử & Biên Dịch
 
@@ -181,9 +182,10 @@ npm test -- packages/ai-provider
 npm run build:all
 ```
 
-
 <!-- AI_CTO_BRIDGE_START -->
+
 ## Quy trình CTO dùng chung
+
 Trước tác vụ kỹ thuật, đọc `D:/Bộ quy trình Dev/AGENTS.md` và nạp skill phù hợp theo định tuyến tại đó.
 Giải quyết liên kết tương đối theo thư mục chứa tài liệu gốc. Bộ quy trình chỉ là tham chiếu; chỉ sửa workspace dự án hiện tại.
 Giữ quy định riêng của dự án; nếu xung đột không giải được, báo rõ và chờ người phụ trách. Nếu cầu nối được nạp từ nhiều file, áp dụng một lần.
