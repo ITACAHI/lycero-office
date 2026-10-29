@@ -71,7 +71,7 @@ export function buildDocWriterRequest(
     ? `\n\n## The user's request\n${spec.instruction.slice(0, 2000)}`
     : ''
   return {
-    system: WRITER_SYSTEM + langDirective,
+    system: `[LYCERO_PIPELINE_STAGE:doc_longform]\n${WRITER_SYSTEM}${langDirective}`,
     user: `## Plan\n${spec.title ? `Title: ${spec.title}\n` : ''}${spec.plan.slice(0, 6000)}${context}${instruction}\n\nWrite the content now.`,
   }
 }

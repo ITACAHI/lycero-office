@@ -43,6 +43,23 @@ export interface IpcStreamStart<S> {
   system: string
   messages: AgentMessage[]
   tools: AgentToolDef[]
+  editorModule?:
+    | 'office_docx'
+    | 'office_sheet'
+    | 'office_slide'
+    | 'office_pdf'
+    | 'office_markdown'
+    | 'office_html'
+    | undefined
+  pipelineStage?:
+    | 'chat'
+    | 'doc_longform'
+    | 'slide_style'
+    | 'slide_outline'
+    | 'slide_page_spec'
+    | 'slide_edit'
+    | 'sheet_formula'
+    | undefined
   activeSkillSlugs?: string[] | undefined
   userSkillConfig?: Record<string, unknown> | undefined
 }
@@ -63,6 +80,19 @@ export interface IpcTransportOptions<S> {
   /** abort the in-flight turn in the main process */
   cancel(requestId: string): void
   getSettings(): S
+  /** Editor module identifier ('office_docx' | 'office_slide' | 'office_sheet' | ...) sent to Lycero Hub */
+  editorModule?:
+    | 'office_docx'
+    | 'office_sheet'
+    | 'office_slide'
+    | 'office_pdf'
+    | 'office_markdown'
+    | 'office_html'
+    | undefined
+  /** Dynamic active skill slugs resolver (merged with request.activeSkillSlugs) */
+  getActiveSkillSlugs?(): string[] | undefined
+  /** Dynamic user skill config resolver (merged with request.userSkillConfig) */
+  getUserSkillConfig?(): Record<string, unknown> | undefined
   /** localized fallback when an error chunk carries no message */
   unknownErrorText(): string
   /** localized message for timeouts (errorCode 'timeout' and the silence watchdog) */
@@ -151,6 +181,15 @@ export function createIpcTransport<S>(options: IpcTransportOptions<S>): AgentTra
       })
       armSilence()
       try {
+        const dynamicSlugs = options.getActiveSkillSlugs?.() ?? []
+        const mergedSlugs = [
+          ...new Set([...(request.activeSkillSlugs ?? []), ...dynamicSlugs].filter(Boolean)),
+        ]
+        const dynamicConfig = options.getUserSkillConfig?.()
+        const mergedConfig =
+          dynamicConfig || request.userSkillConfig
+            ? { ...(dynamicConfig ?? {}), ...(request.userSkillConfig ?? {}) }
+            : undefined
         // a rejected/thrown start would otherwise leave the run pending until the watchdog
         Promise.resolve(
           options.start({
@@ -160,8 +199,14 @@ export function createIpcTransport<S>(options: IpcTransportOptions<S>): AgentTra
             system: request.system,
             messages: request.messages,
             tools: request.tools,
-            activeSkillSlugs: request.activeSkillSlugs,
-            userSkillConfig: request.userSkillConfig,
+            ...(request.editorModule ?? options.editorModule
+              ? { editorModule: request.editorModule ?? options.editorModule }
+              : {}),
+            ...(request.pipelineStage ? { pipelineStage: request.pipelineStage } : {}),
+            ...(mergedSlugs.length > 0 ? { activeSkillSlugs: mergedSlugs } : {}),
+            ...(mergedConfig && Object.keys(mergedConfig).length > 0
+              ? { userSkillConfig: mergedConfig }
+              : {}),
           }),
         ).catch((err: unknown) => {
           fail(err instanceof Error ? err.message : options.unknownErrorText())

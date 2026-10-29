@@ -239,6 +239,10 @@ export function registerAiIpc(): void {
       let stopReason: string | undefined
       await streamForProvider(provider, config, system, messages, tools, maxTokens, {
         ...(request.sessionId ? { sessionId: request.sessionId } : {}),
+        editorModule: request.editorModule ?? 'office_slide',
+        ...(request.pipelineStage ? { pipelineStage: request.pipelineStage } : {}),
+        ...(request.activeSkillSlugs ? { activeSkillSlugs: request.activeSkillSlugs } : {}),
+        ...(request.userSkillConfig ? { userSkillConfig: request.userSkillConfig } : {}),
         signal: controller.signal,
         onDelta: (text) => {
           trace?.onDelta(text)
@@ -364,13 +368,19 @@ export function registerSlidesOnlyAiIpc(): void {
           referenceImageUrls: Array.isArray(op.referenceImageUrls)
             ? op.referenceImageUrls.map(String)
             : undefined,
-          aspectRatio: op.aspectRatio ? String(op.aspectRatio) : undefined,
+          aspectRatio: op.aspectRatio ? String(op.aspectRatio) : '16:9',
           imageSize: op.imageSize ? String(op.imageSize) : undefined,
           transparentBackground: op.transparentBackground === true,
+          contextType: /\b(cover|hero|title slide|trang bìa)\b/i.test(String(op.prompt ?? ''))
+            ? 'slide_cover'
+            : 'slide_content',
+          enhancePrompt: true,
         },
         {
           notLoggedInError: tm('errGskCli'),
           mediaRoots: slidesMediaRoots(event.sender.id),
+          contextType: 'slide_content',
+          defaultAspectRatio: '16:9',
         },
       )
     },

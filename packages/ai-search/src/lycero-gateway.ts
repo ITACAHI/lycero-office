@@ -169,6 +169,12 @@ export function parseLyceroImageSearch(
 
 // ── Image generation ─────────────────────────────────────────────────
 
+export type LyceroImageContextType =
+  | "slide_cover"
+  | "slide_content"
+  | "doc_illustration"
+  | "general"
+
 export interface LyceroGenerateImageOptions {
   prompt: string
   model?: string | undefined
@@ -176,6 +182,8 @@ export interface LyceroGenerateImageOptions {
   aspectRatio?: string | undefined
   imageSize?: string | undefined
   transparentBackground?: boolean | undefined
+  contextType?: LyceroImageContextType | undefined
+  enhancePrompt?: boolean | undefined
 }
 
 export interface LyceroGeneratedImage {
@@ -192,6 +200,19 @@ export async function lyceroGenerateImage(
   const timer = setTimeout(() => controller.abort(), GENERATE_TIMEOUT_MS)
   const onAbort = () => controller.abort()
   signal?.addEventListener("abort", onAbort, { once: true })
+  const aspectRatio =
+    options.aspectRatio ||
+    (options.contextType === "doc_illustration" ? "4:3" : "16:9")
+  const contextType: LyceroImageContextType =
+    options.contextType ??
+    (aspectRatio === "16:9"
+      ? /\b(cover|hero|title slide|trang bìa)\b/i.test(options.prompt)
+        ? "slide_cover"
+        : "slide_content"
+      : aspectRatio === "4:3" || aspectRatio === "1:1"
+        ? "doc_illustration"
+        : "general")
+  const enhancePrompt = options.enhancePrompt ?? true
   try {
     const data = await gatewayFetch<{ data?: unknown }>(
       "/image-gen",
@@ -201,9 +222,11 @@ export async function lyceroGenerateImage(
           prompt: options.prompt,
           model: options.model,
           reference_image_urls: options.referenceImageUrls,
-          aspect_ratio: options.aspectRatio,
+          aspect_ratio: aspectRatio,
           image_size: options.imageSize,
           transparent_background: options.transparentBackground,
+          context_type: contextType,
+          enhance_prompt: enhancePrompt,
         }),
       },
       GENERATE_TIMEOUT_MS,

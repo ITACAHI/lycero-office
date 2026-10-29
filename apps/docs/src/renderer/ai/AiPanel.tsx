@@ -23,7 +23,10 @@ import type { Editor } from '@tiptap/core'
 import type { Block } from '@lycero/docx-engine'
 import {
   AgentLoop,
+  CloudCapabilitiesManager,
+  CloudToolDispatcher,
   composeSkills,
+  createCloudProxySkill,
   withAttachedSkills,
   createKnowledgeBaseSkill,
   streamText,
@@ -602,6 +605,34 @@ export function AiPanel({
   attachmentsRef.current = attachments
   const attachedSkillsRef = useRef(attachedSkills)
   attachedSkillsRef.current = attachedSkills
+  const lastSentSkillsRef = useRef<string[]>([])
+  const cloudCapabilitiesRef = useRef<CloudCapabilitiesManager | null>(null)
+  if (!cloudCapabilitiesRef.current) {
+    cloudCapabilitiesRef.current = new CloudCapabilitiesManager()
+  }
+  const cloudDispatcherRef = useRef<CloudToolDispatcher | null>(null)
+  if (!cloudDispatcherRef.current) {
+    cloudDispatcherRef.current = new CloudToolDispatcher({
+      getAccessToken: () => settingsRef.current?.providers?.lycero?.apiKey || undefined,
+    })
+  }
+  useEffect(() => {
+    void cloudCapabilitiesRef.current?.syncCapabilities({
+      token: settingsRef.current?.providers?.lycero?.apiKey || undefined,
+    })
+  }, [])
+  const getActiveSkillSlugs = () => [
+    ...new Set(
+      [
+        ...attachedSkillsRef.current,
+        ...lastSentSkillsRef.current,
+        ...(cloudCapabilitiesRef.current?.getActiveSkillSlugs() ?? []),
+      ].filter(Boolean),
+    ),
+  ]
+  const getUserSkillConfig = () =>
+    (cloudCapabilitiesRef.current?.getUserSkillConfig() as Record<string, unknown> | undefined) ??
+    undefined
   /** attachments consumed by the most recent send — retry resends the same set */
   const lastAttachmentsRef = useRef<AttachmentMeta[]>([])
   /** the scope quote of the last send, so a retry reuses it instead of re-reading the live selection */
@@ -775,7 +806,10 @@ export function AiPanel({
 
   const transportRef = useRef<ReturnType<typeof createElectronTransport> | null>(null)
   if (!transportRef.current)
-    transportRef.current = createElectronTransport(() => settingsRef.current)
+    transportRef.current = createElectronTransport(() => settingsRef.current, {
+      getActiveSkillSlugs,
+      getUserSkillConfig,
+    })
 
   /**
    * Long-form writing: one tool-less request whose reply is the fragment, streamed
@@ -868,6 +902,8 @@ export function AiPanel({
     loopRef.current = new AgentLoop<PmNode>({
       transport: transportRef.current,
       systemSuffix: aiLangDirective,
+      activeSkillSlugs: getActiveSkillSlugs,
+      userSkillConfig: getUserSkillConfig,
       skill: composeSkills('docs+files+skills', '', [
         // the reader's starred files; empty while the user stars nothing —
         // buildContext then returns '' and the skill stays out of the way.
@@ -899,6 +935,11 @@ export function AiPanel({
         ),
         createFilesSkill(availableAttachments),
         createSkillsSkill(),
+        createCloudProxySkill({
+          skills: () => [...(cloudCapabilitiesRef.current?.getSkills() ?? [])],
+          endpoints: () => [...(cloudCapabilitiesRef.current?.getMcpEndpoints() ?? [])],
+          dispatcher: cloudDispatcherRef.current!,
+        }),
       ]),
       captureSnapshot: () => editorRef.current.getJSON() as PmNode,
       events: {
@@ -1270,6 +1311,7 @@ export function AiPanel({
     lastAttachmentsRef.current = sentAtts
     // skills ride with this one message only: the chips clear like attachments do
     const sentSkills = attachSkills ? attachedSkillsRef.current : []
+    lastSentSkillsRef.current = sentSkills
     if (sentSkills.length > 0) setAttachedSkills([])
     // the queue batch and the continue action carry their own display text: no selection quote
     const scope =
@@ -1340,11 +1382,15 @@ export function AiPanel({
   /** the attached skills' full text in front of the request; a skill that vanished is skipped */
   const withSkillBodies = async (instruction: string, names: readonly string[]) => {
     if (names.length === 0) return instruction
+    const cloudSkills = cloudCapabilitiesRef.current?.getSkills() ?? []
     const bodies = await Promise.all(
       names.map(async (name) => {
         try {
           return { name, body: await window.desktop.skillText(name) }
         } catch {
+          if (cloudSkills.some((s) => s.slug === name)) {
+            return { name, body: `[LYCERO_CLOUD_SKILL:${name}]` }
+          }
           return null
         }
       }),
@@ -1355,12 +1401,26 @@ export function AiPanel({
     )
   }
 
-  const listSkillsForMenu = async () =>
-    (await window.desktop.skillsList()).map(({ name, description }) => ({ name, description }))
+  const listSkillsForMenu = async () => {
+    const local = (await window.desktop.skillsList()).map(({ name, description }) => ({
+      name,
+      description,
+    }))
+    const seen = new Set(local.map((s) => s.name))
+    for (const cs of cloudCapabilitiesRef.current?.getSkills() ?? []) {
+      if (!seen.has(cs.slug)) {
+        seen.add(cs.slug)
+        local.push({ name: cs.slug, description: cs.description || cs.name })
+      }
+    }
+    return local
+  }
   const toggleSkill = (name: string) =>
-    setAttachedSkills((prev) =>
-      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
-    )
+    setAttachedSkills((prev) => {
+      const next = prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
+      void cloudCapabilitiesRef.current?.setSkillActive(name, next.includes(name))
+      return next
+    })
 
   const cancel = () => {
     msgQueue.hold()

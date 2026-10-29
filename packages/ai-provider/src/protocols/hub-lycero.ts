@@ -8,7 +8,8 @@ import { AiQuotaExhaustedError } from '../quota-error'
 import { aiFetch } from '../fetch'
 import { PiiTokenizer } from '../pii-tokenizer'
 import { compactOutboundAgentTurn } from '../token-compactor'
-import { sseLines, type StreamCallbacks } from './shared'
+import type { LyceroEditorModule, LyceroPipelineStage } from '../types'
+import { resolveLyceroGatewayContext, sseLines, type StreamCallbacks } from './shared'
 import type { AgentMessage, AgentToolDef } from '@lycero/agent-core'
 
 interface HubFinishPayload {
@@ -131,6 +132,8 @@ export interface StreamHubChatParams {
   messages: AgentMessage[]
   tools: AgentToolDef[]
   cb: StreamCallbacks
+  editorModule?: LyceroEditorModule | undefined
+  pipelineStage?: LyceroPipelineStage | undefined
   activeSkillSlugs?: string[] | undefined
   userSkillConfig?: Record<string, unknown> | undefined
   enablePiiMasking?: boolean | undefined
@@ -146,6 +149,8 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
     messages,
     tools,
     cb,
+    editorModule,
+    pipelineStage,
     activeSkillSlugs,
     userSkillConfig,
     enablePiiMasking = true,
@@ -166,6 +171,16 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
   // Tier-1 Client Pre-Flight Token Compaction (Delta Deduplication + AST Viewport Slicing)
   const clientCompaction = compactOutboundAgentTurn(messages)
   const outboundMessages = buildMessages(system, clientCompaction.messages, maskText)
+  const lyceroCtx = resolveLyceroGatewayContext({
+    baseUrl: url,
+    system,
+    messages: clientCompaction.messages,
+    editorModule: editorModule ?? cb.editorModule,
+    pipelineStage: pipelineStage ?? cb.pipelineStage,
+    activeSkillSlugs: activeSkillSlugs ?? cb.activeSkillSlugs,
+    userSkillConfig: userSkillConfig ?? cb.userSkillConfig,
+    forceLyceroHeaders: true,
+  })
 
   const response = await aiFetch(`${url.replace(/\/$/, '')}/ai/chat`, {
     method: 'POST',
@@ -177,12 +192,12 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
       Cookie: `auth_token=${accessToken}`,
       'X-Agent-Type': 'lycero-office',
       'X-Lycero-Client-Compaction': clientCompaction.headerJson,
+      ...lyceroCtx.headers,
     },
     body: JSON.stringify({
       productCode: 'office',
       modelId,
-      ...(activeSkillSlugs && activeSkillSlugs.length > 0 ? { activeSkillSlugs } : {}),
-      ...(userSkillConfig && Object.keys(userSkillConfig).length > 0 ? { userSkillConfig } : {}),
+      ...lyceroCtx.bodyExtras,
       messages: outboundMessages,
       ...(tools.length > 0
         ? {

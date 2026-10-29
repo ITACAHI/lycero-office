@@ -555,8 +555,9 @@ describe('search-tools', () => {
   it('maps the settings block onto SearchOptions', () => {
     const base = defaultAiSettings()
     expect(searchOptionsFromSettings(base)).toEqual({ useGsk: true })
-    expect(searchOptionsFromSettings({ ...base, gskToolsEnabled: false })).toEqual({
+    expect(searchOptionsFromSettings({ ...base, lycToolsEnabled: false })).toEqual({
       useGsk: false,
+      useLycero: false,
     })
     const serper = {
       ...base,

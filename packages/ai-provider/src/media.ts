@@ -376,3 +376,44 @@ export function videoAnalysisAvailable(
 ): boolean {
   return capabilityAvailable(settings, gskLoggedIn, 'video')
 }
+
+export type LyceroImageContextType =
+  | 'slide_cover'
+  | 'slide_content'
+  | 'doc_illustration'
+  | 'general'
+
+export interface LyceroImageArtDirectorPayload {
+  prompt: string
+  aspect_ratio: '1:1' | '16:9' | '9:16' | '4:3' | '3:4'
+  context_type: LyceroImageContextType
+  enhance_prompt: boolean
+}
+
+/**
+ * Build standard payload for `POST /api/v1/office/ai/image-gen` so Cloud Image
+ * Art Director (`lycero-visual-director`) can enhance the prompt, strip broken
+ * text, and enforce cohesive color palettes.
+ */
+export function buildLyceroImageArtDirectorPayload(input: {
+  prompt: string
+  aspectRatio?: '1:1' | '16:9' | '9:16' | '4:3' | '3:4'
+  contextType?: LyceroImageContextType
+  editorModule?: 'office_slide' | 'office_docx' | string
+  enhancePrompt?: boolean
+}): LyceroImageArtDirectorPayload {
+  const defaultAspect = input.editorModule === 'office_slide' ? '16:9' : '4:3'
+  const defaultContext: LyceroImageContextType =
+    input.editorModule === 'office_slide'
+      ? 'slide_content'
+      : input.editorModule === 'office_docx'
+        ? 'doc_illustration'
+        : 'general'
+
+  return {
+    prompt: input.prompt,
+    aspect_ratio: input.aspectRatio ?? defaultAspect,
+    context_type: input.contextType ?? defaultContext,
+    enhance_prompt: input.enhancePrompt ?? true,
+  }
+}

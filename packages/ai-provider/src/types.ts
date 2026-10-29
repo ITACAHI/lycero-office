@@ -293,10 +293,31 @@ export interface LegacyAiSettings {
   model?: string
 }
 
+export type LyceroEditorModule =
+  | 'office_docx'
+  | 'office_sheet'
+  | 'office_slide'
+  | 'office_pdf'
+  | 'office_markdown'
+  | 'office_html'
+
+export type LyceroPipelineStage =
+  | 'chat'
+  | 'doc_longform'
+  | 'slide_style'
+  | 'slide_outline'
+  | 'slide_page_spec'
+  | 'slide_edit'
+  | 'sheet_formula'
+
 export interface AiChatRequest {
   settings: AiSettings
   system: string
   user: string
+  editorModule?: LyceroEditorModule | undefined
+  pipelineStage?: LyceroPipelineStage | undefined
+  activeSkillSlugs?: string[] | undefined
+  userSkillConfig?: Record<string, unknown> | undefined
 }
 
 export interface AiChatResponse {
@@ -314,6 +335,8 @@ export interface AiStreamRequest {
   messages: AgentMessage[]
   tools?: AgentToolDef[]
   maxTokens?: number
+  editorModule?: LyceroEditorModule | undefined
+  pipelineStage?: LyceroPipelineStage | undefined
   activeSkillSlugs?: string[] | undefined
   userSkillConfig?: Record<string, unknown> | undefined
 }

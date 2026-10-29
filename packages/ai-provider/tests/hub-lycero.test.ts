@@ -377,4 +377,43 @@ describe('streamHubChat SSE parser', () => {
     })
     expect(cb.onStopReason).toHaveBeenCalledWith('tool_use')
   })
+
+  it('forwards X-Lycero-Editor-Module, X-Lycero-Pipeline-Stage, X-Lycero-Active-Skills headers and JSON body metadata', async () => {
+    const body = makeBody(['data: {"type":"finish"}'])
+    const fetchMock = mockFetch(body)
+    const cb = makeCallbacks({
+      signal: controller.signal,
+      editorModule: 'office_slide',
+      activeSkillSlugs: ['pedagogical-lesson-plan'],
+      userSkillConfig: { 'pedagogical-lesson-plan': { detail_level: 'extended' } },
+    })
+
+    await streamHubChat({
+      url: 'https://hub.lycero.com/api/v1/office',
+      modelId: 'lycero-mate-pro',
+      system: '[LYCERO_PIPELINE_STAGE:slide_page_spec]\nGenerate a 1280x720 page spec.',
+      messages: [
+        {
+          role: 'user',
+          text: '<skill name="vn-legal-nd30">\n[LYCERO_CLOUD_SKILL:vn-legal-nd30]\n</skill>\nThiết kế trang bìa.',
+        },
+      ],
+      tools: [],
+      cb,
+    })
+
+    const [, init] = fetchMock.mock.calls[0]!
+    const headers = init.headers as Record<string, string>
+    expect(headers['X-Lycero-Editor-Module']).toBe('office_slide')
+    expect(headers['X-Lycero-Pipeline-Stage']).toBe('slide_page_spec')
+    expect(headers['X-Lycero-Active-Skills']).toBe('pedagogical-lesson-plan,vn-legal-nd30')
+
+    const reqBody = JSON.parse(init.body as string)
+    expect(reqBody.editorModule).toBe('office_slide')
+    expect(reqBody.pipelineStage).toBe('slide_page_spec')
+    expect(reqBody.activeSkillSlugs).toEqual(['pedagogical-lesson-plan', 'vn-legal-nd30'])
+    expect(reqBody.userSkillConfig).toEqual({
+      'pedagogical-lesson-plan': { detail_level: 'extended' },
+    })
+  })
 })

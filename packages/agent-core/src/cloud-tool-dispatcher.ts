@@ -106,34 +106,127 @@ export class CloudToolDispatcher {
 }
 
 /**
+ * Local editor tools that always take precedence over Cloud Proxy tools so
+ * `composeSkills(...)` never hits a duplicate tool name collision.
+ */
+export const LOCAL_EDITOR_TOOL_NAMES: ReadonlySet<string> = new Set([
+  // Docs local tools
+  'write_document',
+  'replace_blocks',
+  'insert_blocks',
+  'delete_blocks',
+  'format_blocks',
+  'read_document',
+  'search_document',
+  'read_blocks',
+  'find_replace',
+  'format_text',
+  'insert_table',
+  'edit_table',
+  'add_comment',
+  'reply_comment',
+  'resolve_comment',
+  'read_comments',
+  'set_header_footer',
+  'set_page_setup',
+  'insert_section_break',
+  'define_style',
+  'apply_style',
+  'set_watermark',
+  'insert_footnote',
+  'insert_endnote',
+  'delete_note',
+  'read_notes',
+  'build_mindmap',
+  // Slides local tools
+  'propose_operations',
+  'generate_deck',
+  'inspect_slide',
+  'edit_slide',
+  'apply_slide_ops',
+  'regenerate_slide',
+  'ask_clarification',
+  'save_style_template',
+  'list_style_templates',
+  'load_style_template',
+  // Sheets local tools
+  'read_sheet',
+  'write_cells',
+  'set_formula',
+  'format_cells',
+  'insert_rows_cols',
+  'delete_rows_cols',
+  // Shared attachments / KB / CLI / Media tools
+  'read_attachment',
+  'list_attachments',
+  'create_document',
+  'run_cli',
+  'load_guide',
+  'run_genoffice',
+  'web_search',
+  'image_search',
+  'generate_image',
+  'analyze_media',
+  'kb_list',
+  'kb_search',
+  'kb_read',
+])
+
+/**
  * Creates an AgentSkill that routes cloud-defined tools through the Cloud Proxy Dispatcher.
+ * Deduplicates against local editor tools so local tools always take precedence.
  */
 export function createCloudProxySkill(options: {
   id?: string
-  skills?: CloudSkillManifest[]
-  endpoints?: CloudMcpEndpoint[]
+  skills?: CloudSkillManifest[] | (() => CloudSkillManifest[])
+  endpoints?: CloudMcpEndpoint[] | (() => CloudMcpEndpoint[])
+  excludeToolNames?: Iterable<string> | (() => Iterable<string>)
   dispatcher: CloudToolDispatcher
 }): AgentSkill {
-  const toolToServerMap = new Map<string, string>()
-  const tools: AgentToolDef[] = []
+  const resolveSkills = (): CloudSkillManifest[] =>
+    typeof options.skills === 'function' ? options.skills() : (options.skills ?? [])
+  const resolveEndpoints = (): CloudMcpEndpoint[] =>
+    typeof options.endpoints === 'function' ? options.endpoints() : (options.endpoints ?? [])
+  const resolveExcluded = (): Set<string> => {
+    const excluded = new Set<string>(LOCAL_EDITOR_TOOL_NAMES)
+    const extra =
+      typeof options.excludeToolNames === 'function'
+        ? options.excludeToolNames()
+        : options.excludeToolNames
+    if (extra) {
+      for (const name of extra) excluded.add(name)
+    }
+    return excluded
+  }
 
-  if (options.skills) {
-    for (const skill of options.skills) {
+  const buildCatalog = (): {
+    tools: AgentToolDef[]
+    toolToServerMap: Map<string, string>
+  } => {
+    const excluded = resolveExcluded()
+    const seen = new Set<string>()
+    const toolToServerMap = new Map<string, string>()
+    const tools: AgentToolDef[] = []
+
+    for (const skill of resolveSkills()) {
       if (!skill.tools) continue
       for (const t of skill.tools) {
+        if (!t?.name || excluded.has(t.name) || seen.has(t.name)) continue
+        seen.add(t.name)
         toolToServerMap.set(t.name, skill.slug)
         tools.push({
           name: t.name,
           description: t.description,
-          inputSchema: t.inputSchema,
+          inputSchema: t.inputSchema || { type: 'object', properties: {} },
         })
       }
     }
-  }
 
-  if (options.endpoints) {
-    for (const ep of options.endpoints) {
+    for (const ep of resolveEndpoints()) {
+      if (!ep?.tools) continue
       for (const t of ep.tools) {
+        if (!t?.name || excluded.has(t.name) || seen.has(t.name)) continue
+        seen.add(t.name)
         toolToServerMap.set(t.name, ep.serverKey)
         tools.push({
           name: t.name,
@@ -142,17 +235,23 @@ export function createCloudProxySkill(options: {
         })
       }
     }
+
+    return { tools, toolToServerMap }
   }
 
   return {
     id: options.id || 'lycero-cloud-proxy',
     systemPrompt: '', // Opaque Manifest: Prompts are managed entirely on the Cloud Gateway
-    tools,
+    get tools() {
+      return buildCatalog().tools
+    },
     buildContext: () => {
+      const { tools } = buildCatalog()
       if (tools.length === 0) return ''
       return `[Cổng Công cụ Đám mây Lycero: ${tools.length} công cụ sẵn sàng]`
     },
     executeTool: async (call: AgentToolCall, signal?: AbortSignal): Promise<ToolExecution> => {
+      const { toolToServerMap } = buildCatalog()
       const serverKey = toolToServerMap.get(call.name) || 'default'
       return options.dispatcher.executeTool(
         {

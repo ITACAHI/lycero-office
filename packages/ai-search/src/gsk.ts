@@ -28,7 +28,16 @@ import {
   type ImageSearchResult,
   type WebSearchResult,
 } from './shared'
-import { getLyceroUserInfo, lyceroApiKey } from './lycero-auth'
+import {
+  GskAuthError,
+  getLyceroUserInfo,
+  isGskUnauthorizedText,
+  lyceroApiKey,
+  noteGskCallFailure,
+  noteGskKeyRejected,
+  resetGskRejectedKeys,
+  watchGskApiKey,
+} from './lycero-auth'
 import {
   lyceroAnalyzeMedia,
   lyceroGenerateImage,
@@ -36,6 +45,15 @@ import {
   lyceroTranscribe,
   lyceroWebSearch,
 } from './lycero-gateway'
+
+export {
+  GskAuthError,
+  isGskUnauthorizedText,
+  noteGskCallFailure,
+  noteGskKeyRejected,
+  resetGskRejectedKeys,
+  watchGskApiKey,
+}
 
 const SEARCH_TIMEOUT_MS = 60_000
 const GENERATE_TIMEOUT_MS = 600_000
@@ -233,6 +251,10 @@ export interface GskGenerateImageOptions {
   aspectRatio?: string
   /** auto | 0.5k | 1k | 2k | 3k | 4k */
   imageSize?: string
+  /** Context type for Cloud Image Art Director (`lycero-visual-director`) */
+  contextType?: 'slide_cover' | 'slide_content' | 'doc_illustration' | 'general'
+  /** Whether Cloud Image Art Director should enhance the prompt (defaults to true) */
+  enhancePrompt?: boolean
   signal?: AbortSignal
 }
 

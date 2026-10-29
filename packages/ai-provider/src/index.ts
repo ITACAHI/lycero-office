@@ -29,6 +29,8 @@ export type {
   AiStreamRequest,
   AiTokenUsage,
   LyceroAccountStatus,
+  LyceroEditorModule,
+  LyceroPipelineStage,
   GenSparkAccountStatus,
   LegacyAiSettings,
 } from './types'
@@ -75,6 +77,7 @@ export {
   OPENAI_IMAGES_BASE_URL,
   activeMediaConfig,
   activeMediaProvider,
+  buildLyceroImageArtDirectorPayload,
   defaultAiMediaSettings,
   getMediaProviderMeta,
   imageGenerationAvailable,
@@ -84,7 +87,11 @@ export {
   resolveAiMediaSettings,
   videoAnalysisAvailable,
 } from './media'
-export type { MediaCapability } from './media'
+export type {
+  LyceroImageArtDirectorPayload,
+  LyceroImageContextType,
+  MediaCapability,
+} from './media'
 export {
   AI_SEARCH_PROVIDERS,
   activeSearchProvider,

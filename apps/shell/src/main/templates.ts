@@ -2,16 +2,132 @@
  * Lycero Office Desktop
  * Copyright © 2026 ITAC AI Heavy Industries. All rights reserved.
  */
-import { writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
+import { app } from 'electron'
 import { sheetCsvToXlsxBuffer } from '@lycero/xlsx-gateway/gateway/csv-import'
 import { createBlankPptx } from '@lycero/pptx-engine'
+import { buildDeckPptx, parseDeckSpec, type DeckSpec } from '@lycero/pipelines/slides'
+import { HeuristicMetrics } from '@lycero/pptx-render'
 
 export interface TemplateResult {
   kind: 'docs-ai-content' | 'file-on-disk'
   title: string
   html?: string
   filePath?: string
+}
+
+export interface CloudTemplateEntry {
+  id: string
+  slug?: string
+  title: string
+  description?: string
+  category?: string
+  format?: 'docx' | 'xlsx' | 'pptx'
+  version?: string
+  updatedAt?: string
+  content?: string | Record<string, unknown>
+  html?: string
+  csv?: string
+  slideSpec?: string | Record<string, unknown>
+}
+
+let memoryTemplatesCache: CloudTemplateEntry[] | null = null
+
+export function resetCloudTemplatesCache(): void {
+  memoryTemplatesCache = null
+}
+
+function resolveTemplatesCachePath(): string {
+  if (process.env.LYCERO_TEMPLATES_CACHE_DIR) {
+    return join(process.env.LYCERO_TEMPLATES_CACHE_DIR, 'cloud-templates-cache.json')
+  }
+  try {
+    if (app && typeof app.getPath === 'function') {
+      return join(app.getPath('userData'), 'cloud-templates-cache.json')
+    }
+  } catch {
+    // Fallback when running outside Electron main ready lifecycle (e.g. unit tests)
+  }
+  return join(tmpdir(), 'lycero-office-cloud-templates-cache.json')
+}
+
+function readCachedCloudTemplates(): CloudTemplateEntry[] {
+  if (memoryTemplatesCache) return memoryTemplatesCache
+  const cachePath = resolveTemplatesCachePath()
+  try {
+    if (existsSync(cachePath)) {
+      const raw = JSON.parse(readFileSync(cachePath, 'utf-8')) as {
+        templates?: CloudTemplateEntry[]
+      }
+      if (Array.isArray(raw?.templates)) {
+        memoryTemplatesCache = raw.templates
+        return raw.templates
+      }
+    }
+  } catch {
+    // Ignore corrupted cache file
+  }
+  return []
+}
+
+function writeCachedCloudTemplates(templates: CloudTemplateEntry[]): void {
+  memoryTemplatesCache = templates
+  const cachePath = resolveTemplatesCachePath()
+  try {
+    mkdirSync(dirname(cachePath), { recursive: true })
+    writeFileSync(
+      cachePath,
+      JSON.stringify({ updatedAt: new Date().toISOString(), templates }, null, 2),
+      'utf-8',
+    )
+  } catch {
+    // Best-effort disk cache
+  }
+}
+
+/**
+ * Synchronize template registry from Lycero Web Server (`GET /api/v1/office/templates`).
+ * Caches locally to `userData/cloud-templates-cache.json` and falls back smoothly when offline.
+ */
+export async function fetchCloudTemplates(gatewayUrl?: string): Promise<CloudTemplateEntry[]> {
+  const baseUrl = (
+    gatewayUrl ||
+    process.env.LYCERO_GATEWAY_URL ||
+    process.env.LYCERO_BASE_URL ||
+    'https://lycero.com'
+  ).replace(/\/$/, '')
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 5_000)
+  try {
+    const res = await fetch(`${baseUrl}/api/v1/office/templates`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    })
+    if (!res.ok) return readCachedCloudTemplates()
+    const data = (await res.json()) as
+      | { templates?: CloudTemplateEntry[]; data?: CloudTemplateEntry[] }
+      | CloudTemplateEntry[]
+    const list = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.templates)
+        ? data.templates
+        : Array.isArray(data?.data)
+          ? data.data
+          : []
+    if (list.length > 0) {
+      writeCachedCloudTemplates(list)
+      return list
+    }
+    return readCachedCloudTemplates()
+  } catch {
+    return readCachedCloudTemplates()
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 export function buildKhbd5512Html(): { title: string; html: string } {
@@ -719,12 +835,1575 @@ export function buildResearchProposalHtml(): { title: string; html: string } {
   return { title, html }
 }
 
-// ── BỘ ĐIỀU PHỐI TẠO MẪU ĐA HÌNH ──────────────────────────────────────────
+// ── 10. Mẫu Công Văn / Tờ Trình Chuẩn Nghị Định 30/2020/NĐ-CP ──────────────
+export function buildOfficialDispatchNd30Html(): { title: string; html: string } {
+  const title = 'Công văn / Tờ trình chuẩn Nghị định 30/2020/NĐ-CP'
+  const html = `
+    <div style="font-family: 'Times New Roman', 'Be Vietnam Pro', serif; line-height: 1.5; color: #1C1B18; font-size: 13pt;">
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 18px; border: none;">
+        <tr>
+          <td style="width: 42%; text-align: center; vertical-align: top; border: none;">
+            <span style="font-size: 12pt; text-transform: uppercase;">CƠ QUAN CHỦ QUẢN CẤP TRÊN</span><br/>
+            <strong style="font-size: 12.5pt; text-transform: uppercase;">TÊN CƠ QUAN, TỔ CHỨC BAN HÀNH</strong><br/>
+            <span style="font-size: 11pt;">───────────</span><br/>
+            <span style="font-size: 12pt;">Số: ....../TTr-............</span>
+          </td>
+          <td style="width: 58%; text-align: center; vertical-align: top; border: none;">
+            <strong style="font-size: 12.5pt; text-transform: uppercase;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong><br/>
+            <strong style="font-size: 13pt;">Độc lập - Tự do - Hạnh phúc</strong><br/>
+            <span style="font-size: 11pt;">───────────────────</span><br/>
+            <em style="font-size: 12.5pt;">Hà Nội, ngày ..... tháng ..... năm 2026</em>
+          </td>
+        </tr>
+      </table>
+
+      <h1 style="text-align: center; font-size: 15pt; text-transform: uppercase; margin-top: 16px; margin-bottom: 4px; color: #1C1B18;">
+        TỜ TRÌNH
+      </h1>
+      <p style="text-align: center; font-size: 13pt; font-weight: bold; margin-top: 0; margin-bottom: 18px;">
+        Về việc phê duyệt Kế hoạch chuyển đổi số và triển khai nền tảng trí tuệ nhân tạo năm 2026
+      </p>
+
+      <p style="text-align: center; margin-bottom: 18px;">
+        <strong>Kính gửi:</strong> Ban Giám đốc / Hội đồng Quản trị ....................................................
+      </p>
+
+      <h2 style="font-size: 13pt; font-weight: bold; margin-top: 14px; margin-bottom: 6px;">
+        I. CĂN CỨ PHÁP LÝ VÀ SỰ CẦN THIẾT
+      </h2>
+      <p style="text-align: justify; text-indent: 1.27cm; margin-bottom: 8px;">
+        Căn cứ Nghị định số 30/2020/NĐ-CP ngày 05 tháng 3 năm 2020 của Chính phủ về công tác văn thư;
+      </p>
+      <p style="text-align: justify; text-indent: 1.27cm; margin-bottom: 8px;">
+        Căn cứ Quyết định số ....../QĐ-...... ngày ...../...../2026 về Chiến lược phát triển và tối ưu hóa vận hành của đơn vị giai đoạn 2026 - 2030;
+      </p>
+      <p style="text-align: justify; text-indent: 1.27cm; margin-bottom: 12px;">
+        Nhằm nâng cao năng suất xử lý hồ sơ, chuẩn hóa quy trình văn bản định chế và giảm 45% thời gian tổng hợp báo cáo định kỳ, Phòng/Ban ........................ kính trình Ban Giám đốc xem xét, phê duyệt phương án triển khai như sau:
+      </p>
+
+      <h2 style="font-size: 13pt; font-weight: bold; margin-top: 14px; margin-bottom: 6px;">
+        II. NỘI DUNG ĐỀ XUẤT VÀ PHƯƠNG ÁN THỰC HIỆN
+      </h2>
+      <table style="width: 100%; border-collapse: collapse; font-size: 12pt; border: 1px solid #1C1B18; margin-top: 8px; margin-bottom: 14px;">
+        <thead>
+          <tr style="background: #F4F2EB; text-align: center;">
+            <th style="border: 1px solid #1C1B18; padding: 6px; width: 8%;">TT</th>
+            <th style="border: 1px solid #1C1B18; padding: 6px; width: 37%;">Hạng mục công việc</th>
+            <th style="border: 1px solid #1C1B18; padding: 6px; width: 25%;">Đơn vị chủ trì</th>
+            <th style="border: 1px solid #1C1B18; padding: 6px; width: 15%;">Thời gian</th>
+            <th style="border: 1px solid #1C1B18; padding: 6px; width: 15%;">Dự toán (VNĐ)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: center;">1</td>
+            <td style="border: 1px solid #1C1B18; padding: 6px;">Chuẩn hóa kho biểu mẫu hành chính Nghị định 30 & Hợp đồng chuẩn</td>
+            <td style="border: 1px solid #1C1B18; padding: 6px;">Phòng Hành chính - Pháp chế</td>
+            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: center;">Tháng 11/2026</td>
+            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: right;">25.000.000</td>
+          </tr>
+          <tr>
+            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: center;">2</td>
+            <td style="border: 1px solid #1C1B18; padding: 6px;">Đào tạo và trang bị Lycero Office cho các phòng ban nghiệp vụ</td>
+            <td style="border: 1px solid #1C1B18; padding: 6px;">Phòng Công nghệ thông tin</td>
+            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: center;">Tháng 12/2026</td>
+            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: right;">45.000.000</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2 style="font-size: 13pt; font-weight: bold; margin-top: 14px; margin-bottom: 6px;">
+        III. KIẾN NGHỊ VÀ ĐỀ XUẤT
+      </h2>
+      <p style="text-align: justify; text-indent: 1.27cm;">
+        Kính trình Ban Giám đốc xem xét, phê duyệt chủ trương và kinh phí thực hiện để các bộ phận liên quan triển khai đúng tiến độ./.
+      </p>
+
+      <table style="width: 100%; border-collapse: collapse; margin-top: 24px; border: none;">
+        <tr>
+          <td style="width: 50%; vertical-align: top; border: none; font-size: 11pt;">
+            <strong><em>Nơi nhận:</em></strong><br/>
+            - Như trên;<br/>
+            - Ban Giám đốc (để b/c);<br/>
+            - Phòng TC-KT, HC-NS (để p/h);<br/>
+            - Lưu: VT, ............
+          </td>
+          <td style="width: 50%; text-align: center; vertical-align: top; border: none; font-size: 12.5pt;">
+            <strong>THỦ TRƯỞNG ĐƠN VỊ TRÌNH</strong><br/>
+            <em style="font-size: 11pt;">(Ký, ghi rõ họ tên và đóng dấu)</em><br/><br/><br/><br/><br/>
+            <strong>Nguyễn Văn A</strong>
+          </td>
+        </tr>
+      </table>
+    </div>
+  `
+  return { title, html }
+}
+
+// ── 11. Mẫu Bảng Lương 3P & Bảo Hiểm Xã Hội (HR & Payroll 3P) ──────────────
+export function buildPayroll3pCsv(): string {
+  const lines: string[] = [
+    'BẢNG TÍNH LƯƠNG 3P (P1 - VỊ TRÍ, P2 - NĂNG LỰC, P3 - HIỆU SUẤT KPI) & TRÍCH NỘP BHXH NĂM 2026',
+    'Đơn vị: Công ty Cổ phần Công nghệ ....................;Kỳ lương: Tháng 10/2026;Đơn vị tính: VNĐ',
+    '',
+    'Mã NV,Họ và tên,Phòng ban,Chức danh,Lương P1 (Vị trí),Lương P2 (Năng lực),Hệ số KPI (%),Thưởng P3 (Hiệu suất),Phụ cấp (Ăn/Xăng),Tổng thu nhập (Gross),Lương đóng BHXH,Trích BHXH (8%),Trích BHYT (1.5%),Trích BHTN (1%),Thuế TNCN tạm tính,Thực lĩnh (Net)',
+    'NV001,Nguyễn Minh Quân,Ban Giám đốc,Giám đốc Khối Sản phẩm,35000000,15000000,115%,17250000,2500000,69750000,35000000,2800000,525000,350000,6850000,59225000',
+    'NV002,Trần Thu Hà,Kỹ thuật AI,Kỹ sư Trưởng (Principal AI),28000000,12000000,110%,13200000,2000000,55200000,28000000,2240000,420000,280000,4150000,48110000',
+    'NV003,Lê Hoàng Nam,Phát triển SP,Senior Fullstack Engineer,22000000,8000000,105%,9450000,1500000,40950000,22000000,1760000,330000,220000,2180000,36460000',
+    'NV004,Phạm Bảo Ngọc,Thiết kế UI/UX,Lead Product Designer,20000000,7000000,108%,8640000,1500000,37140000,20000000,1600000,300000,200000,1690000,33350000',
+    'NV005,Hoàng Gia Bảo,Kinh doanh B2B,Trưởng nhóm Kinh doanh,16000000,5000000,120%,14400000,2000000,37400000,16000000,1280000,240000,160000,1780000,33940000',
+    'NV006,Đỗ Thùy Trang,Tài chính - Kế toán,Kế toán Tổng hợp,15000000,5000000,100%,5000000,1200000,26200000,15000000,1200000,225000,150000,680000,23945000',
+    'NV007,Vũ Đức Anh,Hành chính - Nhân sự,Chuyên viên C&B / Pháp chế,13000000,4000000,102%,4080000,1200000,22280000,13000000,1040000,195000,130000,390000,20525000',
+    'NV008,Bùi Khánh Linh,Chăm sóc KH,Chuyên viên Tư vấn Giáo dục,11000000,3000000,105%,3675000,1200000,18875000,11000000,880000,165000,110000,185000,17535000',
+    'TỔNG CỘNG,,,,160000000,59000000,108%,75695000,13100000,307795000,160000000,12800000,2400000,1600000,17905000,273090000',
+    '',
+    'Ghi chú chuẩn 3P & BHXH: Tổng Gross = P1 + P2 + Thưởng P3 (theo KPI) + Phụ cấp; Trích nộp NLĐ = 10.5% Lương đóng BHXH (8% BHXH + 1.5% BHYT + 1% BHTN); Thực lĩnh (Net) = Tổng Gross - Trích BHXH/BHYT/BHTN - Thuế TNCN',
+  ]
+  return lines.join('\n')
+}
+
+// ── 12. Bộ Slide Bài Giảng Sư Phạm 6 Trang 16:9 (1280×720) ──────────────────
+export function buildPedagogicalSlideDeckSpec(): DeckSpec {
+  const font = 'Be Vietnam Pro'
+  return {
+    pages: [
+      // Slide 1: Cover
+      {
+        background: '#F4F2EB',
+        elements: [
+          {
+            type: 'shape',
+            shape: 'rect',
+            x: 0,
+            y: 0,
+            w: 440,
+            h: 720,
+            fill: '#8B3A1A',
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 48,
+            y: 64,
+            w: 220,
+            h: 40,
+            fill: '#F9F8F3',
+            paragraphs: [
+              {
+                align: 'center',
+                runs: [{ text: 'CHƯƠNG TRÌNH GDPT 2018', sizePt: 11, bold: true, color: '#8B3A1A', font }],
+              },
+            ],
+          },
+          {
+            type: 'text',
+            x: 48,
+            y: 220,
+            w: 344,
+            h: 220,
+            paragraphs: [
+              {
+                runs: [{ text: 'BÀI GIẢNG SƯ PHẠM TƯƠNG TÁC', sizePt: 26, bold: true, color: '#F9F8F3', font }],
+                spaceAfterPt: 12,
+              },
+              {
+                runs: [
+                  {
+                    text: 'Thiết kế theo tiến trình 4 hoạt động Công văn 5512 & Thang nhận thức Bloom',
+                    sizePt: 13,
+                    color: '#EBE7DD',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'text',
+            x: 500,
+            y: 130,
+            w: 710,
+            h: 240,
+            paragraphs: [
+              {
+                runs: [{ text: 'CHỦ ĐỀ BÀI HỌC TRỌNG TÂM', sizePt: 14, bold: true, color: '#8B3A1A', font }],
+                spaceAfterPt: 10,
+              },
+              {
+                runs: [
+                  {
+                    text: 'Khám Phá Nguyên Lý Hệ Thống & Ứng Dụng Thực Tiễn Trong Đời Sống',
+                    sizePt: 34,
+                    bold: true,
+                    color: '#1C1B18',
+                    font,
+                  },
+                ],
+                spaceAfterPt: 16,
+              },
+              {
+                runs: [
+                  {
+                    text: 'Phát triển năng lực tự chủ, tư duy phản biện và hợp tác giải quyết vấn đề thông qua hệ thống nhiệm vụ học tập trực quan.',
+                    sizePt: 16,
+                    color: '#4A473E',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 500,
+            y: 440,
+            w: 710,
+            h: 190,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 530,
+            y: 465,
+            w: 650,
+            h: 140,
+            paragraphs: [
+              {
+                runs: [{ text: 'THÔNG TIN LỚP HỌC & HỌC LIỆU', sizePt: 13, bold: true, color: '#8B3A1A', font }],
+                spaceAfterPt: 8,
+              },
+              {
+                runs: [{ text: '• Môn học / Học phần: Khoa học Tự nhiên & Công nghệ — Khối 10 / 11 / 12', sizePt: 13, color: '#1C1B18', font }],
+                spaceAfterPt: 4,
+              },
+              {
+                runs: [{ text: '• Thời lượng: 45 phút (1 tiết tiêu chuẩn) • Học liệu: Phiếu học tập số 1 & 2', sizePt: 13, color: '#1C1B18', font }],
+                spaceAfterPt: 4,
+              },
+              {
+                runs: [{ text: '• Giáo viên giảng dạy: ThS. ..........................................................', sizePt: 13, color: '#1C1B18', font }],
+              },
+            ],
+          },
+        ],
+      },
+      // Slide 2: Mục tiêu bài học (Executive Summary / Learning Objectives)
+      {
+        background: '#F4F2EB',
+        elements: [
+          {
+            type: 'text',
+            x: 64,
+            y: 48,
+            w: 1152,
+            h: 95,
+            paragraphs: [
+              {
+                runs: [{ text: '01 • MỤC TIÊU BÀI DẠY (CHUẨN ĐẦU RA YÊU CẦU CẦN ĐẠT)', sizePt: 13, bold: true, color: '#8B3A1A', font }],
+                spaceAfterPt: 6,
+              },
+              {
+                runs: [{ text: 'Ba Trụ Cột Kiến Thức, Năng Lực & Phẩm Chất Học Sinh Cần Đạt', sizePt: 28, bold: true, color: '#1C1B18', font }],
+              },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 64,
+            y: 165,
+            w: 1152,
+            h: 150,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 92,
+            y: 185,
+            w: 1096,
+            h: 110,
+            paragraphs: [
+              {
+                runs: [{ text: '1. Về Kiến Thức Cốt Lõi (Mức Nhận Biết & Thông Hiểu)', sizePt: 18, bold: true, color: '#8B3A1A', font }],
+                spaceAfterPt: 6,
+              },
+              {
+                runs: [
+                  {
+                    text: 'Trình bày chính xác định nghĩa, cấu trúc thành phần và giải thích được mối quan hệ nhân quả giữa các yếu tố trong mô hình lý thuyết.',
+                    sizePt: 14,
+                    color: '#1C1B18',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 64,
+            y: 335,
+            w: 1152,
+            h: 150,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 92,
+            y: 355,
+            w: 1096,
+            h: 110,
+            paragraphs: [
+              {
+                runs: [{ text: '2. Về Năng Lực Đặc Thù & Năng Lực Chung (Mức Vận Dụng)', sizePt: 18, bold: true, color: '#8B3A1A', font }],
+                spaceAfterPt: 6,
+              },
+              {
+                runs: [
+                  {
+                    text: 'Vận dụng công thức và quy trình chuẩn để giải quyết bài toán thực nghiệm; phối hợp nhóm hiệu quả để hoàn thành Phiếu học tập đúng tiến độ.',
+                    sizePt: 14,
+                    color: '#1C1B18',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 64,
+            y: 505,
+            w: 1152,
+            h: 150,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 92,
+            y: 525,
+            w: 1096,
+            h: 110,
+            paragraphs: [
+              {
+                runs: [{ text: '3. Về Phẩm Chất & Thái Độ Học Thuật (Mức Vận Dụng Cao)', sizePt: 18, bold: true, color: '#8B3A1A', font }],
+                spaceAfterPt: 6,
+              },
+              {
+                runs: [
+                  {
+                    text: 'Rèn luyện tính trung thực khi ghi nhận số liệu quan sát, chủ động phản biện khoa học và liên hệ trách nhiệm bảo vệ môi trường sống.',
+                    sizePt: 14,
+                    color: '#1C1B18',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      // Slide 3: Nội dung 3 cột (Bento Cards)
+      {
+        background: '#F4F2EB',
+        elements: [
+          {
+            type: 'text',
+            x: 64,
+            y: 48,
+            w: 1152,
+            h: 95,
+            paragraphs: [
+              {
+                runs: [{ text: '02 • HÌNH THÀNH KIẾN THỨC MỚI (KHÁM PHÁ)', sizePt: 13, bold: true, color: '#8B3A1A', font }],
+                spaceAfterPt: 6,
+              },
+              {
+                runs: [{ text: 'Cấu Trúc 3 Thành Phần Trọng Tâm Của Chủ Đề', sizePt: 28, bold: true, color: '#1C1B18', font }],
+              },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 64,
+            y: 165,
+            w: 364,
+            h: 485,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 90,
+            y: 195,
+            w: 312,
+            h: 425,
+            paragraphs: [
+              {
+                runs: [{ text: 'TRỤ CỘT 01', sizePt: 12, bold: true, color: '#8B3A1A', font }],
+                spaceAfterPt: 8,
+              },
+              {
+                runs: [{ text: 'Khái Niệm & Bản Chất Khoa Học', sizePt: 20, bold: true, color: '#1C1B18', font }],
+                spaceAfterPt: 14,
+              },
+              {
+                runs: [
+                  {
+                    text: '• Định nghĩa chuẩn xác các đại lượng và điều kiện biên của hiện tượng.\n• Phân biệt rõ đặc trưng bản chất với các biểu hiện thứ cấp.\n• Ví dụ trực quan từ đời sống hằng ngày giúp học sinh dễ hình dung.',
+                    sizePt: 14,
+                    color: '#4A473E',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 458,
+            y: 165,
+            w: 364,
+            h: 485,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 484,
+            y: 195,
+            w: 312,
+            h: 425,
+            paragraphs: [
+              {
+                runs: [{ text: 'TRỤ CỘT 02', sizePt: 12, bold: true, color: '#8B3A1A', font }],
+                spaceAfterPt: 8,
+              },
+              {
+                runs: [{ text: 'Cơ Chế Vận Hành & Công Thức', sizePt: 20, bold: true, color: '#1C1B18', font }],
+                spaceAfterPt: 14,
+              },
+              {
+                runs: [
+                  {
+                    text: '• Trình tự biến đổi qua 3 giai đoạn liên tiếp có kiểm chứng.\n• Biểu thức toán học liên hệ giữa biến đầu vào và kết quả đầu ra.\n• Quy tắc bảo toàn và giới hạn áp dụng của mô hình.',
+                    sizePt: 14,
+                    color: '#4A473E',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 852,
+            y: 165,
+            w: 364,
+            h: 485,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 878,
+            y: 195,
+            w: 312,
+            h: 425,
+            paragraphs: [
+              {
+                runs: [{ text: 'TRỤ CỘT 03', sizePt: 12, bold: true, color: '#8B3A1A', font }],
+                spaceAfterPt: 8,
+              },
+              {
+                runs: [{ text: 'Ứng Dụng Thực Tiễn & Công Nghệ', sizePt: 20, bold: true, color: '#1C1B18', font }],
+                spaceAfterPt: 14,
+              },
+              {
+                runs: [
+                  {
+                    text: '• Ứng dụng nguyên lý vào thiết kế thiết bị và tối ưu hóa quy trình sản xuất.\n• Phân tích bài toán thực tế tại địa phương và đề xuất cải tiến.\n• Kết nối liên môn STEM (Khoa học - Công nghệ - Kỹ thuật - Toán).',
+                    sizePt: 14,
+                    color: '#4A473E',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      // Slide 4: Số liệu / So sánh (Metrics & Bloom Taxonomy Comparison)
+      {
+        background: '#F4F2EB',
+        elements: [
+          {
+            type: 'text',
+            x: 64,
+            y: 48,
+            w: 1152,
+            h: 95,
+            paragraphs: [
+              {
+                runs: [{ text: '03 • PHÂN HÓA NHẬN THỨC & ĐÁNH GIÁ ĐỊNH LƯỢNG', sizePt: 13, bold: true, color: '#8B3A1A', font }],
+                spaceAfterPt: 6,
+              },
+              {
+                runs: [{ text: 'Tỷ Trọng Đánh Giá Theo Thang Nhận Thức Bloom', sizePt: 28, bold: true, color: '#1C1B18', font }],
+              },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 64,
+            y: 165,
+            w: 270,
+            h: 210,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 84,
+            y: 185,
+            w: 230,
+            h: 170,
+            paragraphs: [
+              { runs: [{ text: '40%', sizePt: 40, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 6 },
+              { runs: [{ text: 'Mức Nhận Biết', sizePt: 16, bold: true, color: '#1C1B18', font }], spaceAfterPt: 4 },
+              { runs: [{ text: 'Ghi nhớ khái niệm, định luật và ký hiệu chuẩn', sizePt: 12, color: '#4A473E', font }] },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 358,
+            y: 165,
+            w: 270,
+            h: 210,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 378,
+            y: 185,
+            w: 230,
+            h: 170,
+            paragraphs: [
+              { runs: [{ text: '30%', sizePt: 40, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 6 },
+              { runs: [{ text: 'Mức Thông Hiểu', sizePt: 16, bold: true, color: '#1C1B18', font }], spaceAfterPt: 4 },
+              { runs: [{ text: 'Diễn giải đồ thị, phân tích nguyên nhân hiện tượng', sizePt: 12, color: '#4A473E', font }] },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 652,
+            y: 165,
+            w: 270,
+            h: 210,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 672,
+            y: 185,
+            w: 230,
+            h: 170,
+            paragraphs: [
+              { runs: [{ text: '20%', sizePt: 40, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 6 },
+              { runs: [{ text: 'Mức Vận Dụng', sizePt: 16, bold: true, color: '#1C1B18', font }], spaceAfterPt: 4 },
+              { runs: [{ text: 'Giải bài tập tính toán và xử lý tình huống chuẩn', sizePt: 12, color: '#4A473E', font }] },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 946,
+            y: 165,
+            w: 270,
+            h: 210,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 966,
+            y: 185,
+            w: 230,
+            h: 170,
+            paragraphs: [
+              { runs: [{ text: '10%', sizePt: 40, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 6 },
+              { runs: [{ text: 'Vận Dụng Cao', sizePt: 16, bold: true, color: '#1C1B18', font }], spaceAfterPt: 4 },
+              { runs: [{ text: 'Thiết kế mô hình mới và phản biện giải pháp mở', sizePt: 12, color: '#4A473E', font }] },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 64,
+            y: 405,
+            w: 1152,
+            h: 245,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 92,
+            y: 430,
+            w: 1096,
+            h: 195,
+            paragraphs: [
+              {
+                runs: [{ text: 'SO SÁNH PHƯƠNG PHÁP TIẾP CẬN TRUYỀN THỐNG VÀ DẠY HỌC PHÁT TRIỂN NĂNG LỰC', sizePt: 15, bold: true, color: '#8B3A1A', font }],
+                spaceAfterPt: 10,
+              },
+              {
+                runs: [
+                  {
+                    text: '• Tiếp cận truyền thống: Giáo viên truyền thụ một chiều, học sinh ghi nhớ máy móc công thức, ít gắn kết với bối cảnh thực tế.\n• Tiếp cận phát triển năng lực (CV 5512): Học sinh chủ động khám phá qua nhiệm vụ mở, thảo luận nhóm có rubric đánh giá rõ ràng, tăng 85% mức độ chủ động.',
+                    sizePt: 14,
+                    color: '#1C1B18',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      // Slide 5: Hoạt động luyện tập & Thảo luận nhóm
+      {
+        background: '#F4F2EB',
+        elements: [
+          {
+            type: 'text',
+            x: 64,
+            y: 48,
+            w: 1152,
+            h: 95,
+            paragraphs: [
+              {
+                runs: [{ text: '04 • HOẠT ĐỘNG LUYỆN TẬP & THẢO LUẬN NHÓM (15 PHÚT)', sizePt: 13, bold: true, color: '#8B3A1A', font }],
+                spaceAfterPt: 6,
+              },
+              {
+                runs: [{ text: 'Quy Trình 4 Bước Tổ Chức Nhiệm Vụ Học Tập Trên Lớp', sizePt: 28, bold: true, color: '#1C1B18', font }],
+              },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 64,
+            y: 170,
+            w: 556,
+            h: 225,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 92,
+            y: 195,
+            w: 500,
+            h: 175,
+            paragraphs: [
+              { runs: [{ text: 'BƯỚC 1: CHUYỂN GIAO NHIỆM VỤ (2 PHÚT)', sizePt: 16, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 8 },
+              {
+                runs: [
+                  {
+                    text: 'Chia lớp thành 4 trạm học tập; mỗi nhóm nhận Phiếu học tập số 2 và bộ dữ liệu tình huống thực tế cần phân tích.',
+                    sizePt: 14,
+                    color: '#1C1B18',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 660,
+            y: 170,
+            w: 556,
+            h: 225,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 688,
+            y: 195,
+            w: 500,
+            h: 175,
+            paragraphs: [
+              { runs: [{ text: 'BƯỚC 2: THỰC HIỆN NHIỆM VỤ (7 PHÚT)', sizePt: 16, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 8 },
+              {
+                runs: [
+                  {
+                    text: 'Học sinh suy nghĩ cá nhân 2 phút, sau đó thảo luận nhóm 5 phút để thống nhất sơ đồ giải pháp trên bảng nhóm.',
+                    sizePt: 14,
+                    color: '#1C1B18',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 64,
+            y: 425,
+            w: 556,
+            h: 225,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 92,
+            y: 450,
+            w: 500,
+            h: 175,
+            paragraphs: [
+              { runs: [{ text: 'BƯỚC 3: BÁO CÁO & PHẢN BIỆN (4 PHÚT)', sizePt: 16, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 8 },
+              {
+                runs: [
+                  {
+                    text: 'Đại diện 2 nhóm trình bày kết quả; các nhóm còn lại đặt câu hỏi phản biện và chấm điểm chéo theo Rubric.',
+                    sizePt: 14,
+                    color: '#1C1B18',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 660,
+            y: 425,
+            w: 556,
+            h: 225,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 688,
+            y: 450,
+            w: 500,
+            h: 175,
+            paragraphs: [
+              { runs: [{ text: 'BƯỚC 4: KẾT LUẬN & NHẬN ĐỊNH (2 PHÚT)', sizePt: 16, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 8 },
+              {
+                runs: [
+                  {
+                    text: 'Giáo viên chuẩn hóa kiến thức, giải đáp các sai lầm thường gặp và tuyên dương nhóm có lập luận xuất sắc.',
+                    sizePt: 14,
+                    color: '#1C1B18',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      // Slide 6: Tổng kết & Hành động (Conclusion & Homework Action Items)
+      {
+        background: '#1C1B18',
+        elements: [
+          {
+            type: 'text',
+            x: 64,
+            y: 60,
+            w: 1152,
+            h: 110,
+            paragraphs: [
+              {
+                runs: [{ text: '05 • TỔNG KẾT BÀI HỌC & NHIỆM VỤ MỞ RỘNG VỀ NHÀ', sizePt: 13, bold: true, color: '#D97757', font }],
+                spaceAfterPt: 8,
+              },
+              {
+                runs: [{ text: 'Ghi Nhớ Cốt Lõi & Kế Hoạch Hành Động Sau Giờ Học', sizePt: 30, bold: true, color: '#F5F4EF', font }],
+              },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 64,
+            y: 195,
+            w: 556,
+            h: 445,
+            fill: '#262624',
+            stroke: { color: '#3E3D38', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 96,
+            y: 225,
+            w: 492,
+            h: 385,
+            paragraphs: [
+              { runs: [{ text: 'TÓM TẮT KIẾN THỨC TRỌNG TÂM', sizePt: 18, bold: true, color: '#D97757', font }], spaceAfterPt: 12 },
+              {
+                runs: [
+                  {
+                    text: '1. Nắm vững khái niệm cốt lõi và điều kiện áp dụng của định luật trong thực tế.\n\n2. Thành thạo quy trình 3 bước phân tích dữ liệu và kiểm chứng kết quả.\n\n3. Luôn đối chiếu đơn vị đo và đánh giá sai số trong quá trình thực nghiệm.',
+                    sizePt: 14,
+                    color: '#F5F4EF',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 660,
+            y: 195,
+            w: 556,
+            h: 445,
+            fill: '#262624',
+            stroke: { color: '#3E3D38', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 692,
+            y: 225,
+            w: 492,
+            h: 385,
+            paragraphs: [
+              { runs: [{ text: 'NHIỆM VỤ VỀ NHÀ & DỰ ÁN NHỎ', sizePt: 18, bold: true, color: '#D97757', font }], spaceAfterPt: 12 },
+              {
+                runs: [
+                  {
+                    text: '• Bài tập bắt buộc: Hoàn thành bài tập 1, 2, 3 trong Sách bài tập và tải lên hệ thống trước 20:00 thứ Sáu.\n\n• Dự án khuyến khích: Quan sát một ứng dụng thực tế tại gia đình, chụp ảnh minh họa và viết báo cáo ngắn 200 từ.\n\n• Chuẩn bị bài mới: Đọc trước mục I & II của Bài tiếp theo.',
+                    sizePt: 14,
+                    color: '#F5F4EF',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  }
+}
+
+// ── 13. Bộ Slide Pitch Deck Gọi Vốn & Chiến Lược 6 Trang 16:9 (1280×720) ─────
+export function buildPitchDeckSpec(): DeckSpec {
+  const font = 'Be Vietnam Pro'
+  return {
+    pages: [
+      // Slide 1: Cover
+      {
+        background: '#1C1B18',
+        elements: [
+          {
+            type: 'shape',
+            shape: 'rect',
+            x: 0,
+            y: 0,
+            w: 36,
+            h: 720,
+            fill: '#D97757',
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 96,
+            y: 72,
+            w: 240,
+            h: 40,
+            fill: '#262624',
+            stroke: { color: '#D97757', widthPt: 1 },
+            paragraphs: [
+              {
+                align: 'center',
+                runs: [{ text: 'SERIES A • INVESTOR DECK', sizePt: 11, bold: true, color: '#D97757', font }],
+              },
+            ],
+          },
+          {
+            type: 'text',
+            x: 96,
+            y: 165,
+            w: 1080,
+            h: 240,
+            paragraphs: [
+              {
+                runs: [
+                  {
+                    text: 'Nền Tảng Tự Động Hóa Tri Thức & Quản Trị Vận Hành Thế Hệ Mới',
+                    sizePt: 38,
+                    bold: true,
+                    color: '#F5F4EF',
+                    font,
+                  },
+                ],
+                spaceAfterPt: 18,
+              },
+              {
+                runs: [
+                  {
+                    text: 'Giúp doanh nghiệp Đông Nam Á tăng 3.2 lần hiệu suất làm việc văn phòng với kiến trúc AI bảo mật dữ liệu nội bộ tuyệt đối (Local-First & Zero Data Retention).',
+                    sizePt: 17,
+                    color: '#DDD9CE',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 96,
+            y: 465,
+            w: 340,
+            h: 165,
+            fill: '#262624',
+            stroke: { color: '#3E3D38', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 120,
+            y: 488,
+            w: 292,
+            h: 120,
+            paragraphs: [
+              { runs: [{ text: '$2.4M ARR', sizePt: 30, bold: true, color: '#D97757', font }], spaceAfterPt: 6 },
+              { runs: [{ text: 'Tăng trưởng doanh thu định kỳ 185% YoY với 420+ khách hàng B2B', sizePt: 12, color: '#DDD9CE', font }] },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 466,
+            y: 465,
+            w: 340,
+            h: 165,
+            fill: '#262624',
+            stroke: { color: '#3E3D38', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 490,
+            y: 488,
+            w: 292,
+            h: 120,
+            paragraphs: [
+              { runs: [{ text: '138% NDR', sizePt: 30, bold: true, color: '#D97757', font }], spaceAfterPt: 6 },
+              { runs: [{ text: 'Tỷ lệ giữ chân doanh thu thuần vượt chuẩn SaaS Enterprise toàn cầu', sizePt: 12, color: '#DDD9CE', font }] },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 836,
+            y: 465,
+            w: 340,
+            h: 165,
+            fill: '#262624',
+            stroke: { color: '#3E3D38', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 860,
+            y: 488,
+            w: 292,
+            h: 120,
+            paragraphs: [
+              { runs: [{ text: '78% Margin', sizePt: 30, bold: true, color: '#D97757', font }], spaceAfterPt: 6 },
+              { runs: [{ text: 'Biên lợi nhuận gộp cao nhờ kiến trúc xử lý lai Local + Cloud', sizePt: 12, color: '#DDD9CE', font }] },
+            ],
+          },
+        ],
+      },
+      // Slide 2: Tóm tắt điều hành (Executive Summary — Problem & Opportunity)
+      {
+        background: '#F4F2EB',
+        elements: [
+          {
+            type: 'text',
+            x: 64,
+            y: 48,
+            w: 1152,
+            h: 95,
+            paragraphs: [
+              { runs: [{ text: '01 • TÓM TẮT ĐIỀU HÀNH & BỐI CẢNH THỊ TRƯỜNG', sizePt: 13, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 6 },
+              { runs: [{ text: 'Khoảng Trống Hiệu Suất Trong Doanh Nghiệp & Cơ Hội Chuyển Đổi', sizePt: 28, bold: true, color: '#1C1B18', font }] },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 64,
+            y: 165,
+            w: 556,
+            h: 485,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 96,
+            y: 195,
+            w: 492,
+            h: 425,
+            paragraphs: [
+              { runs: [{ text: 'NỖI ĐAU THỊ TRƯỜNG (THE PROBLEM)', sizePt: 16, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 12 },
+              {
+                runs: [
+                  {
+                    text: '• Phân mảnh công cụ: Nhân sự mất trung bình 2.3 giờ/ngày chuyển đổi qua lại giữa trình soạn thảo văn bản, bảng tính và các cửa sổ chat AI rời rạc.\n\n• Rủi ro rò rỉ dữ liệu: 68% doanh nghiệp cấm nhân viên tải hợp đồng, báo cáo tài chính lên các công cụ AI đám mây công cộng vì lo ngại lộ dữ liệu nhạy cảm.\n\n• Chi phí bản quyền đắt đỏ: Gói phần mềm văn phòng kèm Copilot quốc tế vượt quá ngân sách của 90% doanh nghiệp SME và tổ chức giáo dục.',
+                    sizePt: 14,
+                    color: '#1C1B18',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 660,
+            y: 165,
+            w: 556,
+            h: 485,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 692,
+            y: 195,
+            w: 492,
+            h: 425,
+            paragraphs: [
+              { runs: [{ text: 'GIẢI PHÁP ĐỘT PHÁ (OUR SOLUTION)', sizePt: 16, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 12 },
+              {
+                runs: [
+                  {
+                    text: '• Không gian làm việc hợp nhất: Tích hợp trực tiếp trợ lý AI suy luận sâu ngay bên cạnh trang soạn thảo Word (.docx), Excel (.xlsx), PowerPoint (.pptx).\n\n• Bảo mật PII & Local-First: Mọi tệp tài liệu được xử lý cục bộ trên máy; thông tin nhạy cảm được ẩn danh tự động trước khi gọi AI.\n\n• Chuẩn hóa bản địa: Kho biểu mẫu Nghị định 30, Hợp đồng thương mại, Bảng lương 3P và Giáo án 5512 sẵn sàng chỉ với 1 cú nhấp chuột.',
+                    sizePt: 14,
+                    color: '#1C1B18',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      // Slide 3: Giải pháp 3 cột (Bento Cards)
+      {
+        background: '#F4F2EB',
+        elements: [
+          {
+            type: 'text',
+            x: 64,
+            y: 48,
+            w: 1152,
+            h: 95,
+            paragraphs: [
+              { runs: [{ text: '02 • KIẾN TRÚC SẢN PHẨM & LỢI THẾ CÔNG NGHỆ', sizePt: 13, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 6 },
+              { runs: [{ text: 'Ba Động Cơ Cốt Lõi Tạo Nên Lợi Thế Cạnh Tranh Bền Vững', sizePt: 28, bold: true, color: '#1C1B18', font }] },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 64,
+            y: 165,
+            w: 364,
+            h: 485,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 90,
+            y: 195,
+            w: 312,
+            h: 425,
+            paragraphs: [
+              { runs: [{ text: '01 • NATIVE OOXML ENGINES', sizePt: 12, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 8 },
+              { runs: [{ text: 'Động Cơ Tài Liệu Chuẩn ISO', sizePt: 20, bold: true, color: '#1C1B18', font }], spaceAfterPt: 14 },
+              {
+                runs: [
+                  {
+                    text: '• Bảo toàn 100% cấu trúc byte-level của file .docx, .xlsx, .pptx khi mở và lưu.\n• Hỗ trợ Track Changes, bình luận, công thức mảng và biểu đồ phức tạp.\n• Hoạt động mượt mà 100% cả khi ngoại tuyến (Offline Core).',
+                    sizePt: 14,
+                    color: '#4A473E',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 458,
+            y: 165,
+            w: 364,
+            h: 485,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 484,
+            y: 195,
+            w: 312,
+            h: 425,
+            paragraphs: [
+              { runs: [{ text: '02 • AGENTIC AI COPILOT', sizePt: 12, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 8 },
+              { runs: [{ text: 'Điều Phối Đa Tác Tử Thông Minh', sizePt: 20, bold: true, color: '#1C1B18', font }], spaceAfterPt: 14 },
+              {
+                runs: [
+                  {
+                    text: '• Tự động lập dàn ý, viết văn bản dài, dựng slide 16:9 và kiểm toán công thức bảng tính.\n• Kết nối trực tiếp kho Cloud Skills và công cụ MCP chuyên ngành từ Web Server.\n• Nén ngữ cảnh thông minh tiết kiệm 60% chi phí token.',
+                    sizePt: 14,
+                    color: '#4A473E',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 852,
+            y: 165,
+            w: 364,
+            h: 485,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 878,
+            y: 195,
+            w: 312,
+            h: 425,
+            paragraphs: [
+              { runs: [{ text: '03 • ENTERPRISE GOVERNANCE', sizePt: 12, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 8 },
+              { runs: [{ text: 'Bảo Mật & Quản Trị Tập Trung', sizePt: 20, bold: true, color: '#1C1B18', font }], spaceAfterPt: 14 },
+              {
+                runs: [
+                  {
+                    text: '• Quản trị tập trung mẫu văn bản, kỹ năng AI và hạn ngạch người dùng qua Admin Console.\n• Mã hóa PII phía client trước khi gửi yêu cầu suy luận.\n• Hỗ trợ triển khai On-Premise / Private Cloud cho ngân hàng và cơ quan nhà nước.',
+                    sizePt: 14,
+                    color: '#4A473E',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      // Slide 4: Số liệu tài chính & Tăng trưởng (Metrics & Unit Economics)
+      {
+        background: '#F4F2EB',
+        elements: [
+          {
+            type: 'text',
+            x: 64,
+            y: 48,
+            w: 1152,
+            h: 95,
+            paragraphs: [
+              { runs: [{ text: '03 • CHỈ SỐ TĂNG TRƯỞNG & HIỆU QUẢ ĐƠN VỊ (UNIT ECONOMICS)', sizePt: 13, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 6 },
+              { runs: [{ text: 'Tăng Trưởng Bền Vững Với Hiệu Suất Thu Hồi Vốn Vượt Trội', sizePt: 28, bold: true, color: '#1C1B18', font }] },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 64,
+            y: 165,
+            w: 270,
+            h: 210,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 84,
+            y: 185,
+            w: 230,
+            h: 170,
+            paragraphs: [
+              { runs: [{ text: '6.4x', sizePt: 40, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 6 },
+              { runs: [{ text: 'Tỷ Lệ LTV / CAC', sizePt: 16, bold: true, color: '#1C1B18', font }], spaceAfterPt: 4 },
+              { runs: [{ text: 'Thời gian hoàn vốn CAC trung bình chỉ 4.5 tháng', sizePt: 12, color: '#4A473E', font }] },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 358,
+            y: 165,
+            w: 270,
+            h: 210,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 378,
+            y: 185,
+            w: 230,
+            h: 170,
+            paragraphs: [
+              { runs: [{ text: '82,000+', sizePt: 38, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 6 },
+              { runs: [{ text: 'Người Dùng Hoạt Động', sizePt: 16, bold: true, color: '#1C1B18', font }], spaceAfterPt: 4 },
+              { runs: [{ text: 'Tỷ lệ chuyển đổi từ Free sang Pro đạt 11.4%', sizePt: 12, color: '#4A473E', font }] },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 652,
+            y: 165,
+            w: 270,
+            h: 210,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 672,
+            y: 185,
+            w: 230,
+            h: 170,
+            paragraphs: [
+              { runs: [{ text: '1.2%', sizePt: 40, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 6 },
+              { runs: [{ text: 'Monthly Logo Churn', sizePt: 16, bold: true, color: '#1C1B18', font }], spaceAfterPt: 4 },
+              { runs: [{ text: 'Độ gắn kết cao nhờ lưu trữ tài liệu & quy trình hàng ngày', sizePt: 12, color: '#4A473E', font }] },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 946,
+            y: 165,
+            w: 270,
+            h: 210,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 966,
+            y: 185,
+            w: 230,
+            h: 170,
+            paragraphs: [
+              { runs: [{ text: '$8.5M', sizePt: 40, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 6 },
+              { runs: [{ text: 'Mục Tiêu ARR 2027', sizePt: 16, bold: true, color: '#1C1B18', font }], spaceAfterPt: 4 },
+              { runs: [{ text: 'Mở rộng sang thị trường Thái Lan, Indonesia & Nhật Bản', sizePt: 12, color: '#4A473E', font }] },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 64,
+            y: 405,
+            w: 1152,
+            h: 245,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 92,
+            y: 430,
+            w: 1096,
+            h: 195,
+            paragraphs: [
+              { runs: [{ text: 'ĐỘNG LỰC TĂNG TRƯỞNG DOANH THU QUA CÁC QUÝ (QUARTERLY TRACTION)', sizePt: 15, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 10 },
+              {
+                runs: [
+                  {
+                    text: '• Q1/2026: $380K ARR — Ra mắt phiên bản Desktop Windows/macOS và chinh phục 120 trường học, doanh nghiệp đầu tiên.\n• Q2/2026: $820K ARR — Triển khai Kho Cloud Skills & Work Bundles cho khối Pháp chế, Tài chính và Giáo dục.\n• Q3-Q4/2026: $2.4M ARR — Ký kết 18 hợp đồng Enterprise quy mô trên 500 ghế/đơn vị, đạt điểm hòa vốn dòng tiền vận hành.',
+                    sizePt: 14,
+                    color: '#1C1B18',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      // Slide 5: So sánh vị thế cạnh tranh & Chiến lược Go-To-Market
+      {
+        background: '#F4F2EB',
+        elements: [
+          {
+            type: 'text',
+            x: 64,
+            y: 48,
+            w: 1152,
+            h: 95,
+            paragraphs: [
+              { runs: [{ text: '04 • VỊ THẾ CẠNH TRANH & CHIẾN LƯỢC CHIẾM LĨNH THỊ TRƯỜNG', sizePt: 13, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 6 },
+              { runs: [{ text: 'Sự Khác Biệt Tuyệt Đối So Với Các Giải Pháp Hiện Hành', sizePt: 28, bold: true, color: '#1C1B18', font }] },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 64,
+            y: 165,
+            w: 556,
+            h: 485,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 96,
+            y: 195,
+            w: 492,
+            h: 425,
+            paragraphs: [
+              { runs: [{ text: 'LỢI THẾ VƯỢT TRỘI CỦA LYCERO OFFICE', sizePt: 16, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 12 },
+              {
+                runs: [
+                  {
+                    text: '• So với Bộ Office truyền thống: Tích hợp sẵn Agentic AI chỉnh sửa trực tiếp trên tài liệu với chi phí chỉ bằng 1/4, không yêu cầu mua thêm gói addon đắt đỏ.\n\n• So với Web Chatbots (ChatGPT / Claude Web): Không phải copy-paste thủ công làm hỏng định dạng bảng biểu, công thức và bố cục trang A4/Slide.\n\n• Chuẩn hóa Pháp규 & Giáo dục Việt Nam: Duy nhất hỗ trợ sâu Nghị định 30, Thông tư 22, Công văn 5512 và kế toán doanh nghiệp.',
+                    sizePt: 14,
+                    color: '#1C1B18',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 660,
+            y: 165,
+            w: 556,
+            h: 485,
+            fill: '#F9F8F3',
+            stroke: { color: '#DDD9CE', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 692,
+            y: 195,
+            w: 492,
+            h: 425,
+            paragraphs: [
+              { runs: [{ text: 'CHIẾN LƯỢC PHÂN PHỐI (GO-TO-MARKET)', sizePt: 16, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 12 },
+              {
+                runs: [
+                  {
+                    text: '1. Product-Led Growth (PLG): Bản Desktop miễn phí trọn đời cho tính năng biên tập cơ bản giúp lan tỏa tự nhiên tới hàng trăm nghìn người dùng cá nhân.\n\n2. B2B Work Bundles: Bán gói giải pháp theo phòng ban (HR, Pháp chế, Tài chính, R&D) với ROI đo lường được ngay trong tuần đầu tiên.\n\n3. Liên minh Giáo dục & Sở/Trường: Triển khai đồng bộ cấp trường và đại học thông qua hệ sinh thái EdTech.',
+                    sizePt: 14,
+                    color: '#1C1B18',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      // Slide 6: Kết luận / Kế hoạch gọi vốn & Hành động (The Ask & Roadmap)
+      {
+        background: '#1C1B18',
+        elements: [
+          {
+            type: 'text',
+            x: 64,
+            y: 60,
+            w: 1152,
+            h: 110,
+            paragraphs: [
+              { runs: [{ text: '05 • ĐỀ XUẤT ĐẦU TƯ & LỘ TRÌNH CHIẾN LƯỢC 18 THÁNG', sizePt: 13, bold: true, color: '#D97757', font }], spaceAfterPt: 8 },
+              { runs: [{ text: 'Vòng Gọi Vốn $5.0M Series A Để Dẫn Đầu Thị Trường Khu Vực', sizePt: 30, bold: true, color: '#F5F4EF', font }] },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 64,
+            y: 195,
+            w: 556,
+            h: 445,
+            fill: '#262624',
+            stroke: { color: '#3E3D38', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 96,
+            y: 225,
+            w: 492,
+            h: 385,
+            paragraphs: [
+              { runs: [{ text: 'PHÂN BỔ NGUỒN VỐN (USE OF FUNDS)', sizePt: 18, bold: true, color: '#D97757', font }], spaceAfterPt: 12 },
+              {
+                runs: [
+                  {
+                    text: '• 45% Nghiên cứu & Phát triển (R&D): Tối ưu hóa động cơ Rust/OOXML cục bộ, mô hình AI chuyên biệt cho tài liệu và hạ tầng Cloud MCP.\n\n• 35% Mở rộng Kinh doanh (Enterprise Sales & GTM): Xây dựng đội ngũ B2B tại Hà Nội, TP.HCM, Bangkok và Jakarta.\n\n• 20% Vận hành & Bảo mật Quốc tế: Chứng chỉ SOC2 Type II, ISO 27001 và dự trữ thanh khoản.',
+                    sizePt: 14,
+                    color: '#F5F4EF',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'shape',
+            shape: 'roundRect',
+            x: 660,
+            y: 195,
+            w: 556,
+            h: 445,
+            fill: '#262624',
+            stroke: { color: '#3E3D38', widthPt: 1 },
+          },
+          {
+            type: 'text',
+            x: 692,
+            y: 225,
+            w: 492,
+            h: 385,
+            paragraphs: [
+              { runs: [{ text: 'CỘT MỐC CAM KẾT & LIÊN HỆ HỢP TÁC', sizePt: 18, bold: true, color: '#D97757', font }], spaceAfterPt: 12 },
+              {
+                runs: [
+                  {
+                    text: '• Q2/2027: Đạt mốc 250,000 người dùng hoạt động và $5.0M ARR.\n\n• Q4/2027: Đạt $8.5M ARR với 1,200 khách hàng doanh nghiệp trả phí định kỳ, sẵn sàng cho vòng Series B.\n\n• Liên hệ Ban Điều hành: founders@lycero.com | https://lycero.com',
+                    sizePt: 14,
+                    color: '#F5F4EF',
+                    font,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  }
+}
+
+const slideMetrics = new HeuristicMetrics()
+
+async function buildPptxFromDeckSpec(spec: DeckSpec): Promise<Uint8Array> {
+  try {
+    const built = await buildDeckPptx(spec, {
+      fetchImage: async () => null,
+      imageDims: () => null,
+      fontMetrics: slideMetrics,
+    })
+    return built.bytes
+  } catch {
+    return createBlankPptx()
+  }
+}
+
+export async function buildPedagogicalSlidesPptx(): Promise<Uint8Array> {
+  return buildPptxFromDeckSpec(buildPedagogicalSlideDeckSpec())
+}
+
+export async function buildPitchDeckPptx(): Promise<Uint8Array> {
+  return buildPptxFromDeckSpec(buildPitchDeckSpec())
+}
+
+// ── BỘ ĐIỀU PHỐI TẠO MẪU ĐA HÌNH (CLOUD REGISTRY + LOCAL FALLBACK) ──────────
 export async function createPedagogicalTemplate(
   templateId: string,
   saveDir: string,
   openDocFn: (payload: { title: string; html: string }) => void,
 ): Promise<{ filePath?: string }> {
+  // 1. Ưu tiên kiểm tra bản cập nhật mới nhất từ Cloud Template Registry (nếu có)
+  try {
+    const cloudTemplates = await fetchCloudTemplates()
+    const cloudMatch = cloudTemplates.find(
+      (item) => item.id === templateId || item.slug === templateId,
+    )
+    if (cloudMatch) {
+      const htmlContent =
+        cloudMatch.html ??
+        (cloudMatch.format === 'docx' && typeof cloudMatch.content === 'string'
+          ? cloudMatch.content
+          : undefined)
+      if (htmlContent && htmlContent.trim()) {
+        openDocFn({ title: cloudMatch.title || templateId, html: htmlContent })
+        return {}
+      }
+
+      const csvContent =
+        cloudMatch.csv ??
+        (cloudMatch.format === 'xlsx' && typeof cloudMatch.content === 'string'
+          ? cloudMatch.content
+          : undefined)
+      if (csvContent && csvContent.trim()) {
+        const sheetName = (cloudMatch.title || templateId).slice(0, 31)
+        const buffer = await sheetCsvToXlsxBuffer(csvContent, sheetName)
+        const fileName = `${templateId}-${Date.now().toString().slice(-4)}.xlsx`
+        const filePath = join(saveDir, fileName)
+        writeFileSync(filePath, buffer)
+        return { filePath }
+      }
+
+      const rawSlideSpec =
+        cloudMatch.slideSpec ?? (cloudMatch.format === 'pptx' ? cloudMatch.content : undefined)
+      if (rawSlideSpec) {
+        const rawJson =
+          typeof rawSlideSpec === 'string' ? rawSlideSpec : JSON.stringify(rawSlideSpec)
+        const parsed = parseDeckSpec(rawJson)
+        if (parsed.ok) {
+          const buffer = await buildPptxFromDeckSpec(parsed.spec)
+          const fileName = `${templateId}-16-9-${Date.now().toString().slice(-4)}.pptx`
+          const filePath = join(saveDir, fileName)
+          writeFileSync(filePath, buffer)
+          return { filePath }
+        }
+      }
+    }
+  } catch {
+    // Offline fallback: tiếp tục dùng bộ mẫu cục bộ bên dưới
+  }
+
+  // 2. Bộ mẫu Cục bộ (Local Fallback)
   // Giáo dục
   if (templateId === 'khbd-5512') {
     const data = buildKhbd5512Html()
@@ -750,14 +2429,19 @@ export async function createPedagogicalTemplate(
     return { filePath }
   }
   if (templateId === 'slide-su-pham') {
-    const buffer = await createBlankPptx()
+    const buffer = await buildPedagogicalSlidesPptx()
     const fileName = `Bai-Giang-Su-Pham-16-9-${Date.now().toString().slice(-4)}.pptx`
     const filePath = join(saveDir, fileName)
     writeFileSync(filePath, buffer)
     return { filePath }
   }
 
-  // Doanh nghiệp
+  // Hành chính & Doanh nghiệp
+  if (templateId === 'cong-van-nd30') {
+    const data = buildOfficialDispatchNd30Html()
+    openDocFn(data)
+    return {}
+  }
   if (templateId === 'hop-dong-kinh-te') {
     const data = buildBusinessContractHtml()
     openDocFn(data)
@@ -776,8 +2460,16 @@ export async function createPedagogicalTemplate(
     writeFileSync(filePath, buffer)
     return { filePath }
   }
+  if (templateId === 'bang-luong-3p') {
+    const csv = buildPayroll3pCsv()
+    const buffer = await sheetCsvToXlsxBuffer(csv, 'Bảng Lương 3P & BHXH')
+    const fileName = `Bang-Luong-3P-BHXH-2026-${Date.now().toString().slice(-4)}.xlsx`
+    const filePath = join(saveDir, fileName)
+    writeFileSync(filePath, buffer)
+    return { filePath }
+  }
   if (templateId === 'pitch-deck-pptx') {
-    const buffer = await createBlankPptx()
+    const buffer = await buildPitchDeckPptx()
     const fileName = `Pitch-Deck-Goi-Von-16-9-${Date.now().toString().slice(-4)}.pptx`
     const filePath = join(saveDir, fileName)
     writeFileSync(filePath, buffer)

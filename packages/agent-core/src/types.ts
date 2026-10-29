@@ -128,6 +128,23 @@ export interface AgentStreamRequest {
   system: string
   messages: AgentMessage[]
   tools: AgentToolDef[]
+  editorModule?:
+    | 'office_docx'
+    | 'office_sheet'
+    | 'office_slide'
+    | 'office_pdf'
+    | 'office_markdown'
+    | 'office_html'
+    | undefined
+  pipelineStage?:
+    | 'chat'
+    | 'doc_longform'
+    | 'slide_style'
+    | 'slide_outline'
+    | 'slide_page_spec'
+    | 'slide_edit'
+    | 'sheet_formula'
+    | undefined
   activeSkillSlugs?: string[] | undefined
   userSkillConfig?: Record<string, unknown> | undefined
 }

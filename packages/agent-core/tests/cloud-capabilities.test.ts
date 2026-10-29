@@ -259,4 +259,83 @@ describe('CloudToolDispatcher & createCloudProxySkill', () => {
     expect(skill.tools.length).toBe(1)
     expect(skill.tools[0]?.name).toBe('cloud_format_text')
   })
+
+  it('deduplicates against local editor tools while preserving specialized Cloud Tools', () => {
+    const dispatcher = new CloudToolDispatcher()
+    const skill = createCloudProxySkill({
+      id: 'cloud-dedup',
+      skills: () => [
+        {
+          slug: 'cloud-office-suite',
+          name: 'Bộ công cụ Cloud',
+          description: 'Cloud tools',
+          category: 'Chung',
+          version: '1.0.0',
+          tools: [
+            {
+              name: 'write_document',
+              description: 'Duplicate local doc tool (must be skipped)',
+              inputSchema: { type: 'object' },
+            },
+            {
+              name: 'propose_operations',
+              description: 'Duplicate local slide tool (must be skipped)',
+              inputSchema: { type: 'object' },
+            },
+            {
+              name: 'docx_manipulate',
+              description: 'Specialized cloud docx tool',
+              inputSchema: { type: 'object' },
+            },
+            {
+              name: 'pptx_render_audit',
+              description: 'Specialized cloud slide audit tool',
+              inputSchema: { type: 'object' },
+            },
+          ],
+        },
+      ],
+      endpoints: () => [
+        {
+          serverKey: 'legal-vn',
+          name: 'Tra cứu Pháp luật',
+          tools: [
+            {
+              name: 'generate_deck',
+              description: 'Duplicate local deck tool (must be skipped)',
+              inputSchema: { type: 'object' },
+            },
+            {
+              name: 'search_legal_docs',
+              description: 'Tra cứu văn bản quy phạm pháp luật',
+              inputSchema: { type: 'object' },
+            },
+            {
+              name: 'python_calc_exec',
+              description: 'Chạy tính toán Python trên Cloud',
+              inputSchema: { type: 'object' },
+            },
+            {
+              name: 'chart_svg_render',
+              description: 'Kết xuất biểu đồ SVG trên Cloud',
+              inputSchema: { type: 'object' },
+            },
+          ],
+        },
+      ],
+      dispatcher,
+    })
+
+    const toolNames = skill.tools.map((t) => t.name)
+    expect(toolNames).not.toContain('write_document')
+    expect(toolNames).not.toContain('propose_operations')
+    expect(toolNames).not.toContain('generate_deck')
+    expect(toolNames).toEqual([
+      'docx_manipulate',
+      'pptx_render_audit',
+      'search_legal_docs',
+      'python_calc_exec',
+      'chart_svg_render',
+    ])
+  })
 })

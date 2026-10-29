@@ -73,8 +73,11 @@ export interface AgentLoopOptions<TSnapshot = unknown> {
   transport: AgentTransport
   skill: AgentSkill
   events?: AgentLoopEvents<TSnapshot>
-  activeSkillSlugs?: string[] | undefined
-  userSkillConfig?: Record<string, unknown> | undefined
+  activeSkillSlugs?: string[] | (() => string[] | undefined) | undefined
+  userSkillConfig?:
+    | Record<string, unknown>
+    | (() => Record<string, unknown> | undefined)
+    | undefined
   bundlesRef?: { current: WorkBundle[] }
   /** hard cap on model round-trips per run (default DEFAULT_MAX_TURNS) */
   maxTurns?: number
@@ -994,6 +997,14 @@ export class AgentLoop<TSnapshot = unknown> {
           )
         : null
       const skillWithSlug = this.options.skill as AgentSkill & { slug?: string }
+      const resolvedSlugs =
+        typeof this.options.activeSkillSlugs === 'function'
+          ? this.options.activeSkillSlugs()
+          : this.options.activeSkillSlugs
+      const resolvedConfig =
+        typeof this.options.userSkillConfig === 'function'
+          ? this.options.userSkillConfig()
+          : this.options.userSkillConfig
       this.handle = this.options.transport.stream(
         {
           system:
@@ -1005,9 +1016,9 @@ export class AgentLoop<TSnapshot = unknown> {
             ? []
             : ((bundleContext?.tools ?? this.options.skill.tools) as AgentToolDef[]),
           activeSkillSlugs:
-            this.options.activeSkillSlugs ??
+            resolvedSlugs ??
             (skillWithSlug.slug ? [skillWithSlug.slug] : undefined),
-          userSkillConfig: this.options.userSkillConfig,
+          userSkillConfig: resolvedConfig,
         },
         {
           onDelta: (text) => {

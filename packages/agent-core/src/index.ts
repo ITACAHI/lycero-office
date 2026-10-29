@@ -124,6 +124,7 @@ export type {
 export {
   CloudToolDispatcher,
   DEFAULT_TOOL_DISPATCHER_URL,
+  LOCAL_EDITOR_TOOL_NAMES,
   createCloudProxySkill,
 } from './cloud-tool-dispatcher'
 export type {

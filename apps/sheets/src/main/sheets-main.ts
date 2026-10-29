@@ -4118,6 +4118,10 @@ export function registerSheetsAiIpc(): void {
       let stopReason: string | undefined
       await streamForProvider(provider, config, system, messages, tools, maxTokens, {
         ...(request.sessionId ? { sessionId: request.sessionId } : {}),
+        editorModule: request.editorModule ?? 'office_sheet',
+        ...(request.pipelineStage ? { pipelineStage: request.pipelineStage } : {}),
+        ...(request.activeSkillSlugs ? { activeSkillSlugs: request.activeSkillSlugs } : {}),
+        ...(request.userSkillConfig ? { userSkillConfig: request.userSkillConfig } : {}),
         signal: controller.signal,
         onDelta: (text) => send({ requestId, type: 'delta', text }),
         onReasoningDelta: (text) => send({ requestId, type: 'reasoning', text }),

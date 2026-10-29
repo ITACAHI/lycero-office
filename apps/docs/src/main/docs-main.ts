@@ -4453,8 +4453,26 @@ export function registerAiIpc(): void {
     })
     try {
       let stopReason: string | undefined
+      const senderUrl = event.sender.getURL().toLowerCase()
+      const inferredModule =
+        request.editorModule ??
+        (senderUrl.includes('/slides/')
+          ? 'office_slide'
+          : senderUrl.includes('/sheets/')
+            ? 'office_sheet'
+            : senderUrl.includes('/pdf/')
+              ? 'office_pdf'
+              : senderUrl.includes('/markdown/')
+                ? 'office_markdown'
+                : senderUrl.includes('/html/')
+                  ? 'office_html'
+                  : 'office_docx')
       await streamForProvider(provider, config, system, messages, tools, maxTokens, {
         ...(request.sessionId ? { sessionId: request.sessionId } : {}),
+        editorModule: inferredModule,
+        ...(request.pipelineStage ? { pipelineStage: request.pipelineStage } : {}),
+        ...(request.activeSkillSlugs ? { activeSkillSlugs: request.activeSkillSlugs } : {}),
+        ...(request.userSkillConfig ? { userSkillConfig: request.userSkillConfig } : {}),
         signal: controller.signal,
         onDelta: (text) => {
           trace?.onDelta(text)
@@ -4599,9 +4617,15 @@ export function registerAiIpc(): void {
         SETTINGS_PATH(),
         {
           prompt: String(op?.prompt ?? ''),
-          aspectRatio: op?.aspectRatio ? String(op.aspectRatio) : undefined,
+          aspectRatio: op?.aspectRatio ? String(op.aspectRatio) : '4:3',
+          contextType: 'doc_illustration',
+          enhancePrompt: true,
         },
-        { mediaRoots: docsMediaRoots(event.sender.id) },
+        {
+          mediaRoots: docsMediaRoots(event.sender.id),
+          contextType: 'doc_illustration',
+          defaultAspectRatio: '4:3',
+        },
       ),
   )
 

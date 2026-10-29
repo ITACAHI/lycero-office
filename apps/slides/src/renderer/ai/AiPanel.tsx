@@ -15,7 +15,10 @@ import {
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import {
   AgentLoop,
+  CloudCapabilitiesManager,
+  CloudToolDispatcher,
   composeSkills,
+  createCloudProxySkill,
   withAttachedSkills,
   IPC_STREAM_SILENCE_TIMEOUT_MS,
   type AgentImage,
@@ -859,6 +862,34 @@ export function AiPanel({
   imagesRef.current = images
   const attachedSkillsRef = useRef(attachedSkills)
   attachedSkillsRef.current = attachedSkills
+  const lastSentSkillsRef = useRef<string[]>([])
+  const cloudCapabilitiesRef = useRef<CloudCapabilitiesManager | null>(null)
+  if (!cloudCapabilitiesRef.current) {
+    cloudCapabilitiesRef.current = new CloudCapabilitiesManager()
+  }
+  const cloudDispatcherRef = useRef<CloudToolDispatcher | null>(null)
+  if (!cloudDispatcherRef.current) {
+    cloudDispatcherRef.current = new CloudToolDispatcher({
+      getAccessToken: () => settingsRef.current?.providers?.lycero?.apiKey || undefined,
+    })
+  }
+  useEffect(() => {
+    void cloudCapabilitiesRef.current?.syncCapabilities({
+      token: settingsRef.current?.providers?.lycero?.apiKey || undefined,
+    })
+  }, [])
+  const getActiveSkillSlugs = () => [
+    ...new Set(
+      [
+        ...attachedSkillsRef.current,
+        ...lastSentSkillsRef.current,
+        ...(cloudCapabilitiesRef.current?.getActiveSkillSlugs() ?? []),
+      ].filter(Boolean),
+    ),
+  ]
+  const getUserSkillConfig = () =>
+    (cloudCapabilitiesRef.current?.getUserSkillConfig() as Record<string, unknown> | undefined) ??
+    undefined
   const attachmentsRef = useRef(attachments)
   attachmentsRef.current = attachments
   /** attachments consumed by the most recent send — retry resends the same set */
@@ -1203,12 +1234,19 @@ export function AiPanel({
         })
         signal?.addEventListener('abort', onAbort, { once: true })
         // If invoke itself rejects (IPC-layer failure), fail immediately instead of waiting out the timeout
+        const activeSlugs = getActiveSkillSlugs()
+        const skillConfig = getUserSkillConfig()
         window.slidesApi
           .aiStream({
             requestId,
             settings,
             system,
             messages: [{ role: 'user', text: user }],
+            editorModule: 'office_slide',
+            ...(activeSlugs.length > 0 ? { activeSkillSlugs: activeSlugs } : {}),
+            ...(skillConfig && Object.keys(skillConfig).length > 0
+              ? { userSkillConfig: skillConfig }
+              : {}),
             ...(maxTokens ? { maxTokens } : {}),
           })
           .catch((e) =>
@@ -1365,6 +1403,7 @@ export function AiPanel({
         const W = args.canvasW
         const H = args.canvasH
         const sys =
+          '[LYCERO_PIPELINE_STAGE:slide_page_spec]\n' +
           'You are a professional slide visual designer. Output exactly ONE JSON object describing one slide; no explanations/markdown/code fences.\n' +
           '\n' +
           '## Canvas\n' +
@@ -1441,6 +1480,7 @@ export function AiPanel({
       // In-tool independent Style Skill generation: one focused LLM call thinking only about the design system.
       generateStyleSkill: async (a) => {
         const sys =
+          '[LYCERO_PIPELINE_STAGE:slide_style]\n' +
           'You are a professional deck visual designer. Given the presentation topic and style preferences, produce a complete Style Skill (visual style guide). Output strictly in the structure below, only the Style Skill content, no explanations/markdown/code fences.\n\n' +
           'Color rules (must use concrete hex values)\n' +
           '  Main background: #hex\n' +
@@ -1471,6 +1511,7 @@ export function AiPanel({
       planDeckOutline: async (a) => {
         // style is already produced independently by generateStyleSkill; this function only outputs core_hook + per-page outlines (layout chosen per the Style Skill).
         const sys =
+          '[LYCERO_PIPELINE_STAGE:slide_outline]\n' +
           'You are a professional deck planner. Given the confirmed design style, plan the content page by page. Output only one JSON object, no explanations/markdown/code fences.\n' +
           'Format: {"core_hook":"...","pages":[{"title":"","type":"cover|content|data|closing","brief":"","layout":"","image_queries":[]}]}\n' +
           '\n' +
@@ -1531,13 +1572,15 @@ export function AiPanel({
         // Notify the App layer to update the canvas top progress bar
         onDeckProgressRef.current?.(event)
         if (event.stage === 'pages' && Array.isArray(event.pages)) {
-          const runningPage = event.pages.find((p) => p.status === 'running') ?? event.pages.at(-1)
+          let runningIdx = event.pages.findIndex((p) => p.status === 'running')
+          if (runningIdx < 0) runningIdx = event.pages.length - 1
+          const runningPage = runningIdx >= 0 ? event.pages[runningIdx] : undefined
           if (runningPage) {
-            const pIdx = Math.max(0, runningPage.index - 1)
+            const pIdx = Math.max(0, runningIdx)
             updateLiveTarget({
               slideIndex: pIdx,
               elementIds: [],
-              locationLabel: `Slide ${runningPage.index}/${event.total ?? event.pages.length}`,
+              locationLabel: `Slide ${pIdx + 1}/${event.total ?? event.pages.length}`,
               actionLabel: 'Đang thiết kế trực tiếp bố cục Slide',
               livePreview: runningPage.title,
               busy: true,
@@ -1676,11 +1719,21 @@ export function AiPanel({
     }
     accessRef.current = access
     loopRef.current = new AgentLoop({
-      transport: createElectronTransport(() => settingsRef.current),
+      transport: createElectronTransport(() => settingsRef.current, {
+        getActiveSkillSlugs,
+        getUserSkillConfig,
+      }),
       systemSuffix: aiLangDirective,
+      activeSkillSlugs: getActiveSkillSlugs,
+      userSkillConfig: getUserSkillConfig,
       skill: composeSkills('slides+files', '', [
         createSlidesSkill(access),
         createFilesSkill(availableAttachments, (path) => readAttachmentPathsRef.current.add(path)),
+        createCloudProxySkill({
+          skills: () => [...(cloudCapabilitiesRef.current?.getSkills() ?? [])],
+          endpoints: () => [...(cloudCapabilitiesRef.current?.getMcpEndpoints() ?? [])],
+          dispatcher: cloudDispatcherRef.current!,
+        }),
       ]),
       events: {
         onText: (text) => {
@@ -2027,6 +2080,7 @@ export function AiPanel({
     lastAttachmentsRef.current = sentAtts
     // skills ride with this one message only: the chips clear like attachments do
     const sentSkills = opts?.attachSkills ? attachedSkillsRef.current : []
+    lastSentSkillsRef.current = sentSkills
     if (sentSkills.length > 0) setAttachedSkills([])
     inputEditedSinceRunRef.current = false
     instructionRef.current = instruction
@@ -2098,11 +2152,15 @@ export function AiPanel({
   /** the attached skills' full text in front of the request; a skill that vanished is skipped */
   const withSkillBodies = async (instruction: string, names: readonly string[]) => {
     if (names.length === 0) return instruction
+    const cloudSkills = cloudCapabilitiesRef.current?.getSkills() ?? []
     const bodies = await Promise.all(
       names.map(async (name) => {
         try {
           return { name, body: await window.slidesApi.skillText(name) }
         } catch {
+          if (cloudSkills.some((s) => s.slug === name)) {
+            return { name, body: `[LYCERO_CLOUD_SKILL:${name}]` }
+          }
           return null
         }
       }),
@@ -2113,12 +2171,26 @@ export function AiPanel({
     )
   }
 
-  const listSkillsForMenu = async () =>
-    (await window.slidesApi.skillsList()).map(({ name, description }) => ({ name, description }))
+  const listSkillsForMenu = async () => {
+    const local = (await window.slidesApi.skillsList()).map(({ name, description }) => ({
+      name,
+      description,
+    }))
+    const seen = new Set(local.map((s) => s.name))
+    for (const cs of cloudCapabilitiesRef.current?.getSkills() ?? []) {
+      if (!seen.has(cs.slug)) {
+        seen.add(cs.slug)
+        local.push({ name: cs.slug, description: cs.description || cs.name })
+      }
+    }
+    return local
+  }
   const toggleSkill = (name: string) =>
-    setAttachedSkills((prev) =>
-      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
-    )
+    setAttachedSkills((prev) => {
+      const next = prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
+      void cloudCapabilitiesRef.current?.setSkillActive(name, next.includes(name))
+      return next
+    })
 
   /** One page of a queue submission — runWith's bookkeeping minus the composer and the user bubble */
   const runQueuePage = (instruction: string) =>

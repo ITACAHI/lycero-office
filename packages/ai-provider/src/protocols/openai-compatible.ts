@@ -17,6 +17,7 @@ import {
   openAiContentText,
   parseToolInput,
   readCappedResponseText,
+  resolveLyceroGatewayContext,
   sseErrorText,
   sseDataEvents,
   throwIfCreditsNotice,
@@ -202,35 +203,6 @@ export async function streamOpenAiCompatible(
   )
 }
 
-function extractActiveSkillHeaders(
-  baseUrl: string,
-  system: string,
-  messages: AgentMessage[],
-  explicitSlugs?: string[],
-): Record<string, string> {
-  const attr = lyceroAttributionHeaders(baseUrl)
-  if (Object.keys(attr).length === 0) return {}
-  const slugs = new Set<string>(explicitSlugs ?? [])
-  const scanText = (txt: string | undefined) => {
-    if (!txt) return
-    for (const m of txt.matchAll(/<skill\s+name="([A-Za-z0-9._-]+)"/g)) {
-      if (m[1]) slugs.add(m[1])
-    }
-    for (const m of txt.matchAll(/\[LYCERO_CLOUD_SKILL:([A-Za-z0-9._-]+)\]/g)) {
-      if (m[1]) slugs.add(m[1])
-    }
-  }
-  scanText(system)
-  for (const msg of messages) {
-    if (msg.role === 'user' || msg.role === 'assistant') {
-      scanText(msg.text)
-    } else if (msg.role === 'tool') {
-      for (const r of msg.results) scanText(r.output)
-    }
-  }
-  return slugs.size > 0 ? { 'X-Lycero-Active-Skills': [...slugs].join(',') } : {}
-}
-
 async function openAiCompatibleTurn(
   baseUrl: string,
   config: AiProviderConfig,
@@ -249,6 +221,16 @@ async function openAiCompatibleTurn(
   const isLyceroGateway = Object.keys(lyceroAttributionHeaders(baseUrl)).length > 0
   const clientCompaction = isLyceroGateway ? compactOutboundAgentTurn(messages) : null
   const turnMessages = clientCompaction ? clientCompaction.messages : messages
+  const lyceroCtx = resolveLyceroGatewayContext({
+    baseUrl,
+    system,
+    messages: turnMessages,
+    editorModule: cb.editorModule,
+    pipelineStage: cb.pipelineStage,
+    activeSkillSlugs: cb.activeSkillSlugs,
+    userSkillConfig: cb.userSkillConfig,
+    forceLyceroHeaders: isLyceroGateway,
+  })
 
   const response = await aiFetch(endpointUrl(baseUrl, 'chat/completions'), {
     method: 'POST',
@@ -258,7 +240,7 @@ async function openAiCompatibleTurn(
       ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
       ...lyceroAttributionHeaders(baseUrl),
       ...(clientCompaction ? { 'X-Lycero-Client-Compaction': clientCompaction.headerJson } : {}),
-      ...extractActiveSkillHeaders(baseUrl, system, turnMessages, cb.activeSkillSlugs),
+      ...(isLyceroGateway ? lyceroCtx.headers : {}),
       ...opencodeSessionHeaders(baseUrl, cb.sessionId),
       // user-hosted endpoints may route on static headers; merged last so a
       // deliberate profile header beats an inferred one
@@ -283,6 +265,7 @@ async function openAiCompatibleTurn(
           }
         : {}),
       ...(options.omitTemperature ? {} : { temperature: 0.3 }),
+      ...(isLyceroGateway ? lyceroCtx.bodyExtras : {}),
       ...options.bodyExtras,
       stream: true,
       // OpenAI-class providers only report usage in a stream when asked (a final
@@ -460,6 +443,13 @@ export async function chatOpenAiCompatible(
   user: string,
   options: OpenAiRequestOptions = {},
 ): Promise<AiChatResponse> {
+  const isLyceroGateway = Object.keys(lyceroAttributionHeaders(baseUrl)).length > 0
+  const lyceroCtx = resolveLyceroGatewayContext({
+    baseUrl,
+    system,
+    messages: [{ role: 'user', text: user }],
+    forceLyceroHeaders: isLyceroGateway,
+  })
   const response = await aiFetch(endpointUrl(baseUrl, 'chat/completions'), {
     method: 'POST',
     signal: wd.signal,
@@ -467,6 +457,7 @@ export async function chatOpenAiCompatible(
       'Content-Type': 'application/json',
       ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
       ...lyceroAttributionHeaders(baseUrl),
+      ...(isLyceroGateway ? lyceroCtx.headers : {}),
       ...opencodeSessionHeaders(baseUrl),
       ...options.headers,
     },
@@ -477,6 +468,7 @@ export async function chatOpenAiCompatible(
         { role: 'user', content: user },
       ],
       ...(options.omitTemperature ? {} : { temperature: 0.3 }),
+      ...(isLyceroGateway ? lyceroCtx.bodyExtras : {}),
       ...options.bodyExtras,
     }),
   })

@@ -2819,11 +2819,34 @@ const agentToolDefSchema = z
 const MAX_AI_MESSAGES = 500
 const MAX_AI_TOOLS = 50
 
+const lyceroEditorModuleSchema = z.enum([
+  'office_docx',
+  'office_sheet',
+  'office_slide',
+  'office_pdf',
+  'office_markdown',
+  'office_html',
+])
+
+const lyceroPipelineStageSchema = z.enum([
+  'chat',
+  'doc_longform',
+  'slide_style',
+  'slide_outline',
+  'slide_page_spec',
+  'slide_edit',
+  'sheet_formula',
+])
+
 export const aiChatRequestSchema = z
   .object({
     settings: aiSettingsInputSchema,
     system: z.string(),
     user: z.string(),
+    editorModule: lyceroEditorModuleSchema.optional(),
+    pipelineStage: lyceroPipelineStageSchema.optional(),
+    activeSkillSlugs: z.array(z.string()).optional(),
+    userSkillConfig: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
   })
   .strict()
 
@@ -2836,6 +2859,10 @@ export const aiStreamRequestSchema = z
     messages: z.array(agentMessageSchema).max(MAX_AI_MESSAGES),
     tools: z.array(agentToolDefSchema).max(MAX_AI_TOOLS).optional(),
     maxTokens: z.number().int().positive().optional(),
+    editorModule: lyceroEditorModuleSchema.optional(),
+    pipelineStage: lyceroPipelineStageSchema.optional(),
+    activeSkillSlugs: z.array(z.string()).optional(),
+    userSkillConfig: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
   })
   .strict()
 

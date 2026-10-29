@@ -266,6 +266,10 @@ export interface MediaToolOptions {
   notLoggedInError?: string
   /** directories a bare local path may be read from; omitted = extension check only */
   mediaRoots?: readonly string[]
+  /** image generation context ('slide_cover' | 'slide_content' | 'doc_illustration' | 'general') */
+  contextType?: 'slide_cover' | 'slide_content' | 'doc_illustration' | 'general'
+  /** default aspect ratio when the caller omits op.aspectRatio ('16:9' for Slides, '4:3' for Docs) */
+  defaultAspectRatio?: string
 }
 
 export interface MediaBudget {
@@ -351,13 +355,36 @@ export async function generateImageTool(
       // gskGenerateImage hands the references straight to the CLI argv, so this route
       // enforces the same item ceiling as the BYOK one instead of passing them on
       assertMediaItemCount(op.referenceImageUrls?.length ?? 0, MEDIA_BUDGET.maxItems)
-      const gen = await gskGenerateImage({ ...op, prompt })
+      const resolvedAspectRatio =
+        op.aspectRatio ??
+        options.defaultAspectRatio ??
+        (options.contextType === 'doc_illustration' ? '4:3' : '16:9')
+      const resolvedContextType =
+        op.contextType ??
+        options.contextType ??
+        (resolvedAspectRatio === '16:9'
+          ? /\b(cover|hero|title slide|trang bìa)\b/i.test(prompt)
+            ? 'slide_cover'
+            : 'slide_content'
+          : resolvedAspectRatio === '4:3' || resolvedAspectRatio === '1:1'
+            ? 'doc_illustration'
+            : 'general')
+      const gen = await gskGenerateImage({
+        ...op,
+        prompt,
+        aspectRatio: resolvedAspectRatio,
+        contextType: resolvedContextType,
+        enhancePrompt: op.enhancePrompt ?? true,
+      })
       if (!op.transparentBackground || op.model === GSK_RMBG_MODEL) return { url: gen.url }
       try {
         const cut = await gskGenerateImage({
           prompt: 'remove the background completely, keep only the subject',
           model: GSK_RMBG_MODEL,
           referenceImageUrls: [gen.url],
+          aspectRatio: resolvedAspectRatio,
+          contextType: resolvedContextType,
+          enhancePrompt: false,
         })
         return { url: cut.url }
       } catch {

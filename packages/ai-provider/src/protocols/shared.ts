@@ -3,8 +3,8 @@
  * Copyright © 2026 ITAC AI Heavy Industries.
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
-import type { AgentToolCall } from '@lycero/agent-core'
-import type { AiTokenUsage } from '../types'
+import type { AgentMessage, AgentToolCall } from '@lycero/agent-core'
+import type { AiTokenUsage, LyceroEditorModule, LyceroPipelineStage } from '../types'
 
 // ---- endpoint URL composition ----
 
@@ -269,9 +269,159 @@ export interface StreamCallbacks {
   onActivity?: () => void
   /** Stable renderer transport id for providers with native sessions. */
   sessionId?: string
+  editorModule?: LyceroEditorModule | undefined
+  pipelineStage?: LyceroPipelineStage | undefined
   activeSkillSlugs?: string[] | undefined
   userSkillConfig?: Record<string, unknown> | undefined
   signal: AbortSignal
+}
+
+const VALID_PIPELINE_STAGES = new Set<LyceroPipelineStage>([
+  'chat',
+  'doc_longform',
+  'slide_style',
+  'slide_outline',
+  'slide_page_spec',
+  'slide_edit',
+  'sheet_formula',
+])
+
+const VALID_EDITOR_MODULES = new Set<LyceroEditorModule>([
+  'office_docx',
+  'office_sheet',
+  'office_slide',
+  'office_pdf',
+  'office_markdown',
+  'office_html',
+])
+
+export function isLyceroGatewayUrl(baseUrl: string): boolean {
+  const lower = (baseUrl || '').toLowerCase()
+  return (
+    lower.includes('lycero.com') ||
+    lower.includes('localhost') ||
+    lower.includes('127.0.0.1') ||
+    lower.includes('/api/v1/office')
+  )
+}
+
+export interface ResolvedLyceroGatewayContext {
+  editorModule: LyceroEditorModule
+  pipelineStage: LyceroPipelineStage
+  activeSkillSlugs: string[]
+  headers: Record<string, string>
+  bodyExtras: Record<string, unknown>
+}
+
+export function resolveLyceroGatewayContext(options: {
+  baseUrl: string
+  system: string
+  messages?: readonly AgentMessage[] | undefined
+  editorModule?: LyceroEditorModule | undefined
+  pipelineStage?: LyceroPipelineStage | undefined
+  activeSkillSlugs?: readonly string[] | undefined
+  userSkillConfig?: Record<string, unknown> | undefined
+  forceLyceroHeaders?: boolean | undefined
+}): ResolvedLyceroGatewayContext {
+  const {
+    baseUrl,
+    system,
+    messages = [],
+    editorModule: explicitModule,
+    pipelineStage: explicitStage,
+    activeSkillSlugs: explicitSlugs,
+    userSkillConfig,
+    forceLyceroHeaders = false,
+  } = options
+
+  // 1. Resolve pipelineStage from explicit option or [LYCERO_PIPELINE_STAGE:<stage>] tag in system
+  let pipelineStage: LyceroPipelineStage =
+    explicitStage && VALID_PIPELINE_STAGES.has(explicitStage) ? explicitStage : 'chat'
+  const stageMatch = /\[LYCERO_PIPELINE_STAGE:([a-z0-9_-]+)\]/i.exec(system)
+  if (!explicitStage && stageMatch?.[1]) {
+    const candidate = stageMatch[1].toLowerCase() as LyceroPipelineStage
+    if (VALID_PIPELINE_STAGES.has(candidate)) {
+      pipelineStage = candidate
+    }
+  }
+
+  // 2. Resolve editorModule from explicit option, pipelineStage prefix, or system prompt cues
+  let editorModule: LyceroEditorModule = 'office_docx'
+  if (explicitModule && VALID_EDITOR_MODULES.has(explicitModule)) {
+    editorModule = explicitModule
+  } else if (
+    pipelineStage === 'slide_style' ||
+    pipelineStage === 'slide_outline' ||
+    pipelineStage === 'slide_page_spec' ||
+    pipelineStage === 'slide_edit' ||
+    /\b(1280x720|slide visual designer|deck planner|generate_deck|propose_operations|inspect_slide)\b/i.test(
+      system,
+    )
+  ) {
+    editorModule = 'office_slide'
+  } else if (pipelineStage === 'doc_longform') {
+    editorModule = 'office_docx'
+  } else if (
+    pipelineStage === 'sheet_formula' ||
+    /\b(spreadsheet|workbook|worksheet|cell range|formula bar)\b/i.test(system)
+  ) {
+    editorModule = 'office_sheet'
+  } else if (/\bpdf viewer|pdf document\b/i.test(system)) {
+    editorModule = 'office_pdf'
+  } else if (/\bmarkdown editor\b/i.test(system)) {
+    editorModule = 'office_markdown'
+  } else if (/\bhtml editor\b/i.test(system)) {
+    editorModule = 'office_html'
+  }
+
+  // 3. Collect activeSkillSlugs from explicit list, <skill name="..."> blocks, and [LYCERO_CLOUD_SKILL:...] markers
+  const slugs = new Set<string>()
+  if (Array.isArray(explicitSlugs)) {
+    for (const s of explicitSlugs) {
+      if (typeof s === 'string' && s.trim()) slugs.add(s.trim())
+    }
+  }
+  const scanText = (text: string) => {
+    for (const m of text.matchAll(/<skill\s+name="([^"]+)">/g)) {
+      if (m[1]?.trim()) slugs.add(m[1].trim())
+    }
+    for (const m of text.matchAll(/\[LYCERO_CLOUD_SKILL:([a-zA-Z0-9._-]+)\]/g)) {
+      if (m[1]?.trim()) slugs.add(m[1].trim())
+    }
+  }
+  if (system) scanText(system)
+  for (const msg of messages) {
+    if (msg.role === 'user' && msg.text) scanText(msg.text)
+  }
+  const activeSkillSlugs = [...slugs]
+
+  const isLycero = forceLyceroHeaders || isLyceroGatewayUrl(baseUrl)
+  const headers: Record<string, string> = isLycero
+    ? {
+        'X-Lycero-Editor-Module': editorModule,
+        'X-Lycero-Pipeline-Stage': pipelineStage,
+        ...(activeSkillSlugs.length > 0
+          ? { 'X-Lycero-Active-Skills': activeSkillSlugs.join(',') }
+          : {}),
+      }
+    : {}
+
+  const bodyExtras: Record<string, unknown> = isLycero
+    ? {
+        editorModule,
+        pipelineStage,
+        ...(activeSkillSlugs.length > 0 ? { activeSkillSlugs } : {}),
+        ...(userSkillConfig && Object.keys(userSkillConfig).length > 0 ? { userSkillConfig } : {}),
+      }
+    : {}
+
+  return {
+    editorModule,
+    pipelineStage,
+    activeSkillSlugs,
+    headers,
+    bodyExtras,
+  }
 }
 
 /** Coerce a provider's usage figure (number on the wire, sometimes a numeric string) to a finite count. */
