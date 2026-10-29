@@ -77,7 +77,7 @@ jobs:
           LYCERO_FONT_CDN_URL: ${{ secrets.LYCERO_FONT_CDN_URL }}
           LYCERO_GA4_MEASUREMENT_ID: ${{ secrets.LYCERO_GA4_MEASUREMENT_ID }}
           LYCERO_GA4_API_SECRET: ${{ secrets.LYCERO_GA4_API_SECRET }}
-          LYCERO_WIN_SIGN_MODE: ${{ (inputs.sign != false && (secrets.AZURE_TRUSTED_SIGNING_DLIB != '' || secrets.SM_KEYPAIR_ALIAS != '' || secrets.CSC_LINK != '')) && 'production' || 'none' }}
+          LYCERO_WIN_SIGN_MODE: ${{ inputs.sign == false && 'none' || '' }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
@@ -181,11 +181,14 @@ jobs:
         run: npm run dist:linux
 
       - name: Sign Linux packages with GPG (when GPG_PRIVATE_KEY secret is present)
-        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
+          if [ -z "$GPG_PRIVATE_KEY" ]; then
+            echo "No GPG_PRIVATE_KEY secret configured; skipping GPG detach-sign."
+            exit 0
+          fi
           echo "$GPG_PRIVATE_KEY" | gpg --batch --import
           for pkg in apps/shell/release/*.deb apps/shell/release/*.rpm apps/shell/release/*.AppImage; do
             [ -f "$pkg" ] || continue
