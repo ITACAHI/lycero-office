@@ -605,6 +605,13 @@ Lycero Office is built upon GenOffice (Apache-2.0, Copyright © 2026 Mainfunc, I
 (`tools/gen-third-party-notices.mjs`); all runtime dependencies are
 MIT/Apache-2.0/BSD-3-Clause/OFL.
 
+## Code Signing Policy
+
+Free code signing on Windows is provided by [SignPath.io](https://signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).
+
+- **Committers & Release Approvers:** Official maintainers of [ITAC AI Heavy Industries](https://github.com/ITACAHI).
+- **Privacy & Network Policy:** This program is local-first and will not transfer any document content or personal information to other networked systems unless specifically requested by the user or the person installing or operating it (such as signing in to an AI provider or checking for updates). See [PRIVACY.md](PRIVACY.md) for details.
+
 ## License & Legal Compliance
 
 Lycero Office is distributed under the [Apache License 2.0](LICENSE).
