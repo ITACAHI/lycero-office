@@ -1,6 +1,6 @@
 {
   "name": "@lycero/sheets",
-  "productName": "GenOffice Sheets",
+  "productName": "Lycero Office Sheets",
   "version": "2.0.0",
   "private": true,
   "description": "Cross-platform AI-native spreadsheet compatibility prototype",
@@ -70,5 +70,5 @@
     "vite": "^7.3.7",
     "vitest": "^4.1.12"
   },
-  "author": "GenOffice"
+  "author": "Lycero Office"
 }

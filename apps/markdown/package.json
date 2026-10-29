@@ -1,6 +1,6 @@
 {
   "name": "@lycero/markdown",
-  "productName": "GenOffice Markdown",
+  "productName": "Lycero Office Markdown",
   "version": "2.0.0",
   "license": "Apache-2.0",
   "private": true,
@@ -60,7 +60,7 @@
     "vite": "^7.3.7",
     "vitest": "^4.1.12"
   },
-  "author": "GenOffice",
+  "author": "Lycero Office",
   "dependencies": {
     "@tiptap/extension-mathematics": "3.31.0",
     "katex": "^0.18.2",

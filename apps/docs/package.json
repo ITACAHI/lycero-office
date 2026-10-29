@@ -1,6 +1,6 @@
 {
   "name": "@lycero/docs",
-  "productName": "GenOffice Docs",
+  "productName": "Lycero Office Docs",
   "version": "2.0.0",
   "license": "Apache-2.0",
   "private": true,
@@ -46,10 +46,10 @@
     "vite": "^7.3.7",
     "vitest": "^4.1.12"
   },
-  "author": "GenOffice",
+  "author": "Lycero Office",
   "build": {
-    "appId": "com.genoffice.docs",
-    "productName": "GenOffice Docs",
+    "appId": "com.lycero.office.docs",
+    "productName": "Lycero Office Docs",
     "electronVersion": "43.3.0",
     "artifactName": "AIDocx-${version}-${arch}.${ext}",
     "directories": {

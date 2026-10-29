@@ -1,4 +1,4 @@
-# Contributing to GenOffice
+# Contributing to Lycero Office
 
 Thanks for your interest in contributing. This document covers the local
 setup, the checks a change must pass, and the conventions used in this
@@ -51,7 +51,7 @@ All pure TypeScript, no Electron dependency, unit-tested (except the UI kit):
   every app.
 - `packages/ai-provider` — provider abstraction and streaming for the model
   backends.
-- `packages/ai-search` — Genspark auth + web/image search tools.
+- `packages/ai-search` — Lycero auth + web/image search tools.
 - `packages/i18n`, `packages/ui`, `packages/project-store`,
   `packages/electron-utils` — shared i18n core, React UI kit, recent-files
   store, and Electron main-process helpers.
@@ -130,7 +130,7 @@ over them. Point the output directory at an APFS path instead of moving the
 repository:
 
 ```bash
-BUILD_DIR=/tmp/genoffice-release npm run dist:mac
+BUILD_DIR=/tmp/lycero-office-release npm run dist:mac
 ```
 
 `dist:win` additionally expects the xlsx sidecar at the MinGW cross-compilation
@@ -152,11 +152,11 @@ testing and local overrides:
 | Variable                                                    | Effect                                                                        |
 | ----------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | `BUILD_DIR`                                                 | Override the electron-builder output directory (default `apps/shell/release`) |
-| `GENOFFICE_USER_DATA`                                       | Override the Electron userData directory (test isolation)                     |
-| `GENOFFICE_LANG`                                            | Force the UI language instead of following the OS locale                      |
-| `GENOFFICE_FAKE_UPDATE`                                     | Exercise the updater UI without a real release feed                           |
-| `GENOFFICE_CLOUD_SLIDE`, `GENOFFICE_CLOUD_SLIDE_TIER`       | Route slide generation through the cloud endpoint                             |
-| `GSK_API_KEY`, `GSK_CLI_PATH`                               | Genspark credentials / CLI location for the built-in AI provider              |
+| `LYCERO_USER_DATA`                                       | Override the Electron userData directory (test isolation)                     |
+| `LYCERO_LANG`                                            | Force the UI language instead of following the OS locale                      |
+| `LYCERO_FAKE_UPDATE`                                     | Exercise the updater UI without a real release feed                           |
+| `LYCERO_CLOUD_SLIDE`, `LYCERO_CLOUD_SLIDE_TIER`       | Route slide generation through the cloud endpoint                             |
+| `GSK_API_KEY`, `GSK_CLI_PATH`                               | Lycero credentials / CLI location for the built-in AI provider              |
 | `AI_SEARCH_DISABLE_GSK`, `SERPER_API_KEY`, `TAVILY_API_KEY` | Disable the gsk search backend / supply a Serper or Tavily key                |
 | `XLSX_SIDECAR_PATH`, `XLSX_OPEN_PATH`, `XLSX_DEBUG_PORT`    | Point at a locally built xlsx sidecar and its debug port                      |
 | `*_DEV_PORT`, `*_RENDERER_URL`                              | Per-app Vite dev server ports and renderer URLs (set by `npm run dev`)        |
