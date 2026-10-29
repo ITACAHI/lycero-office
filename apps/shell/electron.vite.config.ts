@@ -1,6 +1,10 @@
+import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import react from '@vitejs/plugin-react'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
+
+const slidesHarfbuzzDir = resolve(__dirname, '../slides/node_modules/harfbuzzjs')
+const rootHarfbuzzDir = resolve(__dirname, '../../node_modules/harfbuzzjs')
 
 const aiAuthAlias = {
   '@lycero/ai-auth/main': resolve(__dirname, '../../packages/ai-auth/src/lycero-auth.ts'),
@@ -10,7 +14,9 @@ const aiAuthAlias = {
     '../../packages/pipelines/src/slides/layout-audit.ts',
   ),
   '@lycero/pipelines/slides': resolve(__dirname, '../../packages/pipelines/src/slides/index.ts'),
-  '../../../../node_modules/harfbuzzjs': resolve(__dirname, '../slides/node_modules/harfbuzzjs'),
+  '../../../../node_modules/harfbuzzjs': existsSync(slidesHarfbuzzDir)
+    ? slidesHarfbuzzDir
+    : rootHarfbuzzDir,
 }
 
 export default defineConfig({
