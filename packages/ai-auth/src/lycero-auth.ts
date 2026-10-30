@@ -622,7 +622,7 @@ export function isExpiredJwt(token: string): boolean {
   return false
 }
 
-function resolveDesktopSessionFile(): string {
+function resolveDesktopLyceroFile(fileName: string): string {
   if (process.env.LYCERO_AUTH_DIR) return ''
   try {
     let userDataDir = ''
@@ -633,7 +633,7 @@ function resolveDesktopSessionFile(): string {
       } catch {}
     }
     if (userDataDir) {
-      const f = join(userDataDir, 'lycero', 'session.json')
+      const f = join(userDataDir, 'lycero', fileName)
       if (existsSync(f)) return f
     }
     const appData =
@@ -642,11 +642,15 @@ function resolveDesktopSessionFile(): string {
         ? join(homedir(), 'Library', 'Application Support')
         : join(homedir(), '.config'))
     for (const folder of ['Lycero Office', 'lycero-office']) {
-      const f = join(appData, folder, 'lycero', 'session.json')
+      const f = join(appData, folder, 'lycero', fileName)
       if (existsSync(f)) return f
     }
   } catch {}
   return ''
+}
+
+function resolveDesktopSessionFile(): string {
+  return resolveDesktopLyceroFile('session.json')
 }
 
 function readDesktopSession(): Record<string, unknown> | null {
@@ -711,6 +715,43 @@ export function lyceroAccessToken(): string {
   if (desktopToken) return desktopToken
   const authToken = loadLyceroAuth()?.tokens?.accessToken ?? ''
   return authToken && !isExpiredJwt(authToken) ? authToken : ''
+}
+
+export function lyceroDeviceId(): string {
+  try {
+    const idFile = resolveDesktopLyceroFile('device-identity.json')
+    if (idFile) {
+      const parsed = JSON.parse(readFileSync(idFile, 'utf-8')) as { deviceId?: unknown }
+      if (typeof parsed?.deviceId === 'string' && parsed.deviceId.trim()) {
+        return parsed.deviceId.trim()
+      }
+    }
+    const session = readDesktopSession()
+    const dv = session?.deviceVerification as Record<string, unknown> | undefined
+    if (typeof dv?.deviceId === 'string' && dv.deviceId.trim()) {
+      return dv.deviceId.trim()
+    }
+  } catch {}
+  return ''
+}
+
+export function lyceroDeviceBlockError(): string | null {
+  try {
+    const session = readDesktopSession()
+    const dv = session?.deviceVerification as Record<string, unknown> | undefined
+    const status = typeof dv?.status === 'string' ? dv.status : ''
+    if (status === 'suspended' || status === 'revoked') {
+      return typeof dv?.error === 'string' && dv.error.trim()
+        ? dv.error.trim()
+        : 'Thiết bị này đã bị đình chỉ hoặc thu hồi quyền truy cập Cloud/AI. Vui lòng liên hệ Quản trị viên.'
+    }
+    if (status === 'limit_exceeded') {
+      return typeof dv?.error === 'string' && dv.error.trim()
+        ? dv.error.trim()
+        : 'Tài khoản đã vượt quá giới hạn thiết bị của gói cước hiện tại. Vui lòng truy cập https://account.lycero.com để gỡ bớt thiết bị cũ hoặc nâng cấp gói.'
+    }
+  } catch {}
+  return null
 }
 
 export function isLyceroProUser(): boolean {
@@ -875,6 +916,11 @@ async function authedFetch<T>(
   const callOnce = async (): Promise<{ resp: Response; json: T; refreshed: boolean }> => {
     const headers: Record<string, string> = { ...(init.headers as Record<string, string> | undefined) }
     headers.Authorization = `Bearer ${accessToken}`
+    headers['X-Lycero-Client'] = 'electron-desktop'
+    const deviceId = lyceroDeviceId()
+    if (deviceId) {
+      headers['X-Device-Id'] = deviceId
+    }
     const { resp, json } = await httpJson<T>(url, {
       ...init,
       headers,

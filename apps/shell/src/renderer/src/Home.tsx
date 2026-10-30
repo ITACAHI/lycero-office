@@ -17,6 +17,7 @@ import type {
   AccountStatus,
   CloudProjectKind,
   CloudProjectsSnapshot,
+  DefaultAppStatus,
   FolderEntry,
   FolderListing,
   FolderRoot,
@@ -1526,6 +1527,48 @@ export function Home() {
       ),
     [],
   )
+  // ── Default app suggestion banner (links directly to OS default apps settings) ──
+  const [defaultAppStatus, setDefaultAppStatus] = useState<DefaultAppStatus | null>(null)
+  const [defaultAppBusy, setDefaultAppBusy] = useState(false)
+  const [defaultAppDismissed, setDefaultAppDismissed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('lycero:default-app-banner-dismissed') === '1'
+    } catch {
+      return false
+    }
+  })
+  const refreshDefaultAppStatus = useCallback(() => {
+    void window.aiOffice
+      .getDefaultAppStatus?.()
+      .then((st) => {
+        if (st) setDefaultAppStatus(st)
+      })
+      .catch(() => {})
+  }, [])
+  useEffect(() => {
+    refreshDefaultAppStatus()
+    window.addEventListener('focus', refreshDefaultAppStatus)
+    return () => window.removeEventListener('focus', refreshDefaultAppStatus)
+  }, [refreshDefaultAppStatus])
+  const handleClaimDefaultApp = () => {
+    if (defaultAppBusy) return
+    setDefaultAppBusy(true)
+    void window.aiOffice
+      .setDefaultApp?.()
+      .then((st) => {
+        if (st) setDefaultAppStatus(st)
+      })
+      .catch(() => {})
+      .finally(() => setDefaultAppBusy(false))
+  }
+  const dismissDefaultAppBanner = () => {
+    setDefaultAppDismissed(true)
+    try {
+      localStorage.setItem('lycero:default-app-banner-dismissed', '1')
+    } catch {
+      // ignore storage quota errors
+    }
+  }
   const searchInputRef = useRef<HTMLInputElement>(null)
   // IME composition: wait for the committed text instead of searching each keystroke
   const composingRef = useRef(false)
@@ -3162,6 +3205,64 @@ export function Home() {
     )
   }
 
+  function renderDefaultAppBanner(): ReactElement | null {
+    if (defaultAppDismissed || defaultAppStatus?.state !== 'other') return null
+    const desc =
+      defaultAppStatus.others.length > 0
+        ? t('setDefaultAppOther', { app: defaultAppStatus.others.join(', ') })
+        : t('setDefaultAppDesc')
+    return (
+      <div className="default-app-banner" role="region" aria-label={t('setDefaultApp')}>
+        <div className="default-app-banner-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+            <path
+              d="M10 2.2l5.8 2.4v4.7c0 4.1-2.5 7.7-5.8 8.9-3.3-1.2-5.8-4.8-5.8-8.9V4.6L10 2.2z"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M7.4 10.2l1.8 1.8 3.6-3.7"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
+        <div className="default-app-banner-body">
+          <span className="default-app-banner-title">{t('setDefaultApp')}</span>
+          <span className="default-app-banner-desc">{desc}</span>
+        </div>
+        <div className="default-app-banner-actions">
+          <button
+            type="button"
+            className="default-app-banner-btn primary"
+            disabled={defaultAppBusy}
+            onClick={handleClaimDefaultApp}
+          >
+            {defaultAppStatus.manualOnly ? t('setDefaultAppOpenSettings') : t('setDefaultAppSet')}
+          </button>
+          <button
+            type="button"
+            className="default-app-banner-dismiss"
+            aria-label={t('cancel')}
+            onClick={dismissDefaultAppBanner}
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path
+                d="M2 2l8 8M10 2l-8 8"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   function renderFolderContent() {
     if (roots.length === 0) return null
     const total = folderSubfolders.length + folderFiles.length
@@ -3169,6 +3270,7 @@ export function Home() {
     return (
       <main className="content">
         <section className="quick-start" aria-label={t('secQuickStart')}>
+          {renderDefaultAppBanner()}
           <div className="section-head">
             <span className="section-label">{t('secQuickStart')}</span>
           </div>
@@ -3284,6 +3386,7 @@ export function Home() {
     return (
       <main className="content">
         <section className="quick-start" aria-label={t('secQuickStart')}>
+          {renderDefaultAppBanner()}
           <div className="home-hero">
             <h1 className="hero-title">
               {greeting}

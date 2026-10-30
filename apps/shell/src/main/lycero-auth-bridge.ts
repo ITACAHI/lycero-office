@@ -31,6 +31,19 @@ import {
   resetLyceroAuthCache,
   APP_TYPE,
 } from '@lycero/ai-auth/main'
+import {
+  clearDeviceVerificationState,
+  getDeviceId,
+  getDeviceIdentity,
+  getDeviceVerificationState,
+  getStandardLyceroHeaders,
+  onDeviceVerificationStateChanged,
+  registerAndVerifyDevice,
+  sendOfficeTelemetry,
+  startDeviceHeartbeat,
+  stopDeviceHeartbeat,
+  type DeviceVerificationState,
+} from './deviceIdentityService'
 
 // Cấu hình URL Cổng Trung Tâm
 export const LYCERO_GATEWAY_URL = (process.env.LYCERO_GATEWAY_URL || 'https://lycero.com').replace(/\/(?:api\/v1\/office)?\/?$/, '')
@@ -179,6 +192,7 @@ export interface LyceroSession {
   lastSyncedAt?: string | undefined
   orgId?: string | undefined
   archetypeId?: number | undefined
+  deviceVerification?: DeviceVerificationState | undefined
   storedAt: number
 }
 
@@ -220,20 +234,9 @@ function getSessionPath(): string {
 
 export function getMachineFingerprint(): string {
   try {
-    const deviceFile = join(app.getPath('userData'), 'device-id.json')
-    if (existsSync(deviceFile)) {
-      const data = JSON.parse(readFileSync(deviceFile, 'utf-8'))
-      if (data?.deviceId && typeof data.deviceId === 'string') return data.deviceId
-    }
-    const raw = `${process.platform}-${os.hostname()}-${os.userInfo?.()?.username || 'user'}-${crypto.randomUUID()}`
-    const hash = crypto.createHash('sha256').update(raw).digest('hex').slice(0, 16)
-    const deviceId = `${process.platform}-hwid-${hash}`
-    const dir = dirname(deviceFile)
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-    writeFileSync(deviceFile, JSON.stringify({ deviceId, createdAt: Date.now() }), 'utf-8')
-    return deviceId
+    return getDeviceId()
   } catch {
-    return `${process.platform}-hwid-default`
+    return `hw-${process.platform}-${process.arch}-default`
   }
 }
 
@@ -314,6 +317,8 @@ export function isLyceroProSession(): boolean {
 }
 
 export function clearSession(): void {
+  stopDeviceHeartbeat()
+  clearDeviceVerificationState()
   try {
     const filePath = getSessionPath()
     if (existsSync(filePath)) unlinkSync(filePath)
@@ -332,18 +337,82 @@ export function clearSession(): void {
   resetLyceroAuthCache()
 }
 
+export async function syncDeviceVerificationIntoSession(
+  token?: string,
+): Promise<DeviceVerificationState> {
+  const session = getSession()
+  const activeToken = token || session?.token || lyceroAccessToken()
+  if (!activeToken) {
+    return getDeviceVerificationState()
+  }
+
+  const verification = await registerAndVerifyDevice({
+    accessToken: activeToken,
+    userFallback: session
+      ? {
+          id: session.user.id,
+          email: session.user.email,
+          fullName: session.user.name,
+          role: session.user.role,
+          tier: session.license?.tier || session.user.plan,
+        }
+      : undefined,
+  })
+
+  const latestSession = getSession()
+  if (latestSession) {
+    latestSession.deviceVerification = verification
+    if (verification.verified && verification.userSnapshot) {
+      if (verification.userSnapshot.id) latestSession.user.id = verification.userSnapshot.id
+      if (verification.userSnapshot.email) latestSession.user.email = verification.userSnapshot.email
+      if (verification.userSnapshot.fullName) {
+        latestSession.user.name = verification.userSnapshot.fullName
+      }
+      if (verification.userSnapshot.role) {
+        latestSession.user.role = verification.userSnapshot.role
+      }
+      if (verification.userSnapshot.tier) {
+        const rawTier = verification.userSnapshot.tier.toLowerCase()
+        const normalizedTier = rawTier.includes('enterprise') || rawTier.includes('max')
+          ? 'enterprise'
+          : rawTier.includes('pro')
+            ? 'pro'
+            : rawTier.includes('plus')
+              ? 'plus'
+              : 'free'
+        latestSession.user.plan = normalizedTier
+        latestSession.license = {
+          tier: normalizedTier,
+          ...latestSession.license,
+        }
+      }
+    }
+    if (typeof verification.currentDeviceCount === 'number') {
+      latestSession.user.activeDevicesCount = verification.currentDeviceCount
+    }
+    saveSession(latestSession)
+  }
+
+  return verification
+}
+
 export async function loginToLyceroHub(email: string, pass: string): Promise<LyceroLoginResult> {
   try {
+    const hw = getDeviceIdentity()
     const res = await fetch(`${LYCERO_GATEWAY_URL}/api/v1/office/auth/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getStandardLyceroHeaders(),
       body: JSON.stringify({
         email,
         password: pass,
         clientId: 'lycero-office-desktop',
-        deviceId: getMachineFingerprint(),
-        deviceName: `${os.hostname()} - ${os.type()}`,
-        osPlatform: process.platform,
+        deviceId: hw.deviceId,
+        deviceName: hw.deviceName,
+        deviceModel: hw.deviceModel,
+        osPlatform: hw.osPlatform,
+        osVersion: hw.osVersion,
+        architecture: hw.architecture,
+        appVersion: hw.appVersion,
       }),
     })
     const data = (await res.json()) as HubLoginResponse
@@ -387,6 +456,19 @@ export async function loginToLyceroHub(email: string, pass: string): Promise<Lyc
           },
         })
       } catch {}
+
+      void sendOfficeTelemetry('user_login', {
+        accessToken: token,
+        user: {
+          id: session.user.id,
+          email: session.user.email,
+          fullName: session.user.name,
+          tier: session.license?.tier || session.user.plan || 'free',
+        },
+      })
+      void syncDeviceVerificationIntoSession(token)
+      startDeviceHeartbeat(() => getSession()?.token || lyceroAccessToken())
+
       return { success: true, token, refreshToken: data.refreshToken, user: session.user, license: data.license }
     }
     return { success: false, error: data.error || data.error_description || `HTTP ${res.status}` }
@@ -573,10 +655,7 @@ export async function fetchLyceroMe(token?: string): Promise<{
   try {
     let res = await fetch(`${LYCERO_GATEWAY_URL}/api/v1/office/auth/me`, {
       method: 'GET',
-      headers: {
-        Authorization: `Bearer ${t}`,
-        'Content-Type': 'application/json',
-      },
+      headers: getStandardLyceroHeaders(t),
     })
     if (res.status === 401) {
       const curr = getSession()
@@ -590,10 +669,7 @@ export async function fetchLyceroMe(token?: string): Promise<{
             saveSession(curr)
             res = await fetch(`${LYCERO_GATEWAY_URL}/api/v1/office/auth/me`, {
               method: 'GET',
-              headers: {
-                Authorization: `Bearer ${t}`,
-                'Content-Type': 'application/json',
-              },
+              headers: getStandardLyceroHeaders(t),
             })
           }
         } catch {
@@ -715,10 +791,7 @@ export async function updateLyceroProfile(patch: {
     try {
       const res = await fetch(`${LYCERO_GATEWAY_URL}/api/v1/office/auth/me`, {
         method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${t}`,
-          'Content-Type': 'application/json',
-        },
+        headers: getStandardLyceroHeaders(t),
         body: JSON.stringify({
           ...(cleanName !== undefined ? { fullName: cleanName } : {}),
           ...(cleanAvatar !== undefined ? { avatarUrl: cleanAvatar } : {}),
@@ -798,7 +871,20 @@ export function handleLyceroDeepLink(url: string, getMainWindow: () => BrowserWi
                 storedAt: Date.now(),
               }
               saveSession(session)
-              await fetchLyceroMe(session.token)
+              void sendOfficeTelemetry('user_login', {
+                accessToken: session.token,
+                user: {
+                  id: session.user.id,
+                  email: session.user.email,
+                  fullName: session.user.name,
+                  tier: session.user.plan || 'free',
+                },
+              })
+              startDeviceHeartbeat(() => getSession()?.token || lyceroAccessToken())
+              await Promise.all([
+                fetchLyceroMe(session.token),
+                syncDeviceVerificationIntoSession(session.token),
+              ])
               broadcastAuthChanged(getSession() ?? session, getMainWindow)
             })
             .catch((err) => {
@@ -909,10 +995,21 @@ export function handleLyceroDeepLink(url: string, getMainWindow: () => BrowserWi
 
       broadcastAuthChanged(session, getMainWindow)
 
-      void fetchLyceroMe(token).then((latest) => {
-        if (latest) {
-          broadcastAuthChanged(getSession() ?? session, getMainWindow)
-        }
+      void sendOfficeTelemetry('user_login', {
+        accessToken: token,
+        user: {
+          id: session.user.id,
+          email: session.user.email,
+          fullName: session.user.name,
+          tier: session.user.plan || 'free',
+        },
+      })
+      startDeviceHeartbeat(() => getSession()?.token || lyceroAccessToken())
+      void Promise.all([
+        fetchLyceroMe(token),
+        syncDeviceVerificationIntoSession(token),
+      ]).then(() => {
+        broadcastAuthChanged(getSession() ?? session, getMainWindow)
       })
 
       return true
@@ -983,7 +1080,20 @@ export function startLyceroOAuthFlow(
             storedAt: Date.now(),
           }
           saveSession(session)
-          await fetchLyceroMe(session.token)
+          void sendOfficeTelemetry('user_login', {
+            accessToken: session.token,
+            user: {
+              id: session.user.id,
+              email: session.user.email,
+              fullName: session.user.name,
+              tier: session.user.plan || 'free',
+            },
+          })
+          startDeviceHeartbeat(() => getSession()?.token || lyceroAccessToken())
+          await Promise.all([
+            fetchLyceroMe(session.token),
+            syncDeviceVerificationIntoSession(session.token),
+          ])
           broadcastAuthChanged(getSession() ?? session, getMainWindow)
         }
         sendEvent('home:account-login-event', { phase: 'success' })
@@ -998,6 +1108,56 @@ export function startLyceroOAuthFlow(
 }
 
 export function registerLyceroAuthIpc(getMainWindow: () => BrowserWindow | null): void {
+  // Broadcast device verification state changes to renderer windows
+  onDeviceVerificationStateChanged((state) => {
+    const curr = getSession()
+    if (curr && curr.deviceVerification !== state) {
+      curr.deviceVerification = state
+      saveSession(curr)
+    }
+    const win = getMainWindow()
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('lycero:auth:changed', getSession())
+    }
+  })
+
+  // Step B: Report non-blocking app_launch telemetry on startup
+  const startupSession = getSession()
+  const startupToken = startupSession?.token || lyceroAccessToken() || undefined
+  void sendOfficeTelemetry('app_launch', {
+    accessToken: startupToken,
+    user: startupSession
+      ? {
+          id: startupSession.user.id,
+          email: startupSession.user.email,
+          fullName: startupSession.user.name,
+          tier: startupSession.license?.tier || startupSession.user.plan || 'free',
+        }
+      : null,
+  })
+
+  // Step A & Step C: If already logged in on startup, register/verify device and start 60s heartbeat
+  if (startupToken) {
+    startDeviceHeartbeat(() => getSession()?.token || lyceroAccessToken())
+    void syncDeviceVerificationIntoSession(startupToken).then(() => {
+      broadcastAuthChanged(getSession(), getMainWindow)
+    })
+  }
+
+  // Device identity & manual re-verification IPC handlers
+  ipcMain.handle('lycero:device:identity', () => {
+    return getDeviceIdentity()
+  })
+
+  ipcMain.handle('lycero:device:verificationState', () => {
+    return getDeviceVerificationState()
+  })
+
+  ipcMain.handle('lycero:device:reverify', async () => {
+    const state = await syncDeviceVerificationIntoSession()
+    broadcastAuthChanged(getSession(), getMainWindow)
+    return state
+  })
   // Direct email/password login to Central Gateway
   ipcMain.handle('lycero:auth:loginHub', async (_event, email: string, pass: string) => {
     const result = await loginToLyceroHub(email, pass)

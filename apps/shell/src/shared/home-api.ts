@@ -614,6 +614,34 @@ export interface CloudProjectsSnapshot {
   syncedAt: number
 }
 
+export interface DeviceVerificationInfo {
+  verified: boolean
+  status: 'verified' | 'unverified' | 'suspended' | 'revoked' | 'limit_exceeded'
+  code?: string
+  error?: string
+  deviceId: string
+  deviceName: string
+  deviceModel: string
+  osPlatform: 'win32' | 'darwin' | 'linux'
+  osVersion: string
+  architecture: string
+  appVersion: string
+  cpuId: string
+  macAddress: string
+  machineId: string
+  screenResolution: string
+  language: string
+  location: {
+    ipAddress?: string
+    country: string
+    regionOrCity?: string
+    timezone: string
+  }
+  maxDevices?: number
+  currentDeviceCount?: number
+  lastVerifiedAt?: string
+}
+
 export interface AccountStatus {
   /** gsk or Lycero Hub is logged in */
   loggedIn: boolean
@@ -626,6 +654,7 @@ export interface AccountStatus {
   licenseStatus?: string
   licenseExpiresAt?: string | null
   activeDevicesCount?: number
+  maxDevices?: number
   /** remaining Lycero credits (absent when the balance query failed) */
   creditBalance?: number
   archetypeId?: number
@@ -634,6 +663,7 @@ export interface AccountStatus {
   weeklyQuota?: QuotaWindowMetrics
   monthlyQuota?: QuotaWindowMetrics
   tokenUsage?: TokenUsageMetrics
+  deviceVerification?: DeviceVerificationInfo
   lastSyncedAt?: string
 }
 

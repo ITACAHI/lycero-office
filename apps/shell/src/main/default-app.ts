@@ -6,7 +6,7 @@
 import { execFile } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { dirname, posix } from 'node:path'
 import type { DefaultAppStatus } from '../shared/home-api'
 
 // macOS writes the LaunchServices user choice via osascript (no helper binary to
@@ -54,7 +54,104 @@ export const OFFICE_TYPES: readonly OfficeType[] = [
 ]
 
 const LINUX_DESKTOP_ID = 'genoffice.desktop'
-const WINDOWS_DEFAULT_APPS_URL = 'ms-settings:defaultapps'
+export const WINDOWS_DEFAULT_APPS_URL = 'ms-settings:defaultapps?registeredAppUser=Lycero%20Office'
+const WINDOWS_DEFAULT_APPS_FALLBACK_URL = 'ms-settings:defaultapps'
+
+const WINDOWS_CAPABILITY_TYPES: ReadonlyArray<{ ext: string; progId: string; desc: string }> = [
+  { ext: 'docx', progId: 'Word Document', desc: 'Word Document' },
+  { ext: 'xlsx', progId: 'Excel Workbook', desc: 'Excel Workbook' },
+  { ext: 'xlsm', progId: 'Excel Macro-Enabled Workbook', desc: 'Excel Macro-Enabled Workbook' },
+  { ext: 'xls', progId: 'Excel 97-2003 Workbook', desc: 'Excel 97-2003 Workbook' },
+  { ext: 'pptx', progId: 'PowerPoint Presentation', desc: 'PowerPoint Presentation' },
+  { ext: 'pdf', progId: 'PDF Document', desc: 'PDF Document' },
+  { ext: 'csv', progId: 'CSV Document', desc: 'CSV Document' },
+  { ext: 'tsv', progId: 'TSV Document', desc: 'TSV Document' },
+  { ext: 'md', progId: 'Markdown Document', desc: 'Markdown Document' },
+  { ext: 'markdown', progId: 'Markdown Document', desc: 'Markdown Document' },
+  { ext: 'html', progId: 'HTML Document', desc: 'HTML Document' },
+  { ext: 'htm', progId: 'HTML Document', desc: 'HTML Document' },
+  { ext: 'odt', progId: 'OpenDocument Text', desc: 'OpenDocument Text' },
+  { ext: 'ott', progId: 'OpenDocument Text Template', desc: 'OpenDocument Text Template' },
+  { ext: 'ods', progId: 'OpenDocument Spreadsheet', desc: 'OpenDocument Spreadsheet' },
+  { ext: 'ots', progId: 'OpenDocument Spreadsheet Template', desc: 'OpenDocument Spreadsheet Template' },
+  { ext: 'odp', progId: 'OpenDocument Presentation', desc: 'OpenDocument Presentation' },
+  { ext: 'otp', progId: 'OpenDocument Presentation Template', desc: 'OpenDocument Presentation Template' },
+]
+
+/**
+ * Registers Lycero Office under HKCU\Software\RegisteredApplications,
+ * HKCU\Software\Lycero Office\Capabilities, and HKCU\Software\Classes\Applications
+ * so Windows 10/11 Settings -> Default Apps and Explorer "Open with" always
+ * recognize Lycero Office without requiring administrator privileges.
+ */
+export async function ensureWindowsCapabilitiesRegistered(
+  exePath: string,
+  run: RunCommand,
+): Promise<void> {
+  const openCmd = `"${exePath}" "%1"`
+  const iconVal = `${exePath},0`
+  const capKey = 'HKCU\\Software\\Lycero Office\\Capabilities'
+  const appKey = 'HKCU\\Software\\Classes\\Applications\\Lycero Office.exe'
+
+  const regAdd = async (args: string[]) => {
+    try {
+      await run('reg', ['add', ...args, '/f'])
+    } catch {
+      // best-effort: never fail default-app flow if a registry write is blocked
+    }
+  }
+
+  await Promise.all([
+    regAdd([
+      'HKCU\\Software\\RegisteredApplications',
+      '/v',
+      'Lycero Office',
+      '/t',
+      'REG_SZ',
+      '/d',
+      'Software\\Lycero Office\\Capabilities',
+    ]),
+    regAdd([capKey, '/v', 'ApplicationName', '/t', 'REG_SZ', '/d', 'Lycero Office']),
+    regAdd([
+      capKey,
+      '/v',
+      'ApplicationDescription',
+      '/t',
+      'REG_SZ',
+      '/d',
+      'Lycero Office — AI-Powered Office Suite for Docs, Sheets, Slides & PDF',
+    ]),
+    regAdd([capKey, '/v', 'ApplicationIcon', '/t', 'REG_SZ', '/d', iconVal]),
+    regAdd([appKey, '/v', 'FriendlyAppName', '/t', 'REG_SZ', '/d', 'Lycero Office']),
+    regAdd([`${appKey}\\DefaultIcon`, '/ve', '/t', 'REG_SZ', '/d', iconVal]),
+    regAdd([`${appKey}\\shell\\open\\command`, '/ve', '/t', 'REG_SZ', '/d', openCmd]),
+  ])
+
+  const seenProgIds = new Set<string>()
+  for (const item of WINDOWS_CAPABILITY_TYPES) {
+    const dotExt = `.${item.ext}`
+    await Promise.all([
+      regAdd([`${capKey}\\FileAssociations`, '/v', dotExt, '/t', 'REG_SZ', '/d', item.progId]),
+      regAdd([`${appKey}\\SupportedTypes`, '/v', dotExt, '/t', 'REG_SZ', '/d', '']),
+      regAdd([
+        `HKCU\\Software\\Classes\\${dotExt}\\OpenWithProgids`,
+        '/v',
+        item.progId,
+        '/t',
+        'REG_NONE',
+      ]),
+    ])
+    if (!seenProgIds.has(item.progId)) {
+      seenProgIds.add(item.progId)
+      const progKey = `HKCU\\Software\\Classes\\${item.progId}`
+      await Promise.all([
+        regAdd([progKey, '/ve', '/t', 'REG_SZ', '/d', item.desc]),
+        regAdd([`${progKey}\\DefaultIcon`, '/ve', '/t', 'REG_SZ', '/d', iconVal]),
+        regAdd([`${progKey}\\shell\\open\\command`, '/ve', '/t', 'REG_SZ', '/d', openCmd]),
+      ])
+    }
+  }
+}
 
 export type RunCommand = (cmd: string, args: string[]) => Promise<string>
 
@@ -176,13 +273,13 @@ export function parseRegValue(output: string): string | null {
 
 function linuxDesktopName(id: string, readFile: (p: string) => string): string {
   const dirs = [
-    join(homedir(), '.local/share/applications'),
+    posix.join(homedir(), '.local/share/applications'),
     '/usr/local/share/applications',
     '/usr/share/applications',
   ]
   for (const dir of dirs) {
     try {
-      const m = /^Name=(.+)$/m.exec(readFile(join(dir, id)))
+      const m = /^Name=(.+)$/m.exec(readFile(posix.join(dir, id)))
       if (m) return m[1].trim()
     } catch {
       // not installed there
@@ -197,6 +294,13 @@ export function createDefaultAppService(deps: DefaultAppDeps): DefaultAppService
   const mimes = OFFICE_TYPES.map((t) => t.mime)
 
   const macBundle = deps.platform === 'darwin' ? macAppBundlePath(deps.exePath) : null
+  let windowsCapabilitiesSynced = false
+
+  function isOurWindowsProgId(id: string): boolean {
+    const lower = id.toLowerCase()
+    if (lower.includes('lycero office')) return true
+    return OFFICE_TYPES.some((t) => t.progId === id)
+  }
 
   async function status(): Promise<DefaultAppStatus> {
     if (!deps.packaged) return UNSUPPORTED
@@ -222,7 +326,7 @@ export function createDefaultAppService(deps: DefaultAppDeps): DefaultAppService
       }
       if (deps.platform === 'win32') {
         const owners = await Promise.all(OFFICE_TYPES.map((t) => windowsOwner(t)))
-        const st = summarize(owners, (id) => OFFICE_TYPES.some((t) => t.progId === id))
+        const st = summarize(owners, isOurWindowsProgId)
         const names = await Promise.all(st.others.map((id) => windowsProgIdName(id)))
         return { ...st, others: [...new Set(names)], manualOnly: true }
       }
@@ -263,7 +367,15 @@ export function createDefaultAppService(deps: DefaultAppDeps): DefaultAppService
       } else if (deps.platform === 'linux') {
         await deps.run('xdg-mime', ['default', LINUX_DESKTOP_ID, ...mimes])
       } else if (deps.platform === 'win32') {
-        await deps.openExternal(WINDOWS_DEFAULT_APPS_URL)
+        if (!windowsCapabilitiesSynced) {
+          windowsCapabilitiesSynced = true
+          await ensureWindowsCapabilitiesRegistered(deps.exePath, deps.run)
+        }
+        try {
+          await deps.openExternal(WINDOWS_DEFAULT_APPS_URL)
+        } catch {
+          await deps.openExternal(WINDOWS_DEFAULT_APPS_FALLBACK_URL)
+        }
       }
     } catch {
       // status() below reports whatever actually stuck

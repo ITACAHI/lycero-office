@@ -9,11 +9,15 @@ import { ReadableStream } from 'stream/web'
 // Mock @lycero/ai-auth and @lycero/ai-auth/main to avoid fs-dependent loadLyceroAuth
 vi.mock('@lycero/ai-auth', () => ({
   lyceroAccessToken: () => 'mock-token',
+  lyceroDeviceId: () => 'hw-win32-x64-testdevice01',
+  lyceroDeviceBlockError: () => null,
   resetLyceroAuthCache: () => {},
   refreshAndGetToken: async () => null,
 }))
 vi.mock('@lycero/ai-auth/main', () => ({
   lyceroAccessToken: () => 'mock-token',
+  lyceroDeviceId: () => 'hw-win32-x64-testdevice01',
+  lyceroDeviceBlockError: () => null,
   resetLyceroAuthCache: () => {},
   refreshAndGetToken: async () => null,
 }))

@@ -134,6 +134,55 @@
   WriteRegStr SHELL_CONTEXT "Software\Classes\.xlsx\Excel Workbook\ShellNew" "FileName" "$INSTDIR\resources\shell-new\blank.xlsx"
   WriteRegStr SHELL_CONTEXT "Software\Classes\.pptx\PowerPoint Presentation\ShellNew" "FileName" "$INSTDIR\resources\shell-new\blank.pptx"
 
+  # 2b. Register Lycero Office in Windows 10/11 "Default Apps" (RegisteredApplications + Capabilities + SupportedTypes)
+  # so Windows Settings (ms-settings:defaultapps?registeredAppUser=Lycero%20Office) and Explorer "Open with"
+  # recognize Lycero Office as a first-class Office handler with 1-click "Set default".
+  WriteRegStr SHELL_CONTEXT "Software\RegisteredApplications" "Lycero Office" "Software\Lycero Office\Capabilities"
+  WriteRegStr SHELL_CONTEXT "Software\Lycero Office\Capabilities" "ApplicationName" "Lycero Office"
+  WriteRegStr SHELL_CONTEXT "Software\Lycero Office\Capabilities" "ApplicationDescription" "${APP_DESCRIPTION}"
+  WriteRegStr SHELL_CONTEXT "Software\Lycero Office\Capabilities" "ApplicationIcon" "$appExe,0"
+  WriteRegStr SHELL_CONTEXT "Software\Lycero Office\Capabilities\FileAssociations" ".docx" "Word Document"
+  WriteRegStr SHELL_CONTEXT "Software\Lycero Office\Capabilities\FileAssociations" ".xlsx" "Excel Workbook"
+  WriteRegStr SHELL_CONTEXT "Software\Lycero Office\Capabilities\FileAssociations" ".xlsm" "Excel Macro-Enabled Workbook"
+  WriteRegStr SHELL_CONTEXT "Software\Lycero Office\Capabilities\FileAssociations" ".xls" "Excel 97-2003 Workbook"
+  WriteRegStr SHELL_CONTEXT "Software\Lycero Office\Capabilities\FileAssociations" ".pptx" "PowerPoint Presentation"
+  WriteRegStr SHELL_CONTEXT "Software\Lycero Office\Capabilities\FileAssociations" ".pdf" "PDF Document"
+  WriteRegStr SHELL_CONTEXT "Software\Lycero Office\Capabilities\FileAssociations" ".csv" "CSV Document"
+  WriteRegStr SHELL_CONTEXT "Software\Lycero Office\Capabilities\FileAssociations" ".tsv" "TSV Document"
+  WriteRegStr SHELL_CONTEXT "Software\Lycero Office\Capabilities\FileAssociations" ".md" "Markdown Document"
+  WriteRegStr SHELL_CONTEXT "Software\Lycero Office\Capabilities\FileAssociations" ".markdown" "Markdown Document"
+  WriteRegStr SHELL_CONTEXT "Software\Lycero Office\Capabilities\FileAssociations" ".html" "HTML Document"
+  WriteRegStr SHELL_CONTEXT "Software\Lycero Office\Capabilities\FileAssociations" ".htm" "HTML Document"
+  WriteRegStr SHELL_CONTEXT "Software\Lycero Office\Capabilities\FileAssociations" ".odt" "OpenDocument Text"
+  WriteRegStr SHELL_CONTEXT "Software\Lycero Office\Capabilities\FileAssociations" ".ott" "OpenDocument Text Template"
+  WriteRegStr SHELL_CONTEXT "Software\Lycero Office\Capabilities\FileAssociations" ".ods" "OpenDocument Spreadsheet"
+  WriteRegStr SHELL_CONTEXT "Software\Lycero Office\Capabilities\FileAssociations" ".ots" "OpenDocument Spreadsheet Template"
+  WriteRegStr SHELL_CONTEXT "Software\Lycero Office\Capabilities\FileAssociations" ".odp" "OpenDocument Presentation"
+  WriteRegStr SHELL_CONTEXT "Software\Lycero Office\Capabilities\FileAssociations" ".otp" "OpenDocument Presentation Template"
+
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}" "FriendlyAppName" "Lycero Office"
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\DefaultIcon" "" "$appExe,0"
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\shell\open\command" "" '"$appExe" "%1"'
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\SupportedTypes" ".docx" ""
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\SupportedTypes" ".xlsx" ""
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\SupportedTypes" ".xlsm" ""
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\SupportedTypes" ".xls" ""
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\SupportedTypes" ".pptx" ""
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\SupportedTypes" ".pdf" ""
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\SupportedTypes" ".csv" ""
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\SupportedTypes" ".tsv" ""
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\SupportedTypes" ".md" ""
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\SupportedTypes" ".markdown" ""
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\SupportedTypes" ".html" ""
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\SupportedTypes" ".htm" ""
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\SupportedTypes" ".odt" ""
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\SupportedTypes" ".ott" ""
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\SupportedTypes" ".ods" ""
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\SupportedTypes" ".ots" ""
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\SupportedTypes" ".odp" ""
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\SupportedTypes" ".otp" ""
+  System::Call 'Shell32::SHChangeNotify(i 0x08000000, i 0x1000, i 0, i 0)'
+
   # 3. Always point $launchLink directly to the application executable ($appExe)
   # instead of the Start Menu .lnk shortcut ($newStartMenuLink).
   # On Windows 10/11, StdUtils.ExecShellAsUser silently fails when passing

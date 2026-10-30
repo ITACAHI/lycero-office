@@ -108,7 +108,11 @@ import {
 import { startControlServer, type ControlServer } from './control-server'
 import { controlHandler } from './control-handlers'
 import { installCliLinkBestEffort } from './cli-link'
-import { createDefaultAppService, execFileRunner } from './default-app'
+import {
+  createDefaultAppService,
+  ensureWindowsCapabilitiesRegistered,
+  execFileRunner,
+} from './default-app'
 import { registerIntegrationsIpc } from './integrations-ipc'
 import {
   clearSession,
@@ -121,8 +125,10 @@ import {
   resolveSessionQuotas,
   saveSession,
   startLyceroOAuthFlow,
+  syncDeviceVerificationIntoSession,
   updateLyceroProfile,
 } from './lycero-auth-bridge'
+import { getDeviceVerificationState } from './deviceIdentityService'
 import { isExpiredJwt, loadLyceroAuth, findArchetype, fetchHubQuota } from '@lycero/ai-auth/main'
 import { BundleStore } from './bundle-store'
 import { BUNDLE_IPC_CHANNELS } from '../shared/bundle-api'
@@ -4792,11 +4798,12 @@ function registerHomeIpc(): void {
             Promise.all([
               fetchLyceroMe(session.token),
               fetchHubQuota(session.token).catch(() => null),
+              syncDeviceVerificationIntoSession(session.token).catch(() => null),
             ]),
-            new Promise<[null, null]>((r) => setTimeout(() => r([null, null]), 4000)),
+            new Promise<[null, null, null]>((r) => setTimeout(() => r([null, null, null]), 5000)),
           ])
           const refreshedSession = getSession()
-          if (!refreshedSession) return { loggedIn: false }
+          if (!refreshedSession) return { loggedIn: false, deviceVerification: getDeviceVerificationState() }
           session = refreshedSession
           if (hubQuota && session) {
             const resolvedQuotas = resolveSessionQuotas(session)
@@ -4812,7 +4819,13 @@ function registerHomeIpc(): void {
           // keep local session if offline
         }
       }
-      const tierRaw = (session.license?.tier || session.user.plan || 'free').toLowerCase()
+      const deviceState = session.deviceVerification ?? getDeviceVerificationState()
+      const tierRaw = (
+        deviceState.userSnapshot?.tier ||
+        session.license?.tier ||
+        session.user.plan ||
+        'free'
+      ).toLowerCase()
       const tier: AccountStatus['tier'] =
         tierRaw.includes('enterprise') || tierRaw.includes('max')
           ? 'enterprise'
@@ -4833,13 +4846,22 @@ function registerHomeIpc(): void {
         loggedIn: true,
         userId: session.user.id,
         email: session.user.email,
-        fullName: session.user.name || session.user.email?.split('@')[0] || 'Lycero User',
-        role: session.user.role || (session.user.email?.startsWith('admin@') ? 'admin' : 'user'),
+        fullName:
+          deviceState.userSnapshot?.fullName ||
+          session.user.name ||
+          session.user.email?.split('@')[0] ||
+          'Lycero User',
+        role:
+          deviceState.userSnapshot?.role ||
+          session.user.role ||
+          (session.user.email?.startsWith('admin@') ? 'admin' : 'user'),
         avatarUrl: session.user.avatar ?? null,
         tier,
         licenseStatus: session.license?.status || 'active',
         licenseExpiresAt: session.license?.expiresAt ?? null,
-        activeDevicesCount: session.user.activeDevicesCount ?? 1,
+        activeDevicesCount:
+          deviceState.currentDeviceCount ?? session.user.activeDevicesCount ?? 1,
+        maxDevices: deviceState.maxDevices,
         creditBalance: quotaRemaining !== undefined ? Number(quotaRemaining) : quotas.monthly.remaining,
         archetypeId,
         archetypeLabel,
@@ -4847,13 +4869,14 @@ function registerHomeIpc(): void {
         weeklyQuota: quotas.weekly,
         monthlyQuota: quotas.monthly,
         tokenUsage: quotas.tokens,
+        deviceVerification: deviceState,
         lastSyncedAt: session.lastSyncedAt || new Date(session.storedAt).toISOString(),
       }
     }
-    if (!loadGenofficeAuth()) return { loggedIn: false }
+    if (!loadGenofficeAuth()) return { loggedIn: false, deviceVerification: getDeviceVerificationState() }
     await proxyBootstrap
     const info = await gskLoginInfo()
-    if (!info) return { loggedIn: false }
+    if (!info) return { loggedIn: false, deviceVerification: getDeviceVerificationState() }
     const oauth = loadLyceroAuth()
     const archetypeId = oauth?.archetypeId
     const archetypeLabel = archetypeId !== undefined ? findArchetype(archetypeId).labelVi : undefined
@@ -4872,6 +4895,7 @@ function registerHomeIpc(): void {
       storedAt: Date.now(),
     }
     const quotas = resolveSessionQuotas(fallbackSession)
+    const deviceState = getDeviceVerificationState()
     return {
       loggedIn: true,
       userId: fallbackSession.user.id,
@@ -4882,13 +4906,15 @@ function registerHomeIpc(): void {
       creditBalance: info.creditBalance ?? quotas.monthly.remaining,
       tier,
       licenseStatus: 'active',
-      activeDevicesCount: 1,
+      activeDevicesCount: deviceState.currentDeviceCount ?? 1,
+      maxDevices: deviceState.maxDevices,
       archetypeId,
       archetypeLabel,
       fiveHoursQuota: quotas.fiveHours,
       weeklyQuota: quotas.weekly,
       monthlyQuota: quotas.monthly,
       tokenUsage: quotas.tokens,
+      deviceVerification: deviceState,
       lastSyncedAt: new Date().toISOString(),
     }
   }
@@ -4900,7 +4926,10 @@ function registerHomeIpc(): void {
     const activeToken = getSession()?.token || (hasLyceroAuth() ? undefined : undefined)
     if (status.loggedIn && (activeToken || hasLyceroAuth())) {
       try {
-        const hubQuota = await fetchHubQuota(activeToken)
+        const [, hubQuota] = await Promise.all([
+          syncDeviceVerificationIntoSession(activeToken).catch(() => null),
+          fetchHubQuota(activeToken).catch(() => null),
+        ])
         const session = getSession()
         if (hubQuota && session) {
           session.license = {
@@ -4939,8 +4968,8 @@ function registerHomeIpc(): void {
           }
           session.lastSyncedAt = new Date().toISOString()
           saveSession(session)
-          return resolveCurrentAccountStatus(false)
         }
+        return resolveCurrentAccountStatus(false)
       } catch {
         // ignore hub quota fallback error
       }
@@ -7452,7 +7481,12 @@ app.whenReady().then(async () => {
     // settings write failures must never block startup
   }
   // off the startup path: a symlink / registry write nobody is waiting for
-  setTimeout(() => installCliLinkBestEffort(APP_SETTINGS_PATH()), 3000)
+  setTimeout(() => {
+    installCliLinkBestEffort(APP_SETTINGS_PATH())
+    if (process.platform === 'win32' && app.isPackaged) {
+      void ensureWindowsCapabilitiesRegistered(app.getPath('exe'), execFileRunner)
+    }
+  }, 3000)
   initAnalytics()
   analytics.track('app_launch')
   startSheetsCaptureServer()

@@ -17,6 +17,14 @@ import { join } from 'node:path'
 import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { getSession as getLyceroSession } from './lycero-auth-bridge'
+import {
+  getDeviceBlockError,
+  getStandardLyceroHeaders,
+  registerAndVerifyDevice,
+  setSyncingProjectsCountProvider,
+  startDeviceHeartbeat,
+  stopDeviceHeartbeat,
+} from './deviceIdentityService'
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -117,28 +125,29 @@ export async function initCloudSync(config: {
   }
 
   try {
-    const response = await apiRequest('/api/v1/office/hub/devices/register', {
-      method: 'POST',
-      body: JSON.stringify({
-        deviceId: config.deviceId,
-        deviceName: config.deviceName,
-        osPlatform: config.osPlatform,
-        appVersion: config.appVersion,
-      }),
-    }, session.token)
+    setSyncingProjectsCountProvider(() => pendingChanges.length)
+    const state = await registerAndVerifyDevice({
+      accessToken: session.token,
+      userFallback: {
+        id: session.user.id,
+        email: session.user.email,
+        fullName: session.user.name,
+        role: session.user.role,
+        tier: session.license?.tier || session.user.plan,
+      },
+    })
 
-    if (!response.ok) {
-      console.error('[CloudSync] Device registration failed:', response.status)
+    if (!state.verified) {
+      console.warn('[CloudSync] Device verification blocked or pending:', state.status, state.error)
       return null
     }
 
-    const data = await response.json()
     registeredDevice = {
-      id: data.device.id,
-      deviceId: data.device.deviceId,
-      deviceName: data.device.deviceName,
-      osPlatform: data.device.osPlatform,
-      registeredAt: new Date(data.device.registeredAt).getTime(),
+      id: state.deviceRecordId || state.deviceId,
+      deviceId: state.deviceId,
+      deviceName: state.deviceName,
+      osPlatform: state.osPlatform,
+      registeredAt: Date.now(),
     }
 
     // Start heartbeat and sync loops
@@ -161,6 +170,7 @@ export function shutdownCloudSync(): void {
     clearInterval(heartbeatTimer)
     heartbeatTimer = null
   }
+  stopDeviceHeartbeat()
   if (syncTimer) {
     clearInterval(syncTimer)
     syncTimer = null
@@ -174,27 +184,11 @@ export function shutdownCloudSync(): void {
  * Start heartbeat loop
  */
 function startHeartbeat(): void {
-  if (heartbeatTimer) clearInterval(heartbeatTimer)
-  
-  heartbeatTimer = setInterval(async () => {
-    if (!registeredDevice || !cloudSyncConfig) return
-    
-    const session = getLyceroSession()
-    if (!session?.token) return
-
-    try {
-      await apiRequest('/api/v1/office/hub/devices/heartbeat', {
-        method: 'POST',
-        body: JSON.stringify({
-          deviceId: cloudSyncConfig!.deviceId,
-          appVersion: cloudSyncConfig!.appVersion,
-          syncingProjects: pendingChanges.length,
-        }),
-      }, session.token)
-    } catch (err) {
-      console.error('[CloudSync] Heartbeat failed:', err)
-    }
-  }, HEARTBEAT_INTERVAL_MS)
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer)
+    heartbeatTimer = null
+  }
+  startDeviceHeartbeat(() => getLyceroSession()?.token)
 }
 
 /**
@@ -433,11 +427,14 @@ async function apiRequest(
   if (!cloudSyncConfig) {
     throw new Error('Cloud sync not initialized')
   }
-  
+  const blockErr = getDeviceBlockError()
+  if (blockErr) {
+    throw new Error(blockErr)
+  }
+
   const url = `${cloudSyncConfig.baseUrl}${path}`
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`,
+    ...getStandardLyceroHeaders(token),
     ...(init.headers as Record<string, string> | undefined),
   }
 

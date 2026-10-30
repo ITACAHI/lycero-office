@@ -180,7 +180,9 @@ describe('createDefaultAppService', () => {
       manualOnly: true,
     })
     await svc.set()
-    expect(openExternal).toHaveBeenCalledWith('ms-settings:defaultapps')
+    expect(openExternal).toHaveBeenCalledWith(
+      'ms-settings:defaultapps?registeredAppUser=Lycero%20Office',
+    )
   })
 
   it('reports unknown instead of throwing when the probe fails', async () => {

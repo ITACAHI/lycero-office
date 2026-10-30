@@ -391,6 +391,95 @@ body.vib .home {
   margin: 28px 0 20px;
 }
 
+.default-app-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.default-app-banner-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--badge-bg);
+  color: var(--accent);
+}
+
+.default-app-banner-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+
+.default-app-banner-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.default-app-banner-desc {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.default-app-banner-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.default-app-banner-btn.primary {
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.default-app-banner-btn.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.default-app-banner-btn.primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.default-app-banner-dismiss {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.default-app-banner-dismiss:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
 .hero-title {
   margin: 0;
   font-size: 28px;

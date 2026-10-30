@@ -198,6 +198,12 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
   let accessToken = apiKey || lyceroAuth.lyceroAccessToken()
   if (!accessToken) throw new Error('Not signed in to Lycero')
 
+  const deviceBlockError =
+    'lyceroDeviceBlockError' in lyceroAuth ? lyceroAuth.lyceroDeviceBlockError?.() : null
+  if (deviceBlockError) {
+    throw new Error(deviceBlockError)
+  }
+
   // Client-side PII Masking
   const piiMap = new Map<string, string>()
   const maskText = (txt: string): string => {
@@ -220,6 +226,8 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
     forceLyceroHeaders: true,
   })
 
+  const deviceId =
+    ('lyceroDeviceId' in lyceroAuth ? lyceroAuth.lyceroDeviceId?.() : '') || ''
   const requestUrl = `${url.replace(/\/$/, '')}/ai/chat`
   const requestHeaders = {
     'Content-Type': 'application/json',
@@ -227,6 +235,8 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
     Authorization: `Bearer ${accessToken}`,
     Cookie: `auth_token=${accessToken}`,
     'X-Agent-Type': 'lycero-office',
+    'X-Lycero-Client': 'electron-desktop',
+    ...(deviceId ? { 'X-Device-Id': deviceId } : {}),
     'X-Lycero-Client-Compaction': clientCompaction.headerJson,
     ...lyceroCtx.headers,
   }
@@ -300,6 +310,21 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
             requestHeaders.Cookie = `auth_token=${accessToken}`
             throw new Error('__LYCERO_RETRY_NEW_TOKEN__')
           }
+        }
+
+        if (response.status === 403) {
+          let msg =
+            'Thiết bị hoặc tài khoản không có quyền truy cập dịch vụ Cloud / AI (HTTP 403). Vui lòng kiểm tra trạng thái xác minh thiết bị hoặc liên hệ Quản trị viên.'
+          try {
+            const body = await response.text()
+            const parsed = JSON.parse(body) as { error?: string; message?: string; code?: string }
+            if (parsed.error || parsed.message) {
+              msg = parsed.error || parsed.message || msg
+            }
+          } catch {
+            // use default
+          }
+          throw new Error(msg)
         }
 
         if (!response.ok || !response.body) {
