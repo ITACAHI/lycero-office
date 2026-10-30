@@ -81,18 +81,28 @@ const hasAppleNotarizeCreds = Boolean(
 // exist at beforePack because electron-builder exits 0 on a missing
 // extraResources source (Sheets would ship dead on every ARM install).
 const winArm64 = process.env.LYCERO_WIN_ARM64 === '1'
+const winIa32 = process.env.LYCERO_WIN_IA32 === '1'
 // 7-Zip packs ARM64 executables with its ARM64 branch filter, which the NSIS
 // install-time extractor (Nsis7z) cannot decode: it silently skips
 // LyceroOffice.exe and every dll (electron-builder#9983). BCJ it can decode.
 if (winArm64 && !process.env.ELECTRON_BUILDER_7Z_FILTER) {
   process.env.ELECTRON_BUILDER_7Z_FILTER = 'BCJ'
 }
-const winArch = winArm64 ? 'arm64' : 'x64'
-const winSidecarTarget = winArm64 ? 'aarch64-pc-windows-msvc' : 'x86_64-pc-windows-gnu'
-const winSidecarCandidates = [
-  `../sheets/native/xlsx-engine/target/${winSidecarTarget}/release/xlsx-sidecar.exe`,
-  '../sheets/native/xlsx-engine/target/release/xlsx-sidecar.exe',
-]
+const winArch = winArm64 ? 'arm64' : winIa32 ? 'ia32' : 'x64'
+const winSidecarTarget = winArm64
+  ? 'aarch64-pc-windows-msvc'
+  : winIa32
+    ? 'i686-pc-windows-msvc'
+    : 'x86_64-pc-windows-gnu'
+const winSidecarCandidates = winIa32
+  ? [
+      '../sheets/native/xlsx-engine/target/i686-pc-windows-msvc/release/xlsx-sidecar.exe',
+      '../sheets/native/xlsx-engine/target/i686-pc-windows-gnu/release/xlsx-sidecar.exe',
+    ]
+  : [
+      `../sheets/native/xlsx-engine/target/${winSidecarTarget}/release/xlsx-sidecar.exe`,
+      '../sheets/native/xlsx-engine/target/release/xlsx-sidecar.exe',
+    ]
 const WIN_SIDECAR =
   winSidecarCandidates.find((rel) => existsSync(join(__dirname, rel))) ?? winSidecarCandidates[0]
 
@@ -595,6 +605,11 @@ const config = {
     oneClick: false,
     allowToChangeInstallationDirectory: true,
     include: 'build/installer.nsh',
+    ...(winIa32
+      ? { artifactName: '${productName} Setup ${version}-ia32.${ext}' }
+      : winArm64
+        ? { artifactName: '${productName} Setup ${version}-arm64.${ext}' }
+        : {}),
   },
   beforePack: async (context) => {
     assertModuleTreesPresent()
@@ -611,7 +626,9 @@ const config = {
   dmg: {
     sign: hasAppleSignIdentity,
   },
-  afterAllArtifactBuild: 'build/notarize-dmg.js',
+  ...(process.platform === 'darwin'
+    ? { afterAllArtifactBuild: join(__dirname, 'build/notarize-dmg.js') }
+    : {}),
 }
 
 // Windows in-package code signing. Security features that judge every PE

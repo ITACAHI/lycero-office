@@ -1,6 +1,6 @@
 {
   "name": "lycero-office",
-  "version": "2.0.12",
+  "version": "2.0.13",
   "private": true,
   "description": "AI-native office suite (docs, sheets, slides, pdf, markdown, html)",
   "license": "Apache-2.0",
@@ -46,6 +46,7 @@
     "licenses": "node tools/check-licenses.mjs",
     "dist:mac": "npm run notices && npm run build:all && npm run native:build:universal -w @lycero/sheets && npm run dist:mac -w @lycero/shell",
     "dist:win": "npm run notices && npm run build:all && npm run dist:win -w @lycero/shell",
+    "dist:win:ia32": "npm run native:build:ia32 -w @lycero/sheets && npm run dist:win:ia32 -w @lycero/shell",
     "dist:linux": "npm run notices && npm run build:all && npm run dist:linux -w @lycero/shell"
   },
   "dependencies": {

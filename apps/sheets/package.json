@@ -1,7 +1,7 @@
 {
   "name": "@lycero/sheets",
   "productName": "Lycero Office Sheets",
-  "version": "2.0.12",
+  "version": "2.0.13",
   "private": true,
   "description": "Cross-platform AI-native spreadsheet compatibility prototype",
   "license": "Apache-2.0",
@@ -11,6 +11,7 @@
     "dev:renderer": "vite --config vite.renderer.config.ts",
     "build": "npm run native:build && electron-vite build",
     "native:build": "cargo build --release --manifest-path native/xlsx-engine/Cargo.toml --config native/xlsx-engine/.cargo/config.toml",
+    "native:build:ia32": "cargo build --release --target i686-pc-windows-msvc --manifest-path native/xlsx-engine/Cargo.toml --config native/xlsx-engine/.cargo/config.toml",
     "native:build:universal": "node scripts/build-sidecar-universal.mjs",
     "native:test": "cargo test --manifest-path native/xlsx-engine/Cargo.toml --config native/xlsx-engine/.cargo/config.toml",
     "typecheck": "tsc --noEmit",
