@@ -1150,6 +1150,106 @@ function cellParas(cell: Element): string[] {
   return out.length > 0 ? out : ['']
 }
 
+function extractTextAlign(el: Element): 'left' | 'center' | 'right' | 'justify' | undefined {
+  const attrAlign = (el.getAttribute('align') ?? '').trim().toLowerCase()
+  if (attrAlign === 'left' || attrAlign === 'center' || attrAlign === 'right' || attrAlign === 'justify') {
+    return attrAlign
+  }
+  const style = el.getAttribute('style') ?? ''
+  const m = /text-align\s*:\s*(left|center|right|justify)\b/i.exec(style)
+  if (m) return m[1].toLowerCase() as 'left' | 'center' | 'right' | 'justify'
+  return undefined
+}
+
+/** Parse one table cell into PmNode paragraphs, preserving inline marks (<b>, <i>, <u>) and <br>/<p> breaks */
+function parseCellParagraphNodes(
+  cell: Element,
+  defaultAlign?: 'left' | 'center' | 'right' | 'justify',
+  isHeader?: boolean,
+): PmNode[] {
+  const out: PmNode[] = []
+  let currentInline: PmNode[] = []
+  let currentAlign = defaultAlign
+  const baseMarks: PmMark[] = isHeader ? [{ type: 'bold' }] : []
+
+  const flush = () => {
+    // Trim leading/trailing whitespace on text leaves
+    while (currentInline.length > 0 && currentInline[0].type === 'hardBreak') {
+      currentInline.shift()
+    }
+    while (currentInline.length > 0 && currentInline[currentInline.length - 1].type === 'hardBreak') {
+      currentInline.pop()
+    }
+    const textJoined = currentInline.map((n) => n.text ?? '').join('').trim()
+    let align = currentAlign
+    if (!align && textJoined) {
+      if (
+        /^CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM\b/i.test(textJoined) ||
+        /^Độc lập\s*-\s*Tự do\s*-\s*Hạnh phúc/i.test(textJoined) ||
+        /^ĐẠI DIỆN BÊN\b/i.test(textJoined) ||
+        /^\(Ký,\s*ghi rõ họ tên/i.test(textJoined)
+      ) {
+        align = 'center'
+      }
+    }
+    out.push(
+      blockNode(
+        'docParagraph',
+        align ? { align } : {},
+        currentInline.length > 0 ? currentInline : [],
+      ),
+    )
+    currentInline = []
+    currentAlign = defaultAlign
+  }
+
+  cell.childNodes.forEach((child) => {
+    if (child.nodeType === Node.ELEMENT_NODE) {
+      const el = child as Element
+      const tag = el.tagName.toLowerCase()
+      if (tag === 'br') {
+        flush()
+        return
+      }
+      if (tag === 'p' || tag === 'div') {
+        if (currentInline.length > 0) flush()
+        currentAlign = extractTextAlign(el) ?? defaultAlign
+        currentInline.push(...parseInline(el, baseMarks))
+        flush()
+        return
+      }
+    }
+    const fakeWrap = cell.ownerDocument.createElement('span')
+    fakeWrap.appendChild(child.cloneNode(true))
+    const parsed = parseInline(fakeWrap, baseMarks)
+    for (const n of parsed) {
+      if (n.type === 'hardBreak') {
+        flush()
+      } else {
+        currentInline.push(n)
+      }
+    }
+  })
+  if (currentInline.length > 0 || out.length === 0) flush()
+  return out
+}
+
+const BORDERLESS_CELL_BORDERS: NonNullable<TableCell['borders']> = {
+  top: { style: 'none' },
+  left: { style: 'none' },
+  bottom: { style: 'none' },
+  right: { style: 'none' },
+}
+
+const BORDERLESS_TABLE_BORDERS: NonNullable<TableModel['borders']> = {
+  top: { style: 'none' },
+  left: { style: 'none' },
+  bottom: { style: 'none' },
+  right: { style: 'none' },
+  insideH: { style: 'none' },
+  insideV: { style: 'none' },
+}
+
 /**
  * <table> -> protected table block: display TableModel + generated w:tbl
  * fragment. Cell texts are patched into the fragment at save time via the
@@ -1163,22 +1263,69 @@ function parseTable(el: Element): PmNode | null {
   const cols = Math.max(...rawRows.map((r) => r.length))
   if (cols === 0) return null
   const headerRow = rawRows[0].some((c) => c.tagName.toLowerCase() === 'th')
+
+  const tableText = (el.textContent ?? '').replace(/\s+/g, ' ').trim()
+  const explicitBorderless =
+    el.getAttribute('border') === '0' ||
+    /border(?:-style)?\s*:\s*(?:none|0)\b/i.test(el.getAttribute('style') ?? '')
+  const isQuocHieuTable =
+    cols === 2 &&
+    rawRows.length <= 2 &&
+    !headerRow &&
+    /CỘNG HÒA XÃ HỘI|Độc lập\s*-\s*Tự do/i.test(tableText)
+  const isSignatureTable =
+    cols >= 2 &&
+    cols <= 4 &&
+    rawRows.length <= 2 &&
+    !headerRow &&
+    /ĐẠI DIỆN BÊN|Ký,\s*ghi rõ họ tên|NGƯỜI LẬP BIỂU|THỦ TRƯỞNG ĐƠN VỊ/i.test(tableText)
+  const isBorderless = explicitBorderless || isQuocHieuTable || isSignatureTable
+  const defaultCellAlign: 'center' | undefined =
+    isQuocHieuTable || isSignatureTable ? 'center' : undefined
+
   const rows: TableCell[][] = rawRows.map((cells, r) => {
     const isHeader = headerRow && r === 0
-    const row: TableCell[] = cells.map((cell) => ({
-      paras: cellParas(cell),
-      ...(isHeader ? { bold: true, fill: TABLE_HEADER_FILL } : {}),
-    }))
+    const row: TableCell[] = cells.map((cell) => {
+      const cellAlign = extractTextAlign(cell) ?? defaultCellAlign
+      return {
+        paras: cellParas(cell),
+        ...(cellAlign ? { align: cellAlign } : {}),
+        ...(isBorderless ? { borders: BORDERLESS_CELL_BORDERS, vAlign: 'top' as const } : {}),
+        ...(isHeader ? { bold: true, fill: TABLE_HEADER_FILL } : {}),
+      }
+    })
     while (row.length < cols)
-      row.push({ paras: [''], ...(isHeader ? { bold: true, fill: TABLE_HEADER_FILL } : {}) })
+      row.push({
+        paras: [''],
+        ...(defaultCellAlign ? { align: defaultCellAlign } : {}),
+        ...(isBorderless ? { borders: BORDERLESS_CELL_BORDERS, vAlign: 'top' as const } : {}),
+        ...(isHeader ? { bold: true, fill: TABLE_HEADER_FILL } : {}),
+      })
     return row
   })
   // equal column grid, like the ribbon insert and the save-path backfill
   // (pmTableToModel): without colWidthsPct the table renders with no <colgroup>,
   // leaving the fixed-layout column grid to the browser — fragile against
   // spanning pagination widgets and different from what a save/reload shows
-  const table: TableModel = { rows, colWidthsPct: Array.from({ length: cols }, () => 100 / cols) }
-  return tableModelToPmNode(table)
+  const table: TableModel = {
+    rows,
+    colWidthsPct: Array.from({ length: cols }, () => 100 / cols),
+    ...(isBorderless ? { borders: BORDERLESS_TABLE_BORDERS } : {}),
+  }
+  const pmNode = tableModelToPmNode(table)
+  // Hydrate cell content with rich inline marks (<b>, <i>, <u>) and paragraph alignment
+  rawRows.forEach((cells, r) => {
+    const rowNode = pmNode.content?.[r]
+    if (!rowNode?.content) return
+    const isHeader = headerRow && r === 0
+    cells.forEach((cellEl, c) => {
+      const cellNode = rowNode.content?.[c]
+      if (!cellNode) return
+      const cellAlign = extractTextAlign(cellEl) ?? defaultCellAlign
+      cellNode.content = parseCellParagraphNodes(cellEl, cellAlign, isHeader)
+    })
+  })
+  return pmNode
 }
 
 /** <pre> -> mono/shaded paragraph; newlines preserved as hard breaks */
@@ -1314,7 +1461,21 @@ export function parseHtmlFragment(raw: string, numIds: NumIds): PmNode[] {
     const tag = el.tagName.toLowerCase()
     const headingMatch = /^h([1-6])$/.exec(tag)
     if (headingMatch) {
-      out.push(blockNode('docHeading', { level: Number(headingMatch[1]) }, parseInline(el, [])))
+      const level = Number(headingMatch[1])
+      let align = extractTextAlign(el)
+      const headingText = (el.textContent ?? '').trim()
+      if (
+        !align &&
+        level === 1 &&
+        /\b(HỢP ĐỒNG|QUYẾT ĐỊNH|TỜ TRÌNH|CÔNG VĂN|BIÊN BẢN|THÔNG BÁO|BÁO CÁO|QUY CHẾ|ĐIỀU LỆ|GIẤY ỦY QUYỀN|ĐƠN XIN|BẢNG BÁO GIÁ|PHỤ LỤC|KẾ HOẠCH|CHƯƠNG TRÌNH|ĐỀ ÁN)\b/i.test(
+          headingText,
+        )
+      ) {
+        align = 'center'
+      }
+      out.push(
+        blockNode('docHeading', { level, ...(align ? { align } : {}) }, parseInline(el, [])),
+      )
     } else if (tag === 'ul' || tag === 'ol') {
       parseList(el, tag === 'ol' ? 'ordered' : 'bullet', 0, numIds, out)
     } else if (tag === 'table') {
@@ -1330,7 +1491,19 @@ export function parseHtmlFragment(raw: string, numIds: NumIds): PmNode[] {
       pushFormula(el)
     } else if (tag === 'p' || tag === 'div') {
       const inline = parseInline(el, [])
-      if (inline.length > 0) out.push(blockNode('docParagraph', {}, inline))
+      if (inline.length > 0) {
+        let align = extractTextAlign(el)
+        const paraText = (el.textContent ?? '').trim()
+        if (
+          !align &&
+          (/^CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM\b/i.test(paraText) ||
+            /^Độc lập\s*-\s*Tự do\s*-\s*Hạnh phúc/i.test(paraText) ||
+            /^\((?:Căn cứ|Ban hành kèm theo)/i.test(paraText))
+        ) {
+          align = 'center'
+        }
+        out.push(blockNode('docParagraph', align ? { align } : {}, inline))
+      }
     } else {
       // unknown block-ish tag: salvage the text
       const t = (el.textContent ?? '').trim()

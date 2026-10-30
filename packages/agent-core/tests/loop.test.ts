@@ -1053,6 +1053,44 @@ describe('AgentLoop', () => {
     }
   })
 
+  it('auto-reconnects up to 10 times on localized network errors and recovers cleanly', async () => {
+    vi.useFakeTimers()
+    try {
+      const netErr = (cb: AgentStreamCallbacks) =>
+        cb.onError('Sự cố mạng: không thể kết nối tới dịch vụ AI. Kiểm tra kết nối của bạn và thử lại')
+      const transport = scriptedTransport([
+        netErr,
+        netErr,
+        netErr,
+        netErr,
+        netErr,
+        netErr,
+        netErr,
+        netErr,
+        netErr,
+        netErr,
+        (cb) => {
+          cb.onDelta('Đã kết nối lại thành công sau 10 lần thử')
+          cb.onDone()
+        },
+      ])
+      const onError = vi.fn()
+      const onDone = vi.fn()
+      const loop = new AgentLoop({ transport, skill: makeSkill(), events: { onError, onDone } })
+      loop.run('tạo hợp đồng lao động')
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(transport.requests).toHaveLength(11)
+      expect(onError).not.toHaveBeenCalled()
+      expect(onDone).toHaveBeenCalledWith({
+        text: 'Đã kết nối lại thành công sau 10 lần thử',
+        cancelled: false,
+        turnLimit: false,
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('restore drops unanswered user messages (trailing and adjacent)', () => {
     const transport = scriptedTransport([])
     const loop = new AgentLoop({ transport, skill: makeSkill() })

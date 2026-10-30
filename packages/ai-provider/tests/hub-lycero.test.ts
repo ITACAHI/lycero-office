@@ -14,7 +14,7 @@ vi.mock('@lycero/ai-auth/main', () => ({
   lyceroAccessToken: () => 'mock-token',
 }))
 
-import { streamHubChat } from '../src/protocols/hub-lycero'
+import { MAX_HUB_RECONNECT_ATTEMPTS, streamHubChat } from '../src/protocols/hub-lycero'
 import type { StreamCallbacks } from '../src/protocols/shared'
 
 function makeBody(events: string[]): ReadableStream<Uint8Array> {
@@ -415,5 +415,52 @@ describe('streamHubChat SSE parser', () => {
     expect(reqBody.userSkillConfig).toEqual({
       'pedagogical-lesson-plan': { detail_level: 'extended' },
     })
+  })
+
+  it('auto-reconnects up to 10 attempts on network errors or mid-reasoning drops and recovers', async () => {
+    expect(MAX_HUB_RECONNECT_ATTEMPTS).toBe(10)
+    let callCount = 0
+    const fn = vi.fn().mockImplementation(async () => {
+      callCount++
+      if (callCount <= 4) {
+        throw new TypeError('fetch failed', { cause: { code: 'ECONNRESET' } })
+      }
+      if (callCount <= 9) {
+        // Stream emits reasoning, then closes without finish (simulating gateway/proxy drop while buffering tool_calls)
+        return {
+          ok: true,
+          status: 200,
+          body: makeBody(['data: {"type":"reasoning","delta":"Đang suy nghĩ..."}']),
+        } as unknown as Response
+      }
+      return {
+        ok: true,
+        status: 200,
+        body: makeBody([
+          'data: {"type":"reasoning","delta":"Đang suy nghĩ lại..."}',
+          'data: {"type":"text","delta":"Thành công ở lần thứ 10!"}',
+          'data: {"type":"finish","stopReason":"stop"}',
+        ]),
+      } as unknown as Response
+    })
+    vi.stubGlobal('fetch', fn)
+    const cb = makeCallbacks({
+      onReasoningDelta: vi.fn(),
+      signal: controller.signal,
+    })
+
+    await streamHubChat({
+      url: 'https://hub.lycero.com/api/v1/office',
+      modelId: 'lycero-2.5-auto',
+      system: '',
+      messages: [{ role: 'user', text: 'Tạo hợp đồng', images: [] }],
+      tools: [],
+      cb,
+      retryBaseDelayMs: 0,
+    })
+
+    expect(fn).toHaveBeenCalledTimes(10)
+    expect(cb.onDelta).toHaveBeenCalledTimes(1)
+    expect(cb.onDelta).toHaveBeenCalledWith('Thành công ở lần thứ 10!')
   })
 })

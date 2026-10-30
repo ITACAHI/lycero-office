@@ -866,7 +866,11 @@ export function AiPanel({
         },
       })
     let outcome = await attempt()
-    if (outcome.status === 'empty' && !signal?.aborted) outcome = await attempt()
+    for (let retry = 1; retry < 10 && outcome.status === 'empty' && !signal?.aborted; retry++) {
+      await new Promise((r) => setTimeout(r, Math.min(retry * 1500, 5000)))
+      if (signal?.aborted || closed) break
+      outcome = await attempt()
+    }
     closed = true
     if (chipTimer !== null) clearTimeout(chipTimer)
     if (outcome.status === 'complete') return { ok: true, html: outcome.text }

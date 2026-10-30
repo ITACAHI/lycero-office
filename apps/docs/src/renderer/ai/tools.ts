@@ -1339,7 +1339,7 @@ async function writeDocument(
     ? ' The stream ended early, so the content is INCOMPLETE (the user chose to keep it): the tail is missing. Say so and offer to finish the missing sections with write_document (afterBlockIndex at the end) or insert_content.'
     : ''
   return {
-    output: `Content written by the system (${nodes.length} block(s), ${result.html.length} chars). Block indexes have changed; use get_document_context if needed.${note}\nReply with one or two sentences describing what was written; do not paste the content.`,
+    output: `Content written by the system (${nodes.length} block(s), ${result.html.length} chars). Block indexes have changed; use get_document_context if needed.${note}\nNext step: call set_page_setup (e.g. A4 margins) and apply_ops to format fonts, paragraph alignment (center titles/Quốc hiệu, justify body paragraphs, lineSpacing 1.35), and borderless header/signature tables (borders: null) before replying with a short summary.`,
     mutated: true,
     summary: result.truncated ? t('aiSumWriteDocumentPartial') : summary,
   }

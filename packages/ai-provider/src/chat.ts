@@ -69,6 +69,7 @@ export async function chatForProvider(
                   text += delta
                 },
                 onToolCall: () => {},
+                onActivity: () => wd.touch(),
                 signal: wd.signal,
               },
             }),

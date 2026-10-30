@@ -6,11 +6,15 @@
 import { lyceroAccessToken } from '@lycero/ai-auth/main'
 import { AiQuotaExhaustedError } from '../quota-error'
 import { aiFetch } from '../fetch'
+import { isAiNetworkError } from '../network-error'
 import { PiiTokenizer } from '../pii-tokenizer'
 import { compactOutboundAgentTurn } from '../token-compactor'
 import type { LyceroEditorModule, LyceroPipelineStage } from '../types'
+import { AiTimeoutError, createStreamWatchdog } from '../watchdog'
 import { resolveLyceroGatewayContext, sseLines, type StreamCallbacks } from './shared'
 import type { AgentMessage, AgentToolDef } from '@lycero/agent-core'
+
+export const MAX_HUB_RECONNECT_ATTEMPTS = 10
 
 interface HubFinishPayload {
   type: 'finish'
@@ -138,6 +142,38 @@ export interface StreamHubChatParams {
   userSkillConfig?: Record<string, unknown> | undefined
   enablePiiMasking?: boolean | undefined
   onQuotaUpdate?: ((quota: { remaining: number; limit?: number | undefined }) => void) | undefined
+  maxAttempts?: number | undefined
+  retryBaseDelayMs?: number | undefined
+}
+
+async function waitWithActivity(
+  ms: number,
+  signal?: AbortSignal | undefined,
+  onActivity?: (() => void) | undefined,
+): Promise<void> {
+  if (ms <= 0 || signal?.aborted) return
+  const stepMs = 1_000
+  let remaining = ms
+  while (remaining > 0 && !signal?.aborted) {
+    const slice = Math.min(remaining, stepMs)
+    await new Promise<void>((resolve) => {
+      if (!signal) {
+        setTimeout(resolve, slice)
+        return
+      }
+      const timer = setTimeout(() => {
+        signal.removeEventListener('abort', onAbort)
+        resolve()
+      }, slice)
+      const onAbort = () => {
+        clearTimeout(timer)
+        resolve()
+      }
+      signal.addEventListener('abort', onAbort, { once: true })
+    })
+    remaining -= slice
+    if (!signal?.aborted) onActivity?.()
+  }
 }
 
 export async function streamHubChat(params: StreamHubChatParams): Promise<void> {
@@ -155,6 +191,8 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
     userSkillConfig,
     enablePiiMasking = true,
     onQuotaUpdate,
+    maxAttempts = MAX_HUB_RECONNECT_ATTEMPTS,
+    retryBaseDelayMs = 1_000,
   } = params
 
   const accessToken = apiKey || lyceroAccessToken()
@@ -182,157 +220,196 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
     forceLyceroHeaders: true,
   })
 
-  const response = await aiFetch(`${url.replace(/\/$/, '')}/ai/chat`, {
-    method: 'POST',
-    signal: cb.signal,
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'text/event-stream',
-      Authorization: `Bearer ${accessToken}`,
-      Cookie: `auth_token=${accessToken}`,
-      'X-Agent-Type': 'lycero-office',
-      'X-Lycero-Client-Compaction': clientCompaction.headerJson,
-      ...lyceroCtx.headers,
-    },
-    body: JSON.stringify({
-      productCode: 'office',
-      modelId,
-      ...lyceroCtx.bodyExtras,
-      messages: outboundMessages,
-      ...(tools.length > 0
-        ? {
-            tools: tools.map((t) => ({
-              type: 'function',
-              function: { name: t.name, description: t.description, parameters: t.inputSchema },
-            })),
-          }
-        : {}),
-      stream: true,
-    }),
+  const requestUrl = `${url.replace(/\/$/, '')}/ai/chat`
+  const requestHeaders = {
+    'Content-Type': 'application/json',
+    Accept: 'text/event-stream',
+    Authorization: `Bearer ${accessToken}`,
+    Cookie: `auth_token=${accessToken}`,
+    'X-Agent-Type': 'lycero-office',
+    'X-Lycero-Client-Compaction': clientCompaction.headerJson,
+    ...lyceroCtx.headers,
+  }
+  const requestBody = JSON.stringify({
+    productCode: 'office',
+    modelId,
+    ...lyceroCtx.bodyExtras,
+    messages: outboundMessages,
+    ...(tools.length > 0
+      ? {
+          tools: tools.map((t) => ({
+            type: 'function',
+            function: { name: t.name, description: t.description, parameters: t.inputSchema },
+          })),
+        }
+      : {}),
+    stream: true,
   })
 
-  if (response.status === 429) {
-    // Read the JSON body to extract the Hub's error message
-    let msg = 'Hạn ngạch AI tháng này đã hết. Vui lòng nâng cấp gói Pro.'
+  const totalAttempts = Math.max(1, maxAttempts)
+  for (let attempt = 1; attempt <= totalAttempts; attempt++) {
+    let emitted = false
+    const wd = createStreamWatchdog(cb.signal)
+    const onBytes = () => {
+      wd.touch()
+      cb.onActivity?.()
+    }
     try {
-      const body = await response.text()
-      const parsed = JSON.parse(body) as { error?: string; code?: string }
-      msg = parsed.error || msg
-    } catch {
-      // use default
-    }
-    throw new AiQuotaExhaustedError(msg)
-  }
-
-  if (!response.ok || !response.body) {
-    throw new Error(`HTTP ${response.status}`)
-  }
-
-  // Quota / Rate limit extraction (prefer TWCU X-Quota-* headers over per-minute X-RateLimit-*)
-  const remainingHeader =
-    response.headers?.get?.('x-quota-remaining') ??
-    response.headers?.get?.('x-ratelimit-remaining')
-  const limitHeader =
-    response.headers?.get?.('x-quota-limit') ??
-    response.headers?.get?.('x-ratelimit-limit')
-  let initialQuotaLimit: number | undefined
-  if (remainingHeader !== null && remainingHeader !== undefined) {
-    const remaining = parseFloat(remainingHeader)
-    const limit = limitHeader ? parseFloat(limitHeader) : undefined
-    if (limit !== undefined && !Number.isNaN(limit)) initialQuotaLimit = limit
-    if (!Number.isNaN(remaining)) {
-      onQuotaUpdate?.({ remaining, limit })
-    }
-  }
-
-  let sawFinish = false
-  const unmaskDelta = PiiTokenizer.createStreamUnmasker(piiMap)
-  const unmaskReasoning = PiiTokenizer.createStreamUnmasker(piiMap)
-
-  for await (const rawLine of sseLines(response.body, () => {
-    cb.onActivity?.()
-  })) {
-    const line = rawLine.trim()
-    if (!line) continue
-    // Heartbeat comment lines
-    if (line.startsWith(':')) continue
-    if (!line.startsWith('data:')) continue
-    const dataValue = line.slice(5).trim()
-    if (!dataValue) continue
-
-    let payload: HubPayload
-    try {
-      payload = JSON.parse(dataValue) as HubPayload
-    } catch {
-      continue
-    }
-
-    switch (payload.type) {
-      case 'text':
-        cb.onDelta(unmaskDelta(payload.delta))
-        break
-      case 'reasoning':
-      case 'thinking':
-        cb.onReasoningDelta?.(
-          unmaskReasoning(payload.delta).replace(
-            /Manus(?:\s+1\.6)?(?:\s+Orchestrator)?/gi,
-            'Lycero Super Model',
-          ),
-        )
-        break
-      case 'tool_call': {
-        const rawArgs = payload.input ?? payload.arguments ?? {}
-        let parsedArgs: Record<string, unknown> = {}
-        if (typeof rawArgs === 'string') {
-          try {
-            const parsed = JSON.parse(rawArgs)
-            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-              parsedArgs = parsed as Record<string, unknown>
-            }
-          } catch {
-            parsedArgs = {}
-          }
-        } else if (rawArgs && typeof rawArgs === 'object' && !Array.isArray(rawArgs)) {
-          parsedArgs = rawArgs as Record<string, unknown>
-        }
-        const toolInput = restorePiiInValue(parsedArgs, piiMap) as Record<string, unknown>
-        cb.onToolCall?.({
-          id: payload.id || `call_${Date.now()}`,
-          name: payload.name,
-          input: toolInput,
+      await wd.guard(async () => {
+        const response = await aiFetch(requestUrl, {
+          method: 'POST',
+          signal: wd.signal,
+          headers: requestHeaders,
+          body: requestBody,
         })
-        break
-      }
-      case 'finish':
-        sawFinish = true
-        if (payload.usage || payload.quotaRemaining !== undefined) {
-          cb.onUsage?.({
-            ...(payload.usage?.inputTokens !== undefined ? { inputTokens: payload.usage.inputTokens } : {}),
-            ...(payload.usage?.outputTokens !== undefined ? { outputTokens: payload.usage.outputTokens } : {}),
-            ...(payload.usage?.computeUnits !== undefined ? { computeUnits: payload.usage.computeUnits } : {}),
-            ...(payload.quotaRemaining !== undefined ? { quotaRemaining: payload.quotaRemaining } : {}),
-            ...(payload.quotaLimit !== undefined ? { quotaLimit: payload.quotaLimit } : {}),
-            ...(payload.quotaUsed !== undefined ? { quotaUsed: payload.quotaUsed } : {}),
-          })
-        }
-        if (payload.quotaRemaining !== undefined && Number.isFinite(payload.quotaRemaining)) {
-          onQuotaUpdate?.({
-            remaining: payload.quotaRemaining,
-            limit: payload.quotaLimit ?? initialQuotaLimit,
-          })
-        }
-        cb.onStopReason?.(payload.stopReason || 'stop')
-        break
-      case 'error':
-        cb.onActivity?.()
-        throw new Error(payload.message || 'Lỗi xử lý từ Cổng Trí tuệ Lycero.')
-      case 'start':
-        // streamId received — nothing to surface
-        break
-    }
-  }
+        onBytes()
 
-  if (!sawFinish) {
-    throw new Error('Stream closed without a finish event')
+        if (response.status === 429) {
+          let msg = 'Hạn ngạch AI tháng này đã hết. Vui lòng nâng cấp gói Pro.'
+          try {
+            const body = await response.text()
+            const parsed = JSON.parse(body) as { error?: string; code?: string }
+            msg = parsed.error || msg
+          } catch {
+            // use default
+          }
+          throw new AiQuotaExhaustedError(msg)
+        }
+
+        if (!response.ok || !response.body) {
+          throw new Error(`HTTP ${response.status}`)
+        }
+
+        const remainingHeader =
+          response.headers?.get?.('x-quota-remaining') ??
+          response.headers?.get?.('x-ratelimit-remaining')
+        const limitHeader =
+          response.headers?.get?.('x-quota-limit') ??
+          response.headers?.get?.('x-ratelimit-limit')
+        let initialQuotaLimit: number | undefined
+        if (remainingHeader !== null && remainingHeader !== undefined) {
+          const remaining = parseFloat(remainingHeader)
+          const limit = limitHeader ? parseFloat(limitHeader) : undefined
+          if (limit !== undefined && !Number.isNaN(limit)) initialQuotaLimit = limit
+          if (!Number.isNaN(remaining)) {
+            onQuotaUpdate?.({ remaining, limit })
+          }
+        }
+
+        let sawFinish = false
+        const unmaskDelta = PiiTokenizer.createStreamUnmasker(piiMap)
+        const unmaskReasoning = PiiTokenizer.createStreamUnmasker(piiMap)
+
+        for await (const rawLine of sseLines(response.body, onBytes)) {
+          const line = rawLine.trim()
+          if (!line) continue
+          if (line.startsWith(':')) continue
+          if (!line.startsWith('data:')) continue
+          const dataValue = line.slice(5).trim()
+          if (!dataValue) continue
+
+          let payload: HubPayload
+          try {
+            payload = JSON.parse(dataValue) as HubPayload
+          } catch {
+            continue
+          }
+
+          switch (payload.type) {
+            case 'text':
+              emitted = true
+              cb.onDelta(unmaskDelta(payload.delta))
+              break
+            case 'reasoning':
+            case 'thinking':
+              // Reasoning deltas do not mutate history or visible answer text;
+              // keep `emitted = false` so a drop while thinking or buffering
+              // tool_calls can reconnect up to 10 times seamlessly.
+              cb.onReasoningDelta?.(
+                unmaskReasoning(payload.delta).replace(
+                  /Manus(?:\s+1\.6)?(?:\s+Orchestrator)?/gi,
+                  'Lycero Super Model',
+                ),
+              )
+              break
+            case 'tool_call': {
+              emitted = true
+              const rawArgs = payload.input ?? payload.arguments ?? {}
+              let parsedArgs: Record<string, unknown> = {}
+              if (typeof rawArgs === 'string') {
+                try {
+                  const parsed = JSON.parse(rawArgs)
+                  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                    parsedArgs = parsed as Record<string, unknown>
+                  }
+                } catch {
+                  parsedArgs = {}
+                }
+              } else if (rawArgs && typeof rawArgs === 'object' && !Array.isArray(rawArgs)) {
+                parsedArgs = rawArgs as Record<string, unknown>
+              }
+              const toolInput = restorePiiInValue(parsedArgs, piiMap) as Record<string, unknown>
+              cb.onToolCall?.({
+                id: payload.id || `call_${Date.now()}`,
+                name: payload.name,
+                input: toolInput,
+              })
+              break
+            }
+            case 'finish':
+              sawFinish = true
+              if (payload.usage || payload.quotaRemaining !== undefined) {
+                cb.onUsage?.({
+                  ...(payload.usage?.inputTokens !== undefined ? { inputTokens: payload.usage.inputTokens } : {}),
+                  ...(payload.usage?.outputTokens !== undefined ? { outputTokens: payload.usage.outputTokens } : {}),
+                  ...(payload.usage?.computeUnits !== undefined ? { computeUnits: payload.usage.computeUnits } : {}),
+                  ...(payload.quotaRemaining !== undefined ? { quotaRemaining: payload.quotaRemaining } : {}),
+                  ...(payload.quotaLimit !== undefined ? { quotaLimit: payload.quotaLimit } : {}),
+                  ...(payload.quotaUsed !== undefined ? { quotaUsed: payload.quotaUsed } : {}),
+                })
+              }
+              if (payload.quotaRemaining !== undefined && Number.isFinite(payload.quotaRemaining)) {
+                onQuotaUpdate?.({
+                  remaining: payload.quotaRemaining,
+                  limit: payload.quotaLimit ?? initialQuotaLimit,
+                })
+              }
+              cb.onStopReason?.(payload.stopReason || 'stop')
+              break
+            case 'error':
+              onBytes()
+              throw new Error(payload.message || 'Lỗi xử lý từ Cổng Trí tuệ Lycero.')
+            case 'start':
+              break
+          }
+        }
+
+        if (!sawFinish) {
+          throw new Error('Stream closed without a finish event')
+        }
+      })
+      return
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      const isTransient =
+        !emitted &&
+        !cb.signal?.aborted &&
+        !(err instanceof AiQuotaExhaustedError) &&
+        (isAiNetworkError(err) ||
+          err instanceof AiTimeoutError ||
+          /^HTTP (408|425|500|502|503|504|520|521|522|523|524)\b/.test(msg) ||
+          msg === 'Stream closed without a finish event' ||
+          /timeout|timed out|overloaded|temporarily unavailable|connection|socket|terminated|ECONN|UND_ERR|Đã xảy ra lỗi khi tạo phản hồi/i.test(
+            msg,
+          ))
+      if (isTransient && attempt < totalAttempts) {
+        const delayMs =
+          retryBaseDelayMs <= 0 ? 0 : Math.min(attempt * retryBaseDelayMs, retryBaseDelayMs * 6)
+        await waitWithActivity(delayMs, cb.signal, cb.onActivity)
+        if (cb.signal?.aborted) throw err
+        continue
+      }
+      throw err
+    }
   }
 }

@@ -129,7 +129,12 @@ export { isAiNetworkError } from './network-error'
 export { isAiOverloadedError } from './overload-error'
 export { isAiRegionBlockedError } from './region-error'
 export { parseOutputCapRejection } from './output-cap'
-export { AiCreditsError, sseLines, streamForProvider } from './stream'
+export {
+  AiCreditsError,
+  MAX_STREAM_RECONNECT_ATTEMPTS,
+  sseLines,
+  streamForProvider,
+} from './stream'
 export type { StreamCallbacks } from './stream'
 export {
   AI_CHAT_RESPONSE_TIMEOUT_MS,
@@ -143,7 +148,7 @@ export type { StreamWatchdog } from './watchdog'
 export { AiQuotaExhaustedError, isAiQuotaExhaustedError } from './quota-error'
 export { PiiTokenizer } from './pii-tokenizer'
 export type { PiiTokenizeResult } from './pii-tokenizer'
-export { streamHubChat } from './protocols/hub-lycero'
+export { MAX_HUB_RECONNECT_ATTEMPTS, streamHubChat } from './protocols/hub-lycero'
 export type { StreamHubChatParams } from './protocols/hub-lycero'
 export { fetchRemoteModels } from './fetch-models'
 export {

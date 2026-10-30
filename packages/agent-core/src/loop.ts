@@ -385,6 +385,21 @@ const EMPTY_STREAM_RETRY_DELAYS_MS = [1_000, 3_000]
  */
 const TOOL_ARGS_DROP_MARK = 'while sending tool arguments'
 const TOOL_ARGS_DROP_RETRIES = 1
+/**
+ * Auto-reconnect schedule (up to 10 attempts) when a turn encounters a transient
+ * network connectivity drop, premature stream close, or gateway timeout before
+ * any tool call is delivered.
+ */
+export const MAX_TURN_RECONNECT_RETRIES = 10
+const TURN_RECONNECT_DELAYS_MS = [
+  1_000, 1_500, 2_000, 3_000, 4_000, 5_000, 5_000, 6_000, 7_000, 8_000,
+]
+
+function isRetryableTurnNetworkError(error: string): boolean {
+  return /Stream closed without a finish event|stream ended before a (?:finish_reason|stop_reason|finishReason)|Sự cố mạng|không thể kết nối tới dịch vụ AI|Network issue:\s*could not connect|hết thời gian chờ|AI request timed out|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|UND_ERR_|ERR_NETWORK|ERR_CONNECTION_|socket hang up/i.test(
+    error,
+  )
+}
 
 const TURN_LIMIT_NOTE =
   '[System] The tool-call turn limit for this request has been reached; no more tools may be called this turn. ' +
@@ -1098,8 +1113,25 @@ export class AgentLoop<TSnapshot = unknown> {
               retriesUsed < TOOL_ARGS_DROP_RETRIES &&
               error.includes(TOOL_ARGS_DROP_MARK) &&
               this.toolCalls.length === 0
-            const delay = retryEmpty ? emptyDelay : EMPTY_STREAM_RETRY_DELAYS_MS[0]
-            if ((retryEmpty || retryDrop) && !this.cancelled) {
+            const reconnectDelay = TURN_RECONNECT_DELAYS_MS[retriesUsed]
+            const retryNetwork =
+              reconnectDelay !== undefined &&
+              isRetryableTurnNetworkError(error) &&
+              this.toolCalls.length === 0
+            const delay = retryEmpty
+              ? emptyDelay
+              : retryNetwork
+                ? reconnectDelay
+                : EMPTY_STREAM_RETRY_DELAYS_MS[0]
+            if ((retryEmpty || retryDrop || retryNetwork) && !this.cancelled) {
+              if (retryNetwork && this.turnText) {
+                this.turnText = ''
+                try {
+                  this.options.events?.onText?.('')
+                } catch {
+                  // ignore UI reset failure before retry
+                }
+              }
               this.retryTimer = setTimeout(() => {
                 this.retryTimer = null
                 if (generation !== this.generation) return
