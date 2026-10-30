@@ -41,20 +41,30 @@ git add -A && git commit -m "checkpoint before <task-id>" --allow-empty
 # B. Làm task (copy file / edit / wire)
 
 # C. Verify & Bump Lockstep Version (BẮT BUỘC — không bỏ qua)
-npm run version:bump       # 1) tăng số phiên bản đồng bộ 37 manifests (root, apps/*, packages/*, Cargo, SKILL.md)
-npm run check:version-sync # 2) xác nhận đồng bộ 100%
-npm run typecheck          # 3) typecheck toàn monorepo
-npm run build:all          # 4) build toàn bộ + tự động chạy verify-release-bundle.mjs (chống trắng trang & lỗi auto-update)
-npm run verify:bundle      # 5) xác nhận preload/main/renderer/CSP/NSIS updater không có unbundled deps
-npm test -- <package>      # 6) test package bị ảnh hưởng (nếu có test)
+npm run version:bump             # 1) tăng số phiên bản đồng bộ 38 manifests (root, apps/*, packages/*, Cargo, SKILL.md)
+npm run build -w @lycero/cli     # 2) đồng bộ __cliAppVersion trong packages/cli/dist/lycero-office.cjs
+npm run check:version-sync       # 3) xác nhận đồng bộ 100% (38/38 manifests)
+npm run check:public-hygiene     # 4) quét bảo mật public hygiene
+npm run typecheck                # 5) typecheck toàn monorepo
+npm run build:all                # 6) build toàn bộ + tự động chạy verify-release-bundle.mjs (chống trắng trang & lỗi auto-update)
+npm run verify:bundle            # 7) xác nhận preload/main/renderer/CSP/NSIS updater không có unbundled deps
+npm test -- <package>            # 8) test package bị ảnh hưởng (nếu có test)
 
-# D. Commit (CHỈ KHI verify PASS)
-git add -A
+# D. Commit & Deploy (CHỈ KHI verify PASS)
+git add -u                       # chỉ stage file được track (không ép stage .claude/ trong .gitignore)
 git commit -m "<emoji> <task-id>: <mô tả ngắn>
 
 - File mới: <list>
 - Verify: typecheck PASS, build PASS, tests PASS
 - Parity: <% mới>"
+
+# E. Khi phát hành bản cài đặt chính thức (Release & Deploy):
+# - Local Windows: npm run dist:win (x64) & npm run dist:win:ia32 (32-bit ia32)
+# - Tag & Dual-Remote Push:
+#   git tag -a v<version> -m "Release v<version>"
+#   git push origin public-main:main --force && git push origin v<version>
+#   git push github public-main:main --force && git push github v<version>
+# - Giám sát GitHub Actions (release.yml) xuất đủ 17 tệp trên GitHub Releases.
 ```
 
 ### 0.3 Snapshot / checkpoint kết thúc mỗi GIAI ĐOẠN
@@ -555,6 +565,7 @@ mkdir packages\zip-gate\test -Force
 | 01/10/2026 | GĐ 6 (CLI/MCP 4 files + agent-skills + loadCatalog, 6 files total) DONE — typecheck 24/24 PASS. Tasks 6.6-6.7 (wire MCP install + Settings snippet) còn lại                                                | Cursor Agent |
 | 01/10/2026 | GĐ 7 (AiAskPopover × 5 apps wired, verify typecheck PASS 24/24), fix shell dismissedVersion stub                                                                                                           | Cursor Agent |
 | 01/10/2026 | GĐ 8 (E2E tests port) + GĐ 9 (Final verification) — 34 E2E tests ported from GenOffice, 88 total E2E tests, `parity-95-v1` tag                                                                             | Cursor Agent |
+| 30/10/2026 | Chuẩn hóa SOP Deploy 1 chạm (`tools/release-deploy.mjs`), CI 17 assets (x64 + ia32 + macOS + Linux) và khóa cứng quy tắc NSIS Auto-Update (`installer.nsh` + `verify-release-bundle.mjs` + `makensis -WX`) | Antigravity  |
 
 ---
 

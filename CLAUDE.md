@@ -75,10 +75,27 @@ Never hand-edit a single `package.json` version in isolation. Always run:
 
 ```bash
 npm run version:bump        # patch bump (or version:minor / version:major)
-npm run check:version-sync  # verifies all 37 component manifests match
+npm run build -w @lycero/cli
+npm run check:version-sync  # verifies all 38 component manifests match
 ```
 
 (`.githooks/pre-commit`, `.githooks/pre-push`, and CI enforce `tools/check-version-sync.mjs`).
+
+## Multi-Platform Release & Deployment Workflow
+
+1. **Local Verification & Bundle Gate:**
+   - `npm run typecheck && npm run build:all && npm run verify:bundle`
+   - `npm run check:public-hygiene && npm run licenses`
+2. **Local Windows Installer Packaging:**
+   - 64-bit (`x64`): `npm run dist:win` → `apps/shell/release/Lycero Office Setup <version>.exe`
+   - 32-bit (`ia32`): `npm run dist:win:ia32` → `apps/shell/release-ia32/Lycero Office Setup <version>-ia32.exe`
+3. **Dual-Remote Release Push (`origin` GitLab + `github` Public Repo):**
+   - Commit tracked files (`git add -u`, never force-add gitignored `.claude/` files) and tag `git tag -a v<version> -m "Release v<version>"`.
+   - Push `public-main:main` and tag `v<version>` to both `origin` and `github`.
+4. **GitHub Actions CI/CD (`.github/workflows/release.yml`) & NSIS Auto-Update Rules:**
+   - Builds and publishes all **17 release assets** across Windows (`x64` & 32-bit `ia32`), macOS (Apple Silicon `arm64` & Intel `x64`), and Linux (`.AppImage`, `.deb`, `.rpm` + `.asc` GPG signatures).
+   - Always keep artifact directories flat in `apps/shell/release/` before `actions/upload-artifact@v4` and pass only files (`find release-assets -type f | sort`) to `gh release upload`.
+   - In `apps/shell/build/installer.nsh`: always keep `!macro customCheckAppRunning` (using `nsProcess` + `nsProcess::_Unload`), sanitize stale `HKLM`/`HKCU` flags in `!macro customInit`, self-heal `$newStartMenuLink` and `$newDesktopLink` in `!macro customInstall`, and use `StdUtils.ExecShellAsUser` + `800ms` `nsProcess::_FindProcess` + `Exec '"$appExe" --updated'` fallback (never expand `!insertmacro StartApp`, `UAC_AsUser_ExecShell`, or top-level `Function` blocks, and never set `autoUpdater.installDirectory` on paths with spaces).
 
 <!-- AI_CTO_BRIDGE_START -->
 

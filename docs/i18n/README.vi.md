@@ -22,7 +22,7 @@
 
 ---
 
-**Lycero Office** là bộ phần mềm văn phòng mã nguồn mở miễn phí do **ITAC AI Heavy Industries** phát triển cho Windows (`x64`), macOS (Apple Silicon `arm64` & Intel `x64`) và Linux (`AppImage`, `.deb`, `.rpm`). Ứng dụng mở, chỉnh sửa và lưu trực tiếp định dạng gốc `.docx`, `.xlsx`, `.pptx`, `.pdf`, `.md`, `.html` ngay trên ổ đĩa cục bộ của bạn, kết hợp cùng trợ lý AI **Lycero Mate** hỗ trợ thao tác trực tiếp trên tài liệu với con trỏ cộng tác thời gian thực và hoàn tác 1 chạm.
+**Lycero Office** là bộ phần mềm văn phòng mã nguồn mở miễn phí do **ITAC AI Heavy Industries** phát triển cho Windows (`x64` & 32-bit `ia32`), macOS (Apple Silicon `arm64` & Intel `x64`) và Linux (`AppImage`, `.deb`, `.rpm`). Ứng dụng mở, chỉnh sửa và lưu trực tiếp định dạng gốc `.docx`, `.xlsx`, `.pptx`, `.pdf`, `.md`, `.html` ngay trên ổ đĩa cục bộ của bạn, kết hợp cùng trợ lý AI **Lycero Mate** hỗ trợ thao tác trực tiếp trên tài liệu với con trỏ cộng tác thời gian thực và hoàn tác 1 chạm.
 
 ### Điểm Khác Biệt Cốt Lõi
 

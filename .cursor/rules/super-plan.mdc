@@ -22,23 +22,30 @@ git add -A && git commit -m "checkpoint before <task-id>" --allow-empty
 # B. Làm task (copy file / edit / wire)
 
 # C. Verify & Bump Lockstep Version (BẮT BUỘC — không bao giờ bỏ qua)
-npm run version:bump                 # tăng phiên bản đồng bộ toàn bộ 37 manifests (patch/minor/major)
-npm run check:version-sync           # kiểm tra 100% đồng bộ giữa root, apps/*, packages/*, Cargo, SKILL.md
+npm run version:bump                 # tăng phiên bản đồng bộ toàn bộ 38 manifests (patch/minor/major)
+npm run build -w @lycero/cli         # đồng bộ __cliAppVersion trong CLI bundle
+npm run check:version-sync           # kiểm tra 100% đồng bộ giữa root, apps/*, packages/*, Cargo, SKILL.md, CLI bundle
+npm run check:public-hygiene         # quét bảo mật public hygiene
 npm run typecheck                    # typecheck toàn monorepo
 # (optional) npm test -- <package>    # test package bị ảnh hưởng
 npm run build:all                    # build toàn bộ + verify:bundle (kiểm tra preload/main/renderer/CSP/NSIS updater)
 npm run verify:bundle                # chặn tuyệt đối lỗi trắng trang (unbundled preload/main deps, duplicate Univer, process.env)
 
 # D. Commit CHỈ KHI verify PASS
-git add -A
+git add -u                           # chỉ stage file được track (không ép stage .claude/ trong .gitignore)
 git commit -m "<emoji> <task-id>: <mô tả>
 
 - File mới: <list>
 - Verify: typecheck PASS
 - Parity: <% mới>"
 
-# E. Sau mỗi GIAI ĐOẠN — tag
-git tag -a stage-<N>-complete -m "Stage <N> done"
+# E. Sau mỗi GIAI ĐOẠN hoặc khi Deploy bản phát hành mới
+git tag -a v<version> -m "Release v<version>"
+git push origin public-main:main --force
+git push origin v<version>
+git push github public-main:main --force
+git push github v<version>
+# Kiểm tra GitHub Actions (release.yml) xuất đủ 17 bộ cài (Windows x64 + ia32, macOS ARM64 + Intel, Linux AppImage/DEB/RPM)
 ```
 
 ### 2. Nguyên tắc "Làm đến đâu, test xong, commit đến đó"
@@ -75,6 +82,7 @@ Mọi file copy từ GenOffice phải giữ header gốc VÀ thêm dòng sửa �
 - ❌ Sửa file internal symbols của GenOffice (e.g. `genofficeApp`)
 - ❌ Làm 2 giai đoạn cùng lúc
 - ❌ Quên tag git khi kết thúc giai đoạn
+- ❌ Sửa `apps/shell/build/installer.nsh` mà xóa mất `!macro customCheckAppRunning` (`nsProcess` + `nsProcess::_Unload`), xóa cơ chế tự phục hồi Shortcut (`$newStartMenuLink` / `$newDesktopLink`), gọi `!insertmacro StartApp` (gây trùng biến `startAppArgs` trên `makensis -WX`), dùng `UAC_AsUser_ExecShell` hay đặt `Function` ở top-level; hoặc gán `autoUpdater.installDirectory` trên đường dẫn có khoảng trắng trong `updater.ts`.
 
 ---
 

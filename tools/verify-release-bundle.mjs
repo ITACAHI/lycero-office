@@ -200,6 +200,26 @@ if (!existsSync(installerNshPath)) {
   if (!nsh.includes('!macro customInstall')) {
     fail('[shell] apps/shell/build/installer.nsh is missing !macro customInstall relaunch hook')
   }
+  if (!nsh.includes('!macro customCheckAppRunning')) {
+    fail(
+      '[shell] apps/shell/build/installer.nsh is missing !macro customCheckAppRunning (in-process nsProcess check)',
+    )
+  }
+  if (!nsh.includes('nsProcess::_Unload')) {
+    fail(
+      '[shell] apps/shell/build/installer.nsh is missing nsProcess::_Unload (required to release nsProcess.dll before uninstaller/installer exit)',
+    )
+  }
+  if (!nsh.includes('CreateShortCut "$newStartMenuLink"') || !nsh.includes('CreateShortCut "$newDesktopLink"')) {
+    fail(
+      '[shell] apps/shell/build/installer.nsh is missing Start Menu / Desktop shortcut self-healing in !macro customInstall',
+    )
+  }
+  if (nsh.includes('!insertmacro StartApp')) {
+    fail(
+      '[shell] apps/shell/build/installer.nsh must not expand !insertmacro StartApp (redeclares Var /GLOBAL startAppArgs and fails makensis -WX)',
+    )
+  }
   if (nsh.includes('UAC_AsUser_ExecShell')) {
     fail(
       '[shell] apps/shell/build/installer.nsh must not use UAC_AsUser_ExecShell with custom Vars (unsynced Var in outer UAC instance opens Explorer on $INSTDIR)',
@@ -224,6 +244,11 @@ if (existsSync(updaterTsPath)) {
   if (!updaterTs.includes('markInstallingUpdate()')) {
     fail(
       '[shell] apps/shell/src/main/updater.ts is missing markInstallingUpdate() before quitAndInstall',
+    )
+  }
+  if (updaterTs.includes('.installDirectory =')) {
+    fail(
+      '[shell] apps/shell/src/main/updater.ts must not set autoUpdater.installDirectory (paths with spaces like "Lycero Office" get wrapped in quotes by child_process.spawn and corrupt $INSTDIR in NSIS GetDParameter)',
     )
   }
 }

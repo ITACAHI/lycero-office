@@ -31,7 +31,7 @@
 
 ---
 
-**Lycero Office** is a free, open-source desktop office suite developed by **ITAC AI Heavy Industries** for Windows (`x64`), macOS (Apple Silicon `arm64` & Intel `x64`), and Linux (`AppImage`, `.deb`, `.rpm`). It opens, edits, and saves native Microsoft Office formats (`.docx`, `.xlsx`, `.pptx`) alongside PDF, Markdown, and HTML documents directly on your local disk — pairing a byte-preserving document engine with **Lycero Mate**, an AI agent that edits your document in place with live cursor indicators and one-click rollback.
+**Lycero Office** is a free, open-source desktop office suite developed by **ITAC AI Heavy Industries** for Windows (`x64` & 32-bit `ia32`), macOS (Apple Silicon `arm64` & Intel `x64`), and Linux (`AppImage`, `.deb`, `.rpm`). It opens, edits, and saves native Microsoft Office formats (`.docx`, `.xlsx`, `.pptx`) alongside PDF, Markdown, and HTML documents directly on your local disk — pairing a byte-preserving document engine with **Lycero Mate**, an AI agent that edits your document in place with live cursor indicators and one-click rollback.
 
 ### Core Highlights
 
@@ -129,12 +129,13 @@ All official multi-platform installers are published on [GitHub Releases](https:
 
 | Platform | Architecture & Package | Download |
 | :--- | :--- | :--- |
-| **Windows** | Windows 10/11 (`x64` NSIS Installer `.exe`) | [GitHub Releases (`v2.0.0`)](https://github.com/ITACAHI/lycero-office/releases/latest) |
-| **macOS (Apple Silicon)** | M1 / M2 / M3 / M4 (`arm64` `.dmg` & `.zip`) | [GitHub Releases (`v2.0.0`)](https://github.com/ITACAHI/lycero-office/releases/latest) |
-| **macOS (Intel)** | Intel Mac (`x64` `.dmg` & `.zip`) | [GitHub Releases (`v2.0.0`)](https://github.com/ITACAHI/lycero-office/releases/latest) |
-| **Linux (Debian / Ubuntu)** | `x86_64` `.deb` (GPG-signed `.asc`) | [GitHub Releases (`v2.0.0`)](https://github.com/ITACAHI/lycero-office/releases/latest) |
-| **Linux (Fedora / RHEL / openSUSE)** | `x86_64` `.rpm` (GPG-signed `.asc`) | [GitHub Releases (`v2.0.0`)](https://github.com/ITACAHI/lycero-office/releases/latest) |
-| **Linux (Universal)** | `x86_64` `.AppImage` (GPG-signed `.asc`) | [GitHub Releases (`v2.0.0`)](https://github.com/ITACAHI/lycero-office/releases/latest) |
+| **Windows (64-bit)** | Windows 10/11 (`x64` NSIS Installer `.exe`) | [GitHub Releases (Latest)](https://github.com/ITACAHI/lycero-office/releases/latest) |
+| **Windows (32-bit)** | Windows 32-bit (`ia32` NSIS Installer `-ia32.exe`) | [GitHub Releases (Latest)](https://github.com/ITACAHI/lycero-office/releases/latest) |
+| **macOS (Apple Silicon)** | M1 / M2 / M3 / M4 (`arm64` `.dmg` & `.zip`) | [GitHub Releases (Latest)](https://github.com/ITACAHI/lycero-office/releases/latest) |
+| **macOS (Intel)** | Intel Mac (`x64` `.dmg` & `.zip`) | [GitHub Releases (Latest)](https://github.com/ITACAHI/lycero-office/releases/latest) |
+| **Linux (Debian / Ubuntu)** | `x86_64` `.deb` (GPG-signed `.asc`) | [GitHub Releases (Latest)](https://github.com/ITACAHI/lycero-office/releases/latest) |
+| **Linux (Fedora / RHEL / openSUSE)** | `x86_64` `.rpm` (GPG-signed `.asc`) | [GitHub Releases (Latest)](https://github.com/ITACAHI/lycero-office/releases/latest) |
+| **Linux (Universal)** | `x86_64` `.AppImage` (GPG-signed `.asc`) | [GitHub Releases (Latest)](https://github.com/ITACAHI/lycero-office/releases/latest) |
 
 ---
 
@@ -142,12 +143,13 @@ All official multi-platform installers are published on [GitHub Releases](https:
 
 ```bash
 npm install
-npm test             # Run unit and integration tests across workspaces
-npm run typecheck    # Run TypeScript typechecking across all workspaces
-npm run dev          # Launch all editors + shell in development mode
-npm run dist:win     # Package Windows x64 NSIS installer
-npm run dist:mac     # Package macOS Apple Silicon (arm64) & Intel (x64) DMG/ZIP
-npm run dist:linux   # Package Linux AppImage, DEB, and RPM
+npm test              # Run unit and integration tests across workspaces
+npm run typecheck     # Run TypeScript typechecking across all workspaces
+npm run dev           # Launch all editors + shell in development mode
+npm run dist:win      # Package Windows 64-bit (x64) NSIS installer
+npm run dist:win:ia32 # Package Windows 32-bit (ia32) NSIS installer
+npm run dist:mac      # Package macOS Apple Silicon (arm64) & Intel (x64) DMG/ZIP
+npm run dist:linux    # Package Linux AppImage, DEB, and RPM
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md) for architecture and security details.

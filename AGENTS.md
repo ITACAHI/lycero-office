@@ -167,21 +167,119 @@ Mọi thay đổi mã nguồn hoặc cấu hình trong **Lycero Office Desktop**
 Mọi thay đổi code phải được kiểm chứng qua các lệnh sau trước khi hoàn tất:
 
 ```bash
-# 1. Đồng bộ và kiểm tra phiên bản toàn monorepo
+# 1. Đồng bộ và kiểm tra phiên bản toàn monorepo (38 thành phần kể cả CLI bundle)
 npm run version:bump
+npm run build -w @lycero/cli
 npm run check:version-sync
 
-# 2. Kiểm tra kiểu TypeScript toàn bộ monorepo
+# 2. Kiểm tra cổng bảo mật (Public Hygiene) và giấy phép phụ thuộc
+npm run check:public-hygiene
+npm run licenses
+
+# 3. Kiểm tra kiểu TypeScript toàn bộ monorepo
 npm run typecheck
 
-# 3. Chạy kiểm thử tự động cho lõi AI và Agent
+# 4. Chạy kiểm thử tự động cho lõi AI, Auth và Agent
 npm test -- packages/agent-core
 npm test -- packages/ai-provider
+npm test -- packages/ai-auth
 
-# 4. Build toàn bộ monorepo và kiểm chứng bundle (preload/main/renderer/CSP/Univer/NSIS updater)
+# 5. Build toàn bộ monorepo và kiểm chứng bundle (preload/main/renderer/CSP/Univer/NSIS updater)
 npm run build:all
 npm run verify:bundle
 ```
+
+---
+
+## 8. Quy Trình Đóng Gói & Deploy Sản Phẩm Toàn Trình (End-to-End Release & Deployment SOP)
+
+### 8.1. Ma Trận Bộ Cài Đa Nền Tảng (17 Release Assets)
+
+Mỗi bản phát hành chính thức (`vX.Y.Z`) của Lycero Office Desktop tạo ra **17 tệp phân phối** trên GitHub Releases:
+
+| Nền tảng | Kiến trúc | Lệnh đóng gói | Tệp đầu ra chính |
+| :--- | :--- | :--- | :--- |
+| **Windows 64-bit** | `x64` (NSIS) | `npm run dist:win` | `Lycero Office Setup <ver>.exe`, `.exe.blockmap`, `latest.yml` |
+| **Windows 32-bit** | `ia32` (NSIS + Rust `i686-pc-windows-msvc`) | `npm run dist:win:ia32` | `Lycero Office Setup <ver>-ia32.exe`, `-ia32.exe.blockmap` |
+| **macOS (Apple Silicon)** | `arm64` (M1/M2/M3/M4) | `npm run dist:mac` | `Lycero Office-<ver>-arm64.dmg`, `Lycero Office-<ver>-arm64-mac.zip` |
+| **macOS (Intel)** | `x64` (`LYCERO_MAC_X64=1`) | `npm run dist:mac` | `Lycero Office-<ver>.dmg`, `Lycero Office-<ver>-mac.zip`, `latest-mac.yml` |
+| **Linux (Universal / Debian / RedHat)** | `x86_64` | `npm run dist:linux` | `.AppImage` (+ `.asc`), `_amd64.deb` (+ `.asc`), `.x86_64.rpm` (+ `.asc`), `latest-linux.yml` |
+
+### 8.2. Quy Trình 6 Bước Chuẩn Khi Deploy Bản Phát Hành Mới
+
+> **Lệnh tự động hóa 1 chạm (`npm run release:deploy`):**
+> Sau khi đã kiểm tra `typecheck` / `build:all`, có thể chạy trực tiếp:
+> ```powershell
+> npm run release:deploy -- patch -m "feat/fix: mô tả bản phát hành"
+> ```
+> Script [`tools/release-deploy.mjs`](file:///D:/Lycero%20Office/tools/release-deploy.mjs) sẽ tự động thực hiện toàn bộ Bước 2 → Bước 5 bên dưới (tăng version lockstep 38 manifests, build CLI bundle, kiểm tra version-sync + public-hygiene + licenses, commit, tạo tag `vX.Y.Z`, và đẩy đồng bộ lên cả `origin` lẫn `github`).
+
+> **Lưu ý trên Windows PowerShell 5.1:** Không dùng toán tử `&&`; sử dụng `; if ($LASTEXITCODE -ne 0) { exit 1 }` để nối chuỗi lệnh an toàn.
+
+1. **Bước 1 — Kiểm tra chất lượng, Build & Bundle Gate:**
+   ```powershell
+   npm run typecheck; if ($LASTEXITCODE -ne 0) { exit 1 }
+   npm run build:all; if ($LASTEXITCODE -ne 0) { exit 1 }
+   npm run verify:bundle; if ($LASTEXITCODE -ne 0) { exit 1 }
+   ```
+2. **Bước 2 — Tăng phiên bản Lockstep (38 manifests) & Quét bảo mật Public Hygiene:**
+   ```powershell
+   node tools/bump-version.mjs patch --stage; if ($LASTEXITCODE -ne 0) { exit 1 }
+   npm run build -w @lycero/cli; if ($LASTEXITCODE -ne 0) { exit 1 }
+   node tools/check-version-sync.mjs; if ($LASTEXITCODE -ne 0) { exit 1 }
+   node tools/check-public-hygiene.mjs; if ($LASTEXITCODE -ne 0) { exit 1 }
+   node tools/check-licenses.mjs; if ($LASTEXITCODE -ne 0) { exit 1 }
+   ```
+3. **Bước 3 — Đóng gói bộ cài Windows cục bộ (khi cần kiểm thử/bàn giao ngay trên máy trạm):**
+   ```powershell
+   # Bản 64-bit (x64) -> xuất ra apps/shell/release/Lycero Office Setup <ver>.exe
+   npm run dist:win
+   # Bản 32-bit (ia32) -> xuất ra apps/shell/release-ia32/Lycero Office Setup <ver>-ia32.exe
+   npm run dist:win:ia32
+   ```
+4. **Bước 4 — Commit & Gắn Tag chuẩn Git:**
+   - Chỉ stage các file được theo dõi (`git add -u` và các file nguồn mới hợp lệ; không ép stage các đường dẫn nằm trong `.gitignore` như `.claude/`).
+   ```powershell
+   $ver = node -p "require('./package.json').version"
+   git add -u
+   git commit -m "release: v$ver"
+   git tag -a "v$ver" -m "Release v$ver"
+   ```
+5. **Bước 5 — Đẩy đồng bộ Dual-Remote (GitLab nội bộ `origin` & GitHub công khai `github`):**
+   - Nhánh phát hành sạch là `public-main`, được đẩy đồng bộ lên nhánh `main` và tag `v<ver>` ở cả 2 remote:
+   ```powershell
+   $ver = node -p "require('./package.json').version"
+   git push origin public-main:main --force; if ($LASTEXITCODE -ne 0) { exit 1 }
+   git push origin "v$ver"; if ($LASTEXITCODE -ne 0) { exit 1 }
+   git push github public-main:main --force; if ($LASTEXITCODE -ne 0) { exit 1 }
+   git push github "v$ver"; if ($LASTEXITCODE -ne 0) { exit 1 }
+   ```
+6. **Bước 6 — Giám sát GitHub Actions (`release.yml`) & Nghiệm thu GitHub Releases:**
+   ```powershell
+   # Xem danh sách workflow đang chạy
+   gh run list --repo ITACAHI/lycero-office --limit 5
+
+   # Xem chi tiết tiến độ từng job (Hygiene Gate, Windows x64+ia32, macOS, Linux, Publish)
+   gh run view <run-id> --repo ITACAHI/lycero-office
+
+   # Nếu có job lỗi, trích xuất ngay log lỗi chi tiết
+   gh run view <run-id> --repo ITACAHI/lycero-office --log-failed
+
+   # Xác nhận đủ 17 tệp đính kèm trên trang GitHub Releases sau khi hoàn tất
+   gh release view "v$ver" --repo ITACAHI/lycero-office
+   ```
+
+### 8.3. Quy Tắc An Toàn Bất Biến Trong CI/CD (`.github/workflows/release.yml`)
+
+1. **Làm phẳng thư mục Artifact trước khi Upload:** Bản 32-bit Windows build ra `apps/shell/release-ia32/` để không ghi đè `latest.yml` của bản 64-bit trong `apps/shell/release/`. Trước bước `actions/upload-artifact@v4`, bắt buộc copy `.exe` và `.exe.blockmap` từ `release-ia32/` sang `release/` và chỉ truyền đường dẫn từ một thư mục `apps/shell/release/*` để tránh sinh thư mục con lồng nhau.
+2. **Chỉ truyền tệp tin thực (`-type f`) vào `gh release upload`:** Ở bước `publish-release`, luôn dùng `mapfile -t ASSETS < <(find release-assets -type f | sort)` thay vì glob `release-assets/*` để không bao giờ bị lỗi `is a directory`.
+3. **Chống chạy trùng lặp (Concurrency Deduplication):** Sử dụng `concurrency.group: release-${{ github.sha }}` để khi vừa push nhánh `main` vừa push tag `vX.Y.Z` cùng một commit SHA, GitHub Actions tự động gộp lại chạy một pipeline duy nhất.
+4. **Hộ chiếu chữ ký macOS (`notarize-dmg.js`):** Hook `afterAllArtifactBuild` trong `apps/shell/electron-builder.cjs` chỉ được kích hoạt khi `process.platform === 'darwin'` để không làm lỗi bước đóng gói trên Windows/Linux.
+5. **Quy tắc bất biến cho NSIS Auto-Update (`apps/shell/build/installer.nsh` & `apps/shell/src/main/updater.ts`):**
+   - **Không bao giờ gán `autoUpdater.installDirectory` cho đường dẫn có khoảng trắng (`Lycero Office`):** Node `child_process.spawn` tự bọc dấu `"` quanh `/D=...` trong khi macro `GetDParameter` của `electron-builder` không cắt dấu `"` ở cuối, làm hỏng biến `$INSTDIR`. Không ép gọi `resources\elevate.exe` từ bên trong `$INSTDIR\resources` để tránh khóa file khi `old-uninstaller.exe` chạy `atomicRMDir`.
+   - **`!macro customCheckAppRunning` dùng `nsProcess` in-process (kèm `nsProcess::_Unload`):** Bắt buộc duy trì ở phạm vi toàn cục trong `installer.nsh` (dùng chung cho cả `BUILD_UNINSTALLER` và `INSTALLER`) để đóng `Lycero Office.exe`, `xlsx-sidecar.exe`, `win-ocr.exe` tức thì (<0.5s), tránh fallback sang 6 tiến trình `powershell.exe Get-CimInstance` của `electron-builder`.
+   - **Lọc khóa Registry rác (`customInit`) & Tự phục hồi Shortcut (`customInstall`):** Trong `customInit`, nếu `HKLM` hoặc `HKCU` trỏ tới thư mục không còn chứa `${APP_EXECUTABLE_FILENAME}`, phải reset `$hasPerMachineInstallation` / `$hasPerUserInstallation` về `"0"` để khóa `HKLM` rác không ép cập nhật Per-User sang `all` và xóa chéo thư mục `HKCU`. Trong `customInstall`, bắt buộc kiểm tra `${ifNot} ${FileExists} "$newStartMenuLink"` và `${ifNot} ${FileExists} "$newDesktopLink"` để tạo lại shortcut ngay nếu bộ gỡ bản cũ xóa mất khi `$keepShortcuts == "true"`.
+   - **Relaunch Fallback & Cấm trùng biến NSIS:** Trong `customInstall`, tuyệt đối không gọi `!insertmacro StartApp` (gây lỗi `variable "startAppArgs" already declared` khi biên dịch `makensis -WX`), không dùng `UAC_AsUser_ExecShell` với biến tùy chỉnh, và không đặt khối `Function` ở top-level. Luôn gọi `${StdUtils.ExecShellAsUser} $0 "$appExe" "open" "--updated"`, đợi `800ms`, kiểm tra `nsProcess::_FindProcess` + `nsProcess::_Unload`, và fallback bằng `Exec '"$appExe" --updated'` trước khi `!insertmacro quitSuccess`.
 
 <!-- AI_CTO_BRIDGE_START -->
 
