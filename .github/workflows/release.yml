@@ -121,6 +121,13 @@ jobs:
           CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
         run: npm run dist:win:ia32
 
+      - name: Consolidate Windows x64 and 32-bit ia32 artifacts
+        shell: pwsh
+        run: |
+          Copy-Item -Path "apps/shell/release-ia32/*.exe" -Destination "apps/shell/release/" -Force
+          Copy-Item -Path "apps/shell/release-ia32/*.exe.blockmap" -Destination "apps/shell/release/" -Force
+          Get-ChildItem -Path "apps/shell/release"
+
       - name: Upload Windows Release Artifacts (x64 & 32-bit ia32)
         uses: actions/upload-artifact@v4
         with:
@@ -129,8 +136,6 @@ jobs:
             apps/shell/release/*.exe
             apps/shell/release/*.exe.blockmap
             apps/shell/release/latest.yml
-            apps/shell/release-ia32/*.exe
-            apps/shell/release-ia32/*.exe.blockmap
 
   build-macos:
     name: Build macOS (Apple Silicon ARM64 + Intel x64 DMG/ZIP)
@@ -272,4 +277,10 @@ jobs:
           if ! gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
             gh release create "$TAG" --repo "$GH_REPO" --target "$GH_SHA" --latest --title "Lycero Office $TAG" --notes "Official multi-platform installers for Windows (x64 & 32-bit ia32), macOS (Apple Silicon ARM64 & Intel x64), and Linux (AppImage, DEB, RPM)."
           fi
-          gh release upload "$TAG" release-assets/* --repo "$GH_REPO" --clobber
+          mapfile -t ASSETS < <(find release-assets -type f | sort)
+          if [ "${#ASSETS[@]}" -eq 0 ]; then
+            echo "No release assets found in release-assets/" >&2
+            exit 1
+          fi
+          printf 'Uploading %s\n' "${ASSETS[@]}"
+          gh release upload "$TAG" "${ASSETS[@]}" --repo "$GH_REPO" --clobber
