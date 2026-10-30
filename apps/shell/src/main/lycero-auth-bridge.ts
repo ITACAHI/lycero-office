@@ -9,10 +9,11 @@ import { join, dirname } from 'node:path'
 import { URL } from 'node:url'
 import os from 'node:os'
 import crypto from 'node:crypto'
-import { resetLyceroAuthCache as resetGskAuthCache } from '@lycero/ai-search'
+import { isGskKeyRejected, resetLyceroAuthCache as resetGskAuthCache } from '@lycero/ai-search'
 
 // Import Lycero OAuth / Hub module (main-process only)
 import {
+  isExpiredJwt,
   loadLyceroAuth,
   lyceroLogout,
   hasLyceroAuth,
@@ -260,6 +261,7 @@ export function saveSession(session: LyceroSession): void {
       writeFileSync(filePath, jsonStr, 'utf-8')
     }
     resetGskAuthCache()
+    resetLyceroAuthCache()
   } catch (err) {
     console.error('[lycero-auth] failed to save session:', err)
   }
@@ -283,6 +285,14 @@ export function getSession(): LyceroSession | null {
     const session = JSON.parse(jsonStr) as LyceroSession
     // Session expires after 30 days
     if (Date.now() - session.storedAt > 30 * 24 * 60 * 60 * 1000) {
+      clearSession()
+      return null
+    }
+    if (
+      session.token &&
+      (isExpiredJwt(session.token) || isGskKeyRejected(session.token)) &&
+      !session.refreshToken
+    ) {
       clearSession()
       return null
     }
@@ -409,7 +419,9 @@ function buildQuotaWindow(
   const limit = typeof limitRaw === 'number' && limitRaw > 0 ? limitRaw : fallbackLimit
   const used = typeof usedRaw === 'number' && usedRaw >= 0 ? Math.round(usedRaw * 100) / 100 : 0
   const remaining = Math.max(0, Math.round((limit - used) * 100) / 100)
-  const percentUsed = Math.min(100, Math.round(((used / Math.max(1, limit)) * 100) * 10) / 10)
+  const rawPercent = (used / Math.max(1, limit)) * 100
+  const roundedPercent = Math.round(rawPercent * 10) / 10
+  const percentUsed = used > 0 ? Math.min(100, Math.max(0.1, roundedPercent)) : 0
   const percentRemaining = Math.max(0, Math.round((100 - percentUsed) * 10) / 10)
   return {
     used,
@@ -451,15 +463,23 @@ export function resolveSessionQuotas(session: LyceroSession): {
           ? Math.max(0, mLimit - session.user.creditsRemaining)
           : 0
 
-  // Scale default weekly (~35% of monthly) and 5-hour (~12.5% of monthly) limits
-  // proportionally to the actual monthly limit (whether credits or TWCU), so a
-  // larger server limit (e.g. 5,000 TWCU) never saturates a tiny hardcoded 25 cap.
-  const defaultWeeklyLimit = Math.max(60, Math.round(mLimit * 0.35))
-  const defaultFiveHourLimit = Math.max(25, Math.round(mLimit * 0.125))
+  // Scale default weekly (~30% of monthly) and 5-hour (~12% of monthly) limits
+  // proportionally to the actual monthly contract limit (TWCU).
+  const baseWeeklyLimit = tier === 'enterprise' ? 1500 : tier === 'pro' ? 300 : tier === 'plus' ? 120 : 60
+  const baseFiveHourLimit = tier === 'enterprise' ? 600 : tier === 'pro' ? 80 : tier === 'plus' ? 40 : 25
+  const scaleFactor = defaultMonthlyLimit > 0 ? mLimit / defaultMonthlyLimit : 1
+  const defaultWeeklyLimit = Math.max(10, Math.round(baseWeeklyLimit * scaleFactor))
+  const defaultFiveHourLimit = Math.max(5, Math.round(baseFiveHourLimit * scaleFactor))
 
   const monthly =
     session.quota?.monthly && isFutureResetIso(session.quota.monthly.resetAt) && lic?.quotaUsed === undefined
-      ? session.quota.monthly
+      ? buildQuotaWindow(
+          session.quota.monthly.used,
+          session.quota.monthly.limit,
+          session.quota.monthly.resetAt,
+          defaultMonthlyLimit,
+          computeDefaultEndOfMonthIso(),
+        )
       : buildQuotaWindow(
           mUsed,
           mLimit,
@@ -473,16 +493,22 @@ export function resolveSessionQuotas(session: LyceroSession): {
   // window counters are absent on /auth/me.
   const wLimit = lic?.weeklyLimit && lic.weeklyLimit > 0 ? lic.weeklyLimit : defaultWeeklyLimit
   const weekly =
-    lic?.weeklyUsed !== undefined
+    session.quota?.weekly && isFutureResetIso(session.quota.weekly.resetAt)
       ? buildQuotaWindow(
-          lic.weeklyUsed,
-          wLimit,
-          lic?.weeklyResetAt,
+          session.quota.weekly.used,
+          session.quota.weekly.limit,
+          session.quota.weekly.resetAt,
           defaultWeeklyLimit,
           computeDefaultEndOfWeekIso(),
         )
-      : session.quota?.weekly && isFutureResetIso(session.quota.weekly.resetAt)
-        ? session.quota.weekly
+      : lic?.weeklyUsed !== undefined
+        ? buildQuotaWindow(
+            lic.weeklyUsed,
+            wLimit,
+            lic?.weeklyResetAt,
+            defaultWeeklyLimit,
+            computeDefaultEndOfWeekIso(),
+          )
         : buildQuotaWindow(
             0,
             wLimit,
@@ -493,16 +519,22 @@ export function resolveSessionQuotas(session: LyceroSession): {
 
   const hLimit = lic?.fiveHourLimit && lic.fiveHourLimit > 0 ? lic.fiveHourLimit : defaultFiveHourLimit
   const fiveHours =
-    lic?.fiveHourUsed !== undefined
+    session.quota?.fiveHours && isFutureResetIso(session.quota.fiveHours.resetAt)
       ? buildQuotaWindow(
-          lic.fiveHourUsed,
-          hLimit,
-          lic?.fiveHourResetAt,
+          session.quota.fiveHours.used,
+          session.quota.fiveHours.limit,
+          session.quota.fiveHours.resetAt,
           defaultFiveHourLimit,
           nextFiveHourIso,
         )
-      : session.quota?.fiveHours && isFutureResetIso(session.quota.fiveHours.resetAt)
-        ? session.quota.fiveHours
+      : lic?.fiveHourUsed !== undefined
+        ? buildQuotaWindow(
+            lic.fiveHourUsed,
+            hLimit,
+            lic?.fiveHourResetAt,
+            defaultFiveHourLimit,
+            nextFiveHourIso,
+          )
         : buildQuotaWindow(0, hLimit, lic?.fiveHourResetAt, defaultFiveHourLimit, nextFiveHourIso)
 
   const tokens: LyceroTokenBreakdown = session.quota?.tokens ??
@@ -536,16 +568,43 @@ export async function fetchLyceroMe(token?: string): Promise<{
   }
   syncedAt?: string
 } | null> {
-  const t = token || getSession()?.token || lyceroAccessToken()
+  let t = token || getSession()?.token || lyceroAccessToken()
   if (!t) return null
   try {
-    const res = await fetch(`${LYCERO_GATEWAY_URL}/api/v1/office/auth/me`, {
+    let res = await fetch(`${LYCERO_GATEWAY_URL}/api/v1/office/auth/me`, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${t}`,
         'Content-Type': 'application/json',
       },
     })
+    if (res.status === 401) {
+      const curr = getSession()
+      if (curr?.refreshToken) {
+        try {
+          const refreshed = await refreshAccessToken(curr.refreshToken)
+          if (refreshed.accessToken) {
+            t = refreshed.accessToken
+            curr.token = refreshed.accessToken
+            if (refreshed.refreshToken) curr.refreshToken = refreshed.refreshToken
+            saveSession(curr)
+            res = await fetch(`${LYCERO_GATEWAY_URL}/api/v1/office/auth/me`, {
+              method: 'GET',
+              headers: {
+                Authorization: `Bearer ${t}`,
+                'Content-Type': 'application/json',
+              },
+            })
+          }
+        } catch {
+          clearSession()
+          return null
+        }
+      } else {
+        clearSession()
+        return null
+      }
+    }
     if (!res.ok) return null
     const json = (await res.json()) as {
       success?: boolean
@@ -697,12 +756,14 @@ function broadcastAuthChanged(
   const win = getMainWindow?.()
   if (win && !win.isDestroyed()) {
     win.webContents.send('lycero:auth:changed', session)
+    win.webContents.send('ai:settings-changed')
     if (session) win.webContents.send('home:account-login-event', { phase: 'success' })
   }
   const allContents = webContents?.getAllWebContents?.() ?? []
   for (const wc of allContents) {
     if (wc.isDestroyed() || wc === win?.webContents) continue
     wc.send('lycero:auth:changed', session)
+    wc.send('ai:settings-changed')
     if (session) wc.send('home:account-login-event', { phase: 'success' })
   }
 }

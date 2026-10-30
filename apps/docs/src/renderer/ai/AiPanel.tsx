@@ -590,10 +590,12 @@ export function AiPanel({
     }
     refresh()
     window.addEventListener('focus', refresh)
+    const offSettings = window.desktop?.onAiSettingsChanged?.(refresh)
     const poll = hasLoginPrompt ? window.setInterval(refresh, 2500) : null
     return () => {
       alive = false
       window.removeEventListener('focus', refresh)
+      offSettings?.()
       if (poll !== null) window.clearInterval(poll)
     }
   }, [hasLoginPrompt])
@@ -1133,6 +1135,10 @@ export function AiPanel({
           }
         },
         onError: (error) => {
+          const isLyceroAuthError =
+            (settingsRef.current?.provider ?? 'lycero') === 'lycero' &&
+            /\bHTTP 401\b|\b401\b|unauthorized|not signed in|đăng nhập/i.test(error)
+          if (isLyceroAuthError) gskLoggedInRef.current = false
           setChat((prev) => {
             const next = [...prev]
             const last = next.at(-1)
@@ -1141,6 +1147,7 @@ export function AiPanel({
                 ...last,
                 streaming: false,
                 error,
+                ...(isLyceroAuthError ? { loginRequired: true } : {}),
                 tools: last.tools?.filter((tl) => !tl.running),
                 snapshot: runSnapshotRef.current ?? undefined,
               }

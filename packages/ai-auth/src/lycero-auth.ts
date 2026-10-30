@@ -607,7 +607,22 @@ export function resetAuthDirCache(): void {
 
 // ── Token check ─────────────────────────────────────────────────────
 
-function readDesktopSessionToken(): string {
+export function isExpiredJwt(token: string): boolean {
+  if (!token || !token.startsWith('eyJ')) return false
+  try {
+    const parts = token.split('.')
+    if (parts.length < 2 || !parts[1]) return false
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf-8'))
+    if (typeof payload?.exp === 'number' && payload.exp > 0) {
+      return payload.exp * 1000 < Date.now() - 30_000
+    }
+  } catch {
+    /* ignore */
+  }
+  return false
+}
+
+function resolveDesktopSessionFile(): string {
   if (process.env.LYCERO_AUTH_DIR) return ''
   try {
     let userDataDir = ''
@@ -617,17 +632,27 @@ function readDesktopSessionToken(): string {
         userDataDir = electron.app?.getPath?.('userData') ?? ''
       } catch {}
     }
-    if (!userDataDir) {
-      const appData =
-        process.env.APPDATA ||
-        (process.platform === 'darwin'
-          ? join(homedir(), 'Library', 'Application Support')
-          : join(homedir(), '.config'))
-      userDataDir = join(appData, 'lycero-office')
+    if (userDataDir) {
+      const f = join(userDataDir, 'lycero', 'session.json')
+      if (existsSync(f)) return f
     }
-    if (!userDataDir) return ''
-    const sessionFile = join(userDataDir, 'lycero', 'session.json')
-    if (!existsSync(sessionFile)) return ''
+    const appData =
+      process.env.APPDATA ||
+      (process.platform === 'darwin'
+        ? join(homedir(), 'Library', 'Application Support')
+        : join(homedir(), '.config'))
+    for (const folder of ['Lycero Office', 'lycero-office']) {
+      const f = join(appData, folder, 'lycero', 'session.json')
+      if (existsSync(f)) return f
+    }
+  } catch {}
+  return ''
+}
+
+function readDesktopSession(): Record<string, unknown> | null {
+  const sessionFile = resolveDesktopSessionFile()
+  if (!sessionFile) return null
+  try {
     const rawBuf = readFileSync(sessionFile)
     let jsonStr = ''
     if (process.versions.electron) {
@@ -645,18 +670,47 @@ function readDesktopSessionToken(): string {
       jsonStr = rawBuf.toString('utf-8')
     }
     const raw = JSON.parse(jsonStr)
-    return typeof raw?.token === 'string' ? raw.token : ''
+    return raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : null
   } catch {
-    return ''
+    return null
   }
 }
 
+function writeDesktopSession(session: Record<string, unknown>): void {
+  const sessionFile = resolveDesktopSessionFile()
+  if (!sessionFile) return
+  try {
+    const jsonStr = JSON.stringify(session)
+    if (process.versions.electron) {
+      try {
+        const electron = createRequire(import.meta.url)('electron')
+        if (electron.safeStorage?.isEncryptionAvailable?.()) {
+          writeFileSync(sessionFile, electron.safeStorage.encryptString(jsonStr))
+          return
+        }
+      } catch {}
+    }
+    writeFileSync(sessionFile, jsonStr, 'utf-8')
+  } catch {
+    /* ignore */
+  }
+}
+
+function readDesktopSessionToken(): string {
+  const raw = readDesktopSession()
+  const token = typeof raw?.token === 'string' ? raw.token : ''
+  return token && !isExpiredJwt(token) ? token : ''
+}
+
 export function hasLyceroAuth(): boolean {
-  return Boolean(loadLyceroAuth()?.tokens?.accessToken || readDesktopSessionToken())
+  return Boolean(lyceroAccessToken())
 }
 
 export function lyceroAccessToken(): string {
-  return loadLyceroAuth()?.tokens?.accessToken || readDesktopSessionToken()
+  const desktopToken = readDesktopSessionToken()
+  if (desktopToken) return desktopToken
+  const authToken = loadLyceroAuth()?.tokens?.accessToken ?? ''
+  return authToken && !isExpiredJwt(authToken) ? authToken : ''
 }
 
 export function isLyceroProUser(): boolean {
@@ -665,20 +719,14 @@ export function isLyceroProUser(): boolean {
   if (plan.includes('pro') || plan.includes('enterprise') || plan.includes('vip') || plan.includes('unlimited')) {
     return true
   }
-  if (process.env.LYCERO_AUTH_DIR) return false
-  // Also check Lycero desktop session stored in userData/lycero/session.json
-  try {
-    const appData = process.env.APPDATA || (process.platform === 'darwin' ? join(homedir(), 'Library', 'Application Support') : join(homedir(), '.config'))
-    const sessionFile = join(appData, 'lycero-office', 'lycero', 'session.json')
-    if (existsSync(sessionFile)) {
-      const raw = JSON.parse(readFileSync(sessionFile, 'utf-8'))
-      const tier = String(raw.license?.tier || raw.user?.plan || '').toLowerCase()
-      if (tier.includes('pro') || tier.includes('enterprise') || tier.includes('vip') || tier.includes('unlimited')) {
-        return true
-      }
+  const raw = readDesktopSession()
+  if (raw) {
+    const lic = raw.license as Record<string, unknown> | undefined
+    const usr = raw.user as Record<string, unknown> | undefined
+    const tier = String(lic?.tier || usr?.plan || '').toLowerCase()
+    if (tier.includes('pro') || tier.includes('enterprise') || tier.includes('vip') || tier.includes('unlimited')) {
+      return true
     }
-  } catch {
-    /* ignore */
   }
   return false
 }
@@ -762,31 +810,42 @@ export async function loginWithEmail(
  */
 let refreshInFlight: Promise<string | null> | null = null
 
-async function refreshAndGetToken(): Promise<string | null> {
+export async function refreshAndGetToken(): Promise<string | null> {
   if (refreshInFlight) return refreshInFlight
   refreshInFlight = (async () => {
+    const desktopSession = readDesktopSession()
     const auth = loadLyceroAuth()
-    const refreshToken = auth?.tokens?.refreshToken
+    const desktopRefresh =
+      typeof desktopSession?.refreshToken === 'string' ? desktopSession.refreshToken : ''
+    const refreshToken = desktopRefresh || auth?.tokens?.refreshToken
     if (!refreshToken) {
       clearAuth()
       return null
     }
     try {
       const next = await refreshAccessToken(refreshToken)
+      if (desktopSession && next.accessToken) {
+        writeDesktopSession({
+          ...desktopSession,
+          token: next.accessToken,
+          refreshToken: next.refreshToken ?? desktopSession.refreshToken,
+        })
+      }
       const current = loadLyceroAuth()
-      if (!current) return null
-      saveAuth({
-        ...current,
-        tokens: {
-          accessToken: next.accessToken,
-          refreshToken: next.refreshToken ?? current.tokens.refreshToken,
-          expiresAt:
-            typeof next.expiresIn === 'number'
-              ? Date.now() + next.expiresIn * 1000
-              : current.tokens.expiresAt,
-        },
-      })
-      return next.accessToken
+      if (current) {
+        saveAuth({
+          ...current,
+          tokens: {
+            accessToken: next.accessToken,
+            refreshToken: next.refreshToken ?? current.tokens.refreshToken,
+            expiresAt:
+              typeof next.expiresIn === 'number'
+                ? Date.now() + next.expiresIn * 1000
+                : current.tokens.expiresAt,
+          },
+        })
+      }
+      return next.accessToken || null
     } catch {
       // refreshAccessToken already cleared auth on failure
       return null
@@ -825,6 +884,15 @@ async function authedFetch<T>(
 
   let result = await callOnce()
   if (result.resp.status !== 401) return result
+
+  // If caller passed a stale explicitToken, check if a newer live token exists first
+  cachedAuth = undefined
+  const liveToken = lyceroAccessToken()
+  if (liveToken && liveToken !== accessToken) {
+    accessToken = liveToken
+    result = await callOnce()
+    if (result.resp.status !== 401) return { ...result, refreshed: true }
+  }
 
   // token expired — try one refresh + retry
   const newToken = await refreshAndGetToken()
@@ -897,10 +965,14 @@ function normalizeQuotaWindow(raw: unknown): HubQuotaWindow | undefined {
   const limit = Number(r.limit ?? 0)
   if (!Number.isFinite(limit) || limit <= 0) return undefined
   const remaining = r.remaining != null ? Number(r.remaining) : Math.max(0, limit - used)
+  const rawPercent = (Math.max(0, used) / limit) * 100
+  const roundedPercent = Math.round(rawPercent * 10) / 10
   const percentUsed =
     r.percentUsed != null
       ? Number(r.percentUsed)
-      : Math.min(100, Math.round((Math.max(0, used) / limit) * 1000) / 10)
+      : used > 0
+        ? Math.min(100, Math.max(0.1, roundedPercent))
+        : 0
   const percentRemaining =
     r.percentRemaining != null
       ? Number(r.percentRemaining)

@@ -9,9 +9,13 @@ import { ReadableStream } from 'stream/web'
 // Mock @lycero/ai-auth and @lycero/ai-auth/main to avoid fs-dependent loadLyceroAuth
 vi.mock('@lycero/ai-auth', () => ({
   lyceroAccessToken: () => 'mock-token',
+  resetLyceroAuthCache: () => {},
+  refreshAndGetToken: async () => null,
 }))
 vi.mock('@lycero/ai-auth/main', () => ({
   lyceroAccessToken: () => 'mock-token',
+  resetLyceroAuthCache: () => {},
+  refreshAndGetToken: async () => null,
 }))
 
 import { MAX_HUB_RECONNECT_ATTEMPTS, streamHubChat } from '../src/protocols/hub-lycero'
@@ -462,5 +466,40 @@ describe('streamHubChat SSE parser', () => {
     expect(fn).toHaveBeenCalledTimes(10)
     expect(cb.onDelta).toHaveBeenCalledTimes(1)
     expect(cb.onDelta).toHaveBeenCalledWith('Thành công ở lần thứ 10!')
+  })
+
+  it('recovers immediately on HTTP 401 when a fresh live token is available', async () => {
+    const authHeaders: string[] = []
+    const fn = vi.fn().mockImplementation(async (_url: string, init?: RequestInit) => {
+      const auth = (init?.headers as Record<string, string>)?.Authorization ?? ''
+      authHeaders.push(auth)
+      if (auth === 'Bearer expired-jwt-token') {
+        return { ok: false, status: 401, body: null } as unknown as Response
+      }
+      return {
+        ok: true,
+        status: 200,
+        body: makeBody([
+          'data: {"type":"text","delta":"Chào bạn!"}',
+          'data: {"type":"finish","stopReason":"stop"}',
+        ]),
+      } as unknown as Response
+    })
+    vi.stubGlobal('fetch', fn)
+    const cb = makeCallbacks({ signal: controller.signal })
+
+    await streamHubChat({
+      url: 'https://hub.lycero.com/api/v1/office',
+      modelId: 'lycero-2.5-auto',
+      apiKey: 'expired-jwt-token',
+      system: '',
+      messages: [{ role: 'user', text: 'hi', images: [] }],
+      tools: [],
+      cb,
+      retryBaseDelayMs: 0,
+    })
+
+    expect(authHeaders).toEqual(['Bearer expired-jwt-token', 'Bearer mock-token'])
+    expect(cb.onDelta).toHaveBeenCalledWith('Chào bạn!')
   })
 })

@@ -4337,10 +4337,16 @@ export function registerAiIpc(): void {
     // file live, so heal the stored flag once. Judged on the *stored* provider
     // — never the activeProvider fallback below, which must not leak into the
     // file and clobber a saved (half-configured) BYOK selection.
+    let heal = false
     if ((stored.provider ?? 'lycero') === 'lycero' && stored.lycToolsEnabled === false) {
       stored.lycToolsEnabled = true
-      writeJsonAtomic(SETTINGS_PATH(), stored)
+      heal = true
     }
+    if (stored.providers?.lycero?.apiKey?.startsWith('eyJ')) {
+      stored.providers.lycero.apiKey = ''
+      heal = true
+    }
+    if (heal) writeJsonAtomic(SETTINGS_PATH(), stored)
     const settings = resolveAiSettings(stored, defaultAiSettings())
     // a stored BYOK provider is honored when usable; half-filled configs fall back to genspark
     settings.provider = activeProvider(settings)
@@ -4408,9 +4414,12 @@ export function registerAiIpc(): void {
     // the genspark key never enters the settings file; requests take it from the gsk login state
     // set only when the gsk key was injected: a 401 then means that key expired
     let gskKey = ''
-    if (provider === 'lycero' && config && !config.apiKey) {
-      gskKey = gskApiKey()
-      config = { ...config, apiKey: gskKey }
+    if (provider === 'lycero' && config) {
+      const liveKey = gskApiKey()
+      if (liveKey || !config.apiKey || config.apiKey.startsWith('eyJ')) {
+        gskKey = liveKey
+        config = { ...config, apiKey: gskKey }
+      }
     }
     // a custom endpoint may name an environment variable instead of storing a key
     config = config ? resolveProfileCredential(config) : config
@@ -4660,9 +4669,12 @@ export function registerAiIpc(): void {
     let config = settings.providers?.[provider]
     // set only when the gsk key was injected: a 401 then means that key expired
     let gskKey = ''
-    if (provider === 'lycero' && config && !config.apiKey) {
-      gskKey = gskApiKey()
-      config = { ...config, apiKey: gskKey }
+    if (provider === 'lycero' && config) {
+      const liveKey = gskApiKey()
+      if (liveKey || !config.apiKey || config.apiKey.startsWith('eyJ')) {
+        gskKey = liveKey
+        config = { ...config, apiKey: gskKey }
+      }
     }
     // a custom endpoint may name an environment variable instead of storing a key
     config = config ? resolveProfileCredential(config) : config

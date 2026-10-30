@@ -1201,10 +1201,12 @@ export function App({
     }
     refresh()
     window.addEventListener('focus', refresh)
+    const offSettings = window.desktopApi?.onAiSettingsChanged?.(refresh)
     const poll = hasLoginPrompt ? window.setInterval(refresh, 2500) : null
     return () => {
       alive = false
       window.removeEventListener('focus', refresh)
+      offSettings?.()
       if (poll !== null) window.clearInterval(poll)
     }
   }, [hasLoginPrompt])
@@ -1660,6 +1662,10 @@ export function App({
         },
         onError: (error) => {
           setMessage(error)
+          const isLyceroAuthError =
+            (aiSettingsRef.current?.provider ?? 'lycero') === 'lycero' &&
+            /\bHTTP 401\b|\b401\b|unauthorized|not signed in|đăng nhập/i.test(error)
+          if (isLyceroAuthError) gskLoggedInRef.current = false
           setChat((previous) => {
             const next = [...previous]
             // the loop rolled this run's user message out of the model context — surface that
@@ -1676,6 +1682,7 @@ export function App({
                 ...last,
                 text: error,
                 isError: true,
+                ...(isLyceroAuthError ? { loginRequired: true } : {}),
                 streaming: false,
                 tools: last.tools.filter((tl) => !tl.running),
               }

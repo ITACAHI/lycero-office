@@ -31,6 +31,8 @@ import {
 import {
   GskAuthError,
   getLyceroUserInfo,
+  isExpiredJwt,
+  isGskKeyRejected,
   isGskUnauthorizedText,
   lyceroApiKey,
   noteGskCallFailure,
@@ -95,8 +97,10 @@ function electronCompatArgs(): string[] {
  * API key for Lycero / tool_cli auth; '' when not logged in.
  */
 export function gskApiKey(): string {
-  if (process.env.LYCERO_API_KEY) return process.env.LYCERO_API_KEY
-  if (process.env.GSK_API_KEY) return process.env.GSK_API_KEY
+  const lycEnv = process.env.LYCERO_API_KEY
+  if (lycEnv && !isGskKeyRejected(lycEnv) && !isExpiredJwt(lycEnv)) return lycEnv
+  const gskEnv = process.env.GSK_API_KEY
+  if (gskEnv && !isGskKeyRejected(gskEnv) && !isExpiredJwt(gskEnv)) return gskEnv
   return lyceroApiKey()
 }
 

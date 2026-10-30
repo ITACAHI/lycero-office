@@ -123,7 +123,7 @@ import {
   startLyceroOAuthFlow,
   updateLyceroProfile,
 } from './lycero-auth-bridge'
-import { loadLyceroAuth, findArchetype, fetchHubQuota } from '@lycero/ai-auth/main'
+import { isExpiredJwt, loadLyceroAuth, findArchetype, fetchHubQuota } from '@lycero/ai-auth/main'
 import { BundleStore } from './bundle-store'
 import { BUNDLE_IPC_CHANNELS } from '../shared/bundle-api'
 import { recordBundleEvent, getUsageCounts } from './bundle-telemetry'
@@ -160,6 +160,7 @@ import { collectLaunchPaths } from './launch-paths'
 import {
   genofficeLogout,
   gskLoginInfo,
+  isGskKeyRejected,
   loadGenofficeAuth,
   setGskProxyUrl,
   startGenofficeLogin,
@@ -4777,9 +4778,14 @@ function registerHomeIpc(): void {
   const resolveCurrentAccountStatus = async (forceServerSync = false): Promise<AccountStatus> => {
     let session = getSession()
     if (session?.token) {
+      const tokenInvalid = isExpiredJwt(session.token) || isGskKeyRejected(session.token)
       const lastSyncMs = session.lastSyncedAt ? Date.parse(session.lastSyncedAt) : 0
       const shouldSync =
-        forceServerSync || !session.license || !lastSyncMs || Date.now() - lastSyncMs > 30_000
+        forceServerSync ||
+        tokenInvalid ||
+        !session.license ||
+        !lastSyncMs ||
+        Date.now() - lastSyncMs > 30_000
       if (shouldSync) {
         try {
           const [, hubQuota] = await Promise.race([
@@ -4789,7 +4795,9 @@ function registerHomeIpc(): void {
             ]),
             new Promise<[null, null]>((r) => setTimeout(() => r([null, null]), 4000)),
           ])
-          session = getSession() ?? session
+          const refreshedSession = getSession()
+          if (!refreshedSession) return { loggedIn: false }
+          session = refreshedSession
           if (hubQuota && session) {
             const resolvedQuotas = resolveSessionQuotas(session)
             session.quota = {
@@ -4906,6 +4914,20 @@ function registerHomeIpc(): void {
                 ? { quotaRemaining: hubQuota.remaining }
                 : {}),
             cycleResetAt: hubQuota.resetAt || session.license?.cycleResetAt,
+            ...(hubQuota.weekly
+              ? {
+                  weeklyUsed: hubQuota.weekly.used,
+                  weeklyLimit: hubQuota.weekly.limit,
+                  weeklyResetAt: hubQuota.weekly.resetAt || session.license?.weeklyResetAt,
+                }
+              : {}),
+            ...(hubQuota.fiveHours
+              ? {
+                  fiveHourUsed: hubQuota.fiveHours.used,
+                  fiveHourLimit: hubQuota.fiveHours.limit,
+                  fiveHourResetAt: hubQuota.fiveHours.resetAt || session.license?.fiveHourResetAt,
+                }
+              : {}),
             ...(hubQuota.tokens ? { tokens: hubQuota.tokens } : {}),
           }
           const resolvedQuotas = resolveSessionQuotas(session)

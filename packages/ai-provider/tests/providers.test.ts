@@ -289,6 +289,18 @@ describe('resolveAiSettings', () => {
     expect(resolved.providers.custom.baseUrl).toBe('http://localhost:1234/v1')
   })
 
+  it('strips stale JWT tokens (eyJ...) from providers.lycero.apiKey so live session auth is used', () => {
+    const resolved = resolveAiSettings(
+      {
+        providers: {
+          lycero: { apiKey: 'eyJhbGciOiJIUzI1NiJ9.stale.sig', model: 'lycero-2.5-auto' },
+        } as never,
+      },
+      defaultAiSettings(),
+    )
+    expect(resolved.providers.lycero.apiKey).toBe('')
+  })
+
   it('still remaps retired model ids padded with whitespace', () => {
     const resolved = resolveAiSettings(
       {

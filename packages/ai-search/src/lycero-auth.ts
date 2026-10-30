@@ -43,12 +43,13 @@ function resolveHomeDir(): string {
 }
 
 function hasAuthDirOverride(): boolean {
-  return Boolean(process.env.LYCERO_AUTH_DIR?.trim())
+  return Boolean(process.env.LYCERO_AUTH_DIR?.trim() || process.env.GENOFFICE_AUTH_DIR?.trim())
 }
 
 /** Override dir via LYCERO_AUTH_DIR (test isolation). */
 export function lyceroAuthPath(): string {
-  const overrideDir = process.env.LYCERO_AUTH_DIR?.trim()
+  const overrideDir =
+    process.env.LYCERO_AUTH_DIR?.trim() || process.env.GENOFFICE_AUTH_DIR?.trim()
   return join(overrideDir || join(resolveHomeDir(), '.lycero-office'), 'auth.json')
 }
 
@@ -59,9 +60,38 @@ export interface LyceroAuth {
 }
 
 let cachedAuth: LyceroAuth | null | undefined
+const rejectedKeys = new Set<string>()
+
+export function isGskKeyRejected(key: string): boolean {
+  return Boolean(key && rejectedKeys.has(key))
+}
+
+export function isExpiredJwt(token: string): boolean {
+  if (!token || !token.startsWith('eyJ')) return false
+  try {
+    const parts = token.split('.')
+    if (parts.length < 2 || !parts[1]) return false
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf-8'))
+    if (typeof payload?.exp === 'number' && payload.exp > 0) {
+      return payload.exp * 1000 < Date.now() - 30_000
+    }
+  } catch {
+    /* ignore */
+  }
+  return false
+}
+
+function isUsableToken(token: unknown): token is string {
+  return (
+    typeof token === 'string' &&
+    token.length > 0 &&
+    !rejectedKeys.has(token) &&
+    !isExpiredJwt(token)
+  )
+}
 
 function readAuthFile(): LyceroAuth | null {
-  if (process.env.LYCERO_API_KEY) {
+  if (isUsableToken(process.env.LYCERO_API_KEY)) {
     return { apiKey: process.env.LYCERO_API_KEY }
   }
 
@@ -74,6 +104,20 @@ function readAuthFile(): LyceroAuth | null {
           const electron = createRequire(import.meta.url)('electron')
           userDataDir = electron.app?.getPath?.('userData') ?? ''
         } catch {}
+      }
+      if (!userDataDir) {
+        const appData =
+          process.env.APPDATA ||
+          (process.platform === 'darwin'
+            ? join(resolveHomeDir(), 'Library', 'Application Support')
+            : join(resolveHomeDir(), '.config'))
+        for (const folder of ['Lycero Office', 'lycero-office']) {
+          const candidate = join(appData, folder)
+          if (existsSync(join(candidate, 'lycero', 'session.json'))) {
+            userDataDir = candidate
+            break
+          }
+        }
       }
       if (userDataDir) {
         const sessionFile = join(userDataDir, 'lycero', 'session.json')
@@ -91,7 +135,7 @@ function readAuthFile(): LyceroAuth | null {
             jsonStr = rawBuf.toString('utf-8')
           }
           const session = JSON.parse(jsonStr)
-          if (session?.token) {
+          if (isUsableToken(session?.token)) {
             return { apiKey: session.token, accessToken: session.token }
           }
         }
@@ -110,7 +154,7 @@ function readAuthFile(): LyceroAuth | null {
           'Re-authenticate to migrate to the encrypted desktop session.',
         )
         const parsed = JSON.parse(readFileSync(hubAuthPath, 'utf-8'))
-        if (parsed?.tokens?.accessToken) {
+        if (isUsableToken(parsed?.tokens?.accessToken)) {
           return { apiKey: parsed.tokens.accessToken, accessToken: parsed.tokens.accessToken }
         }
       }
@@ -122,7 +166,7 @@ function readAuthFile(): LyceroAuth | null {
   // ── 3. Fall back to ~/.lycero-office/auth.json (or $LYCERO_AUTH_DIR/auth.json) ──
   try {
     const raw = asRecord(JSON.parse(readFileSync(lyceroAuthPath(), 'utf-8')))
-    if (typeof raw.api_key !== 'string' || !raw.api_key) return null
+    if (!isUsableToken(raw.api_key)) return null
     return {
       apiKey: raw.api_key,
       ...(typeof raw.key_id === 'string' && raw.key_id ? { keyId: raw.key_id } : {}),
@@ -340,6 +384,7 @@ export async function lyceroLogout(): Promise<void> {
 /** Test hook: drop the auth cache. */
 export function resetLyceroAuthCache(): void {
   cachedAuth = undefined
+  rejectedKeys.clear()
 }
 
 export function reloadLyceroAuth(): LyceroAuth | null {
@@ -496,17 +541,32 @@ export function isAllowedAuthUrl(raw: string, origin: string): URL | null {
   }
 }
 
-export function invalidateGenofficeKey(_key: string): boolean {
-  resetLyceroAuthCache()
+export function invalidateGenofficeKey(key: string): boolean {
+  if (!key) return false
+  const current = reloadLyceroAuth()
+  rejectedKeys.add(key)
+  cachedAuth = undefined
+  if (current?.apiKey === key) {
+    try {
+      const path = lyceroAuthPath()
+      if (existsSync(path)) {
+        const raw = asRecord(JSON.parse(readFileSync(path, 'utf-8')))
+        if (raw.api_key === key) unlinkSync(path)
+      }
+    } catch {
+      /* ignore */
+    }
+    return true
+  }
   return false
 }
 export const invalidateLyceroKey = invalidateGenofficeKey
 
 export async function recoverFromRejectedGskKey(
-  _key: string,
+  key: string,
   options: { allowLogin?: boolean } = {},
 ): Promise<GskRecoveryOutcome> {
-  resetLyceroAuthCache()
+  invalidateGenofficeKey(key)
   if (options.allowLogin !== false && loginOpener) {
     ensureLyceroLogin(loginOpener)
     return 'login_started'
@@ -529,25 +589,36 @@ export function noteGskKeyRejected(
   key: string,
   options: { allowLogin?: boolean } = {},
 ): Promise<GskRecoveryOutcome> {
+  if (key) rejectedKeys.add(key)
   return recoverFromRejectedGskKey(key, options)
 }
 
 export function resetGskRejectedKeys(): void {
-  resetLyceroAuthCache()
+  rejectedKeys.clear()
+  cachedAuth = undefined
 }
 
 export function noteGskCallFailure(
   keyOrError: unknown,
   errorOrOptions?: unknown,
-): Promise<GskRecoveryOutcome> | null {
-  const isTwoArg = typeof keyOrError === 'string' && errorOrOptions !== undefined && !(typeof errorOrOptions === 'object' && errorOrOptions !== null && 'allowLogin' in errorOrOptions)
+): boolean {
+  const isTwoArg =
+    typeof keyOrError === 'string' &&
+    errorOrOptions !== undefined &&
+    !(
+      typeof errorOrOptions === 'object' &&
+      errorOrOptions !== null &&
+      !(errorOrOptions instanceof Error) &&
+      'allowLogin' in errorOrOptions
+    )
   const key = isTwoArg ? keyOrError : lyceroApiKey()
   const err = isTwoArg ? errorOrOptions : keyOrError
-  const options = !isTwoArg && typeof errorOrOptions === 'object' && errorOrOptions !== null ? (errorOrOptions as { allowLogin?: boolean }) : {}
-  if (isTwoArg && !key) return null
+  if (!key) return false
   const text = err instanceof Error ? err.message : String(err ?? '')
-  if (!isGskUnauthorizedText(text)) return null
-  return recoverFromRejectedGskKey(key, options)
+  if (!isGskUnauthorizedText(text)) return false
+  rejectedKeys.add(key)
+  invalidateGenofficeKey(key)
+  return true
 }
 export const noteLyceroCallFailure = noteGskCallFailure
 export const noteLycCallFailure = noteGskCallFailure

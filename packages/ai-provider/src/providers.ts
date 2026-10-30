@@ -655,9 +655,11 @@ function trimConfigs(providers: Record<string, unknown>): AiSettings['providers'
     // A stored profile is user data like the rest: normalizeCustomProfile
     // bounds and drops what it cannot honor (an absent/empty one stays absent).
     const profile = normalizeCustomProfile(config.profile)
+    const rawKey = str(config.apiKey)
+    const apiKey = id === 'lycero' && rawKey.startsWith('eyJ') ? '' : rawKey
     trimmed[id] = {
       ...config,
-      apiKey: str(config.apiKey),
+      apiKey,
       model: str(config.model),
       ...(config.baseUrl !== undefined ? { baseUrl: str(config.baseUrl) } : {}),
       ...(config.cliPath !== undefined ? { cliPath: str(config.cliPath) } : {}),

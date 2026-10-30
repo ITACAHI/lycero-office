@@ -4032,9 +4032,12 @@ export function registerSheetsAiIpc(): void {
     let config = request.settings.providers[provider]
     // set only when the gsk key was injected: a 401 then means that key expired
     let gskKey = ''
-    if (provider === 'lycero' && config && !config.apiKey) {
-      gskKey = gskApiKey()
-      config = { ...config, apiKey: gskKey }
+    if (provider === 'lycero' && config) {
+      const liveKey = gskApiKey()
+      if (liveKey || !config.apiKey || config.apiKey.startsWith('eyJ')) {
+        gskKey = liveKey
+        config = { ...config, apiKey: gskKey }
+      }
     }
     // a custom endpoint may name an environment variable instead of storing a key
     config = config ? resolveProfileCredential(config) : config
@@ -4082,9 +4085,12 @@ export function registerSheetsAiIpc(): void {
     // login state per request
     // set only when the gsk key was injected: a 401 then means that key expired
     let gskKey = ''
-    if (provider === 'lycero' && config && !config.apiKey) {
-      gskKey = gskApiKey()
-      config = { ...config, apiKey: gskKey }
+    if (provider === 'lycero' && config) {
+      const liveKey = gskApiKey()
+      if (liveKey || !config.apiKey || config.apiKey.startsWith('eyJ')) {
+        gskKey = liveKey
+        config = { ...config, apiKey: gskKey }
+      }
     }
     // a custom endpoint may name an environment variable instead of storing a key
     config = config ? resolveProfileCredential(config) : config

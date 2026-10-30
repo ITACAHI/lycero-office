@@ -3,7 +3,7 @@
  * Copyright © 2026 ITAC AI Heavy Industries.
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
-import { lyceroAccessToken } from '@lycero/ai-auth/main'
+import * as lyceroAuth from '@lycero/ai-auth/main'
 import { AiQuotaExhaustedError } from '../quota-error'
 import { aiFetch } from '../fetch'
 import { isAiNetworkError } from '../network-error'
@@ -195,7 +195,7 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
     retryBaseDelayMs = 1_000,
   } = params
 
-  const accessToken = apiKey || lyceroAccessToken()
+  let accessToken = apiKey || lyceroAuth.lyceroAccessToken()
   if (!accessToken) throw new Error('Not signed in to Lycero')
 
   // Client-side PII Masking
@@ -246,6 +246,7 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
     stream: true,
   })
 
+  let authRetried = false
   const totalAttempts = Math.max(1, maxAttempts)
   for (let attempt = 1; attempt <= totalAttempts; attempt++) {
     let emitted = false
@@ -274,6 +275,31 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
             // use default
           }
           throw new AiQuotaExhaustedError(msg)
+        }
+
+        if (response.status === 401 && !authRetried) {
+          authRetried = true
+          try {
+            lyceroAuth.resetLyceroAuthCache?.()
+          } catch {}
+          let liveToken = ''
+          try {
+            liveToken = lyceroAuth.lyceroAccessToken?.() ?? ''
+          } catch {}
+          let refreshedToken: string | null = null
+          if (!liveToken || liveToken === accessToken) {
+            try {
+              refreshedToken = (await lyceroAuth.refreshAndGetToken?.()) ?? null
+            } catch {}
+          }
+          const nextToken =
+            liveToken && liveToken !== accessToken ? liveToken : refreshedToken
+          if (nextToken && nextToken !== accessToken) {
+            accessToken = nextToken
+            requestHeaders.Authorization = `Bearer ${accessToken}`
+            requestHeaders.Cookie = `auth_token=${accessToken}`
+            throw new Error('__LYCERO_RETRY_NEW_TOKEN__')
+          }
         }
 
         if (!response.ok || !response.body) {
@@ -391,6 +417,10 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
       return
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
+      if (msg === '__LYCERO_RETRY_NEW_TOKEN__' && !cb.signal?.aborted) {
+        attempt--
+        continue
+      }
       const isTransient =
         !emitted &&
         !cb.signal?.aborted &&
