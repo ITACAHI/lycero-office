@@ -32,7 +32,7 @@
   overflow-x: auto;
   line-height: 1.5;
   font-size: 13px;
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: var(--gs-font-mono, 'Be Vietnam Pro', 'Segoe UI', 'Cascadia Mono', Consolas, sans-serif);
 }
 .ai-md .ai-md-pre code {
   padding: 0;

@@ -71,6 +71,7 @@ import {
   buildCommentsContext,
   buildDocumentContext,
   buildRevisionsContext,
+  clearAiChangedHighlights,
   insertBlocksAfter,
   isBlankDocument,
   isTrackedDeleted,
@@ -1249,12 +1250,47 @@ export function executeTool(
     return executeAsyncTool(editor, call, signal)
   }
   if (call.name === 'write_document')
-    return writeDocument(editor, call, numIds, track, signal, writer)
+    return writeDocument(editor, call, numIds, track, signal, writer, pageSetup)
   if (call.name === 'set_watermark' && typeof call.input.image === 'string')
     return setPictureWatermark(call, signal, extras)
   return settle(
     executeSyncTool(editor, call, numIds, track, scope, comments, hf, pageSetup, extras, notes),
   )
+}
+
+/**
+ * Nghị định 30/2020/NĐ-CP standard page setup:
+ * Paper A4 (210 × 297 mm), Top 20mm (1134 twips), Bottom 20mm (1134 twips),
+ * Left 30mm (1701 twips), Right 15mm (850 twips).
+ */
+function applyNd30PageSetupIfNeeded(html: string, pageSetup?: AiPageSetupAccess): boolean {
+  if (!pageSetup) return false
+  if (
+    !/CỘNG\s+HÒA\s+XÃ\s+HỘI\s+CHỦ\s+NGHĨA\s+VIỆT\s+NAM|Độc\s+lập\s*[-–—]\s*Tự\s+do\s*[-–—]\s*Hạnh\s+phúc/i.test(
+      html,
+    )
+  ) {
+    return false
+  }
+  const sections = pageSetup.list()
+  let applied = false
+  for (const s of sections) {
+    const current = pageSetup.current(s.index)
+    if (!current) continue
+    const resolved = resolvePageSetup(
+      {
+        paper: 'A4',
+        orientation: 'portrait',
+        margins: { top: 1134, bottom: 1134, left: 1701, right: 851 },
+      },
+      current,
+    )
+    if (!('error' in resolved)) {
+      pageSetup.set(s.index, resolved)
+      applied = true
+    }
+  }
+  return applied
 }
 
 async function writeDocument(
@@ -1264,6 +1300,7 @@ async function writeDocument(
   track: AiTrack | undefined,
   signal: AbortSignal | undefined,
   writer: AiDocWriter | undefined,
+  pageSetup?: AiPageSetupAccess,
 ): Promise<ToolExecution> {
   const summary = t('aiSumWriteDocument')
   const plan = String(call.input.plan ?? '').trim()
@@ -1334,12 +1371,17 @@ async function writeDocument(
   } else {
     insertBlocksAfter(editor, draft.indexBefore(), nodes, track)
   }
+  clearAiChangedHighlights(editor)
+  const nd30PageSetupApplied = applyNd30PageSetupIfNeeded(result.html, pageSetup)
   markDocSeen(editor)
   const note = result.truncated
     ? ' The stream ended early, so the content is INCOMPLETE (the user chose to keep it): the tail is missing. Say so and offer to finish the missing sections with write_document (afterBlockIndex at the end) or insert_content.'
     : ''
+  const nextStepNote = nd30PageSetupApplied
+    ? '\nNghị định 30/2020/NĐ-CP standard page setup (A4, margins top 20mm / bottom 20mm / left 30mm / right 15mm), Times New Roman 13pt (1.15 line spacing), left-aligned italic Căn cứ, proportional 6-column budget table (6%/44%/10%/8%/15%/17%), and borderless header/signature tables with keep-with-next have all been applied automatically. Reply with a short summary.'
+    : '\nNext step: if page margins or custom styles are needed, call set_page_setup or apply_ops before replying with a short summary.'
   return {
-    output: `Content written by the system (${nodes.length} block(s), ${result.html.length} chars). Block indexes have changed; use get_document_context if needed.${note}\nNext step: call set_page_setup (e.g. A4 margins) and apply_ops to format fonts, paragraph alignment (center titles/Quốc hiệu, justify body paragraphs, lineSpacing 1.35), and borderless header/signature tables (borders: null) before replying with a short summary.`,
+    output: `Content written by the system (${nodes.length} block(s), ${result.html.length} chars). Block indexes have changed; use get_document_context if needed.${note}${nextStepNote}`,
     mutated: true,
     summary: result.truncated ? t('aiSumWriteDocumentPartial') : summary,
   }
@@ -1443,6 +1485,7 @@ function executeSyncTool(
       if (isBlankDocument(editor)) {
         // the blank template's single empty paragraph gets replaced
         replaceBlockRange(editor, 0, count - 1, nodes, track)
+        applyNd30PageSetupIfNeeded(html, pageSetup)
         return {
           output: `Inserted ${nodes.length} block(s) (the document was empty). Block indexes have changed; use get_document_context if needed.`,
           mutated: true,
@@ -1456,6 +1499,7 @@ function executeSyncTool(
       if (!Number.isInteger(after)) return fail(t('aiSumInsertContent'), 'invalid afterBlockIndex')
       // -1 hits blockRangePositions' 0/0 default, i.e. insert at doc start
       insertBlocksAfter(editor, after, nodes, track)
+      applyNd30PageSetupIfNeeded(html, pageSetup)
       return {
         output: `Inserted ${nodes.length} block(s) after block ${after}. Subsequent block indexes have shifted; use get_document_context if needed.`,
         mutated: true,
@@ -1487,6 +1531,7 @@ function executeSyncTool(
       ).size
       const lost = had - keptInRange
       replaceBlockRange(editor, range.start, range.end, nodes, track)
+      applyNd30PageSetupIfNeeded(html, pageSetup)
       const pictureNote =
         lost > 0
           ? ` ${lost} picture(s) that were in the replaced range are not in the new content and have been deleted${track ? ' (as a tracked change the user can reject)' : ' (the user can undo this)'}; tell the user if that was not intended. To keep pictures, include their <img src="doc:B.I"> tags from read_blocks in the new HTML.`

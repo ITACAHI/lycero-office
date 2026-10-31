@@ -129,7 +129,7 @@ export async function runCli(argv: readonly string[], opts: RunOptions = {}): Pr
               name,
               registry.list().map((d) => d.name),
             ),
-            'run `genoffice help` for the command list',
+            'run `lycero-office help` for the command list',
           ),
         },
       ),
@@ -150,7 +150,7 @@ export async function runCli(argv: readonly string[], opts: RunOptions = {}): Pr
           reason: 'unknown_option',
           suggestion: withGuess(
             didYouMean(unknown[0]!, known),
-            `run \`genoffice help ${def.name}\` for its options`,
+            `run \`lycero-office help ${def.name}\` for its options`,
             '--',
           ),
         },
@@ -260,7 +260,7 @@ if (isMain) {
   const exit = (code: number) => process.stdout.write('', () => process.exit(code))
   runCli(process.argv.slice(2)).then(exit, (err) => {
     process.stderr.write(
-      `genoffice: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`,
+      `lycero-office: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`,
     )
     exit(EXIT.conversion)
   })

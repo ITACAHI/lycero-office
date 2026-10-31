@@ -133,28 +133,28 @@ export async function fetchCloudTemplates(gatewayUrl?: string): Promise<CloudTem
 export function buildKhbd5512Html(): { title: string; html: string } {
   const title = 'Kế hoạch bài dạy (KHBD) - Chuẩn 5512'
   const html = `
-    <div style="font-family: 'Be Vietnam Pro', 'Times New Roman', serif; line-height: 1.5; color: #1C1B18;">
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px; border: none;">
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 18px; border: none;">
         <tr>
-          <td style="width: 50%; text-align: center; vertical-align: top; border: none;">
-            <strong>TRƯỜNG: ............................................</strong><br/>
-            <strong>TỔ CHUYÊN MÔN: ............................</strong><br/>
-            <em>Họ và tên giáo viên: ................................</em>
+          <td style="width: 44%; text-align: center; vertical-align: top; border: none;">
+            <p style="margin: 0;">SỞ/PHÒNG GIÁO DỤC VÀ ĐÀO TẠO ................</p>
+            <p style="margin: 0;"><strong><u>TRƯỜNG: ............................................</u></strong></p>
+            <p style="margin: 4px 0 0 0;">Tổ chuyên môn: ....................................</p>
+            <p style="margin: 2px 0 0 0;"><em>Họ và tên giáo viên: ................................</em></p>
           </td>
-          <td style="width: 50%; text-align: center; vertical-align: top; border: none;">
-            <strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong><br/>
-            <strong>Độc lập - Tự do - Hạnh phúc</strong><br/>
-            <em>.................., ngày ..... tháng ..... năm 202...</em>
+          <td style="width: 56%; text-align: center; vertical-align: top; border: none;">
+            <p style="margin: 0;"><strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong></p>
+            <p style="margin: 0;"><strong><u>Độc lập - Tự do - Hạnh phúc</u></strong></p>
+            <p style="margin: 6px 0 0 0;"><em>.................., ngày ..... tháng ..... năm 2026</em></p>
           </td>
         </tr>
       </table>
 
-      <h1 style="text-align: center; font-size: 18pt; text-transform: uppercase; margin-bottom: 4px; color: #8B3A1A;">
-        KẾ HOẠCH BÀI DẠY (GIÁO ÁN)
+      <h1 style="text-align: center; font-size: 16pt; text-transform: uppercase; margin-bottom: 4px;">
+        <strong>KẾ HOẠCH BÀI DẠY (GIÁO ÁN)</strong>
       </h1>
       <p style="text-align: center; font-size: 13pt; margin-top: 0; margin-bottom: 20px;">
-        <strong>BÀI: [TÊN BÀI HỌC]</strong><br/>
-        <em>Môn học: ...................... - Lớp: ........ - Thời lượng: ..... tiết</em>
+        <strong>TÊN BÀI DẠY: [TÊN BÀI HỌC]</strong><br/>
+        <em>Môn học/Hoạt động giáo dục: ......................; Lớp: ........; Thời lượng thực hiện: ..... tiết</em>
       </p>
 
       <h2 style="font-size: 14pt; color: #8B3A1A; border-bottom: 1.5px solid #8B3A1A; padding-bottom: 4px;">
@@ -297,7 +297,6 @@ export function buildKhbd5512Html(): { title: string; html: string } {
           </tr>
         </table>
       </div>
-    </div>
   `
   return { title, html }
 }
@@ -305,24 +304,28 @@ export function buildKhbd5512Html(): { title: string; html: string } {
 export function buildBloomMatrixHtml(): { title: string; html: string } {
   const title = 'Ma trận & Đề kiểm tra - Chuẩn Bloom'
   const html = `
-    <div style="font-family: 'Be Vietnam Pro', 'Times New Roman', serif; line-height: 1.5; color: #1C1B18;">
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; border: none;">
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 18px; border: none;">
         <tr>
-          <td style="width: 50%; text-align: center; vertical-align: top; border: none;">
-            <strong>SỞ GIÁO DỤC VÀ ĐÀO TẠO ....................</strong><br/>
-            <strong>TRƯỜNG THPT / THCS ............................</strong>
+          <td style="width: 44%; text-align: center; vertical-align: top; border: none;">
+            <p style="margin: 0;">SỞ GIÁO DỤC VÀ ĐÀO TẠO ....................</p>
+            <p style="margin: 0;"><strong><u>TRƯỜNG THPT / THCS ............................</u></strong></p>
+            <p style="margin: 4px 0 0 0;">Tổ chuyên môn: ....................................</p>
           </td>
-          <td style="width: 50%; text-align: center; vertical-align: top; border: none;">
-            <strong>KHUNG MA TRẬN & BẢN ĐẶC TẢ ĐỀ KIỂM TRA</strong><br/>
-            <strong>NĂM HỌC 2025 - 2026</strong><br/>
-            <em>Môn: ........................ - Thời gian: 45 phút</em>
+          <td style="width: 56%; text-align: center; vertical-align: top; border: none;">
+            <p style="margin: 0;"><strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong></p>
+            <p style="margin: 0;"><strong><u>Độc lập - Tự do - Hạnh phúc</u></strong></p>
+            <p style="margin: 6px 0 0 0;"><em>.................., ngày ..... tháng ..... năm 2026</em></p>
           </td>
         </tr>
       </table>
 
-      <h1 style="text-align: center; font-size: 16pt; text-transform: uppercase; color: #8B3A1A; margin-bottom: 16px;">
-        BẢNG MA TRẬN ĐỀ KIỂM TRA ĐỊNH KỲ (CHUẨN 4 MỨC ĐỘ BLOOM)
+      <h1 style="text-align: center; font-size: 16pt; text-transform: uppercase; margin-bottom: 4px;">
+        <strong>BẢNG MA TRẬN & ĐẶC TẢ ĐỀ KIỂM TRA ĐỊNH KỲ (CHUẨN 4 MỨC ĐỘ BLOOM)</strong>
       </h1>
+      <p style="text-align: center; font-size: 12.5pt; margin-top: 0; margin-bottom: 16px;">
+        <strong>MÔN HỌC: ........................ — NĂM HỌC 2025 - 2026</strong><br/>
+        <em>Thời gian làm bài: 45 phút (Không kể thời gian phát đề)</em>
+      </p>
 
       <table style="width: 100%; border-collapse: collapse; font-size: 11pt; border: 1px solid #DDD9CE;">
         <thead>
@@ -433,7 +436,6 @@ export function buildBloomMatrixHtml(): { title: string; html: string } {
       <p style="margin-top: 16px;"><strong>PHẦN II: TỰ LUẬN (3.0 điểm)</strong></p>
       <p><strong>Câu 18 (1.5 điểm - Vận dụng):</strong> [Nội dung bài tập vận dụng kiến thức đã học vào tình huống cụ thể]...</p>
       <p><strong>Câu 19 (1.5 điểm - Vận dụng cao):</strong> [Nội dung bài toán liên hệ thực tiễn, đòi hỏi tư duy phân tích tổng hợp sáng tạo]...</p>
-    </div>
   `
   return { title, html }
 }
@@ -441,26 +443,25 @@ export function buildBloomMatrixHtml(): { title: string; html: string } {
 export function buildUniversitySyllabusHtml(): { title: string; html: string } {
   const title = 'Đề cương chi tiết học phần - Chuẩn AUN-QA'
   const html = `
-    <div style="font-family: 'Be Vietnam Pro', 'Times New Roman', serif; line-height: 1.5; color: #1C1B18;">
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; border: none;">
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 18px; border: none;">
         <tr>
-          <td style="width: 50%; text-align: center; vertical-align: top; border: none;">
-            <strong>BỘ GIÁO DỤC VÀ ĐÀO TẠO</strong><br/>
-            <strong>TRƯỜNG ĐẠI HỌC ................................</strong><br/>
-            <strong>KHOA: ................................................</strong>
+          <td style="width: 44%; text-align: center; vertical-align: top; border: none;">
+            <p style="margin: 0;">BỘ GIÁO DỤC VÀ ĐÀO TẠO</p>
+            <p style="margin: 0;"><strong><u>TRƯỜNG ĐẠI HỌC ................................</u></strong></p>
+            <p style="margin: 4px 0 0 0;">Khoa/Viện: ........................................</p>
           </td>
-          <td style="width: 50%; text-align: center; vertical-align: top; border: none;">
-            <strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong><br/>
-            <strong>Độc lập - Tự do - Hạnh phúc</strong><br/>
-            <em>.................., ngày ..... tháng ..... năm 202...</em>
+          <td style="width: 56%; text-align: center; vertical-align: top; border: none;">
+            <p style="margin: 0;"><strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong></p>
+            <p style="margin: 0;"><strong><u>Độc lập - Tự do - Hạnh phúc</u></strong></p>
+            <p style="margin: 6px 0 0 0;"><em>.................., ngày ..... tháng ..... năm 2026</em></p>
           </td>
         </tr>
       </table>
 
-      <h1 style="text-align: center; font-size: 16pt; text-transform: uppercase; color: #8B3A1A; margin-bottom: 4px;">
-        ĐỀ CƯƠNG CHI TIẾT HỌC PHẦN (COURSE SYLLABUS)
+      <h1 style="text-align: center; font-size: 16pt; text-transform: uppercase; margin-bottom: 4px;">
+        <strong>ĐỀ CƯƠNG CHI TIẾT HỌC PHẦN (COURSE SYLLABUS)</strong>
       </h1>
-      <p style="text-align: center; font-size: 12pt; margin-top: 0; margin-bottom: 20px;">
+      <p style="text-align: center; font-size: 12.5pt; margin-top: 0; margin-bottom: 20px;">
         <strong>HỌC PHẦN: [TÊN HỌC PHẦN ĐÀO TẠO]</strong><br/>
         <em>Chuẩn kiểm định chất lượng AUN-QA / CDIO - 15 tuần đào tạo tín chỉ</em>
       </p>
@@ -575,7 +576,6 @@ export function buildUniversitySyllabusHtml(): { title: string; html: string } {
         5. KẾ HOẠCH GIẢNG DẠY VÀ HỌC TẬP CHI TIẾT (15 TUẦN)
       </h2>
       <p><em>(Giảng viên cập nhật các tuần học từ Tuần 1 đến Tuần 15 theo tiến độ đề cương).</em></p>
-    </div>
   `
   return { title, html }
 }
@@ -612,23 +612,25 @@ export function buildGradebookTt22Csv(): string {
 export function buildBusinessContractHtml(): { title: string; html: string } {
   const title = 'Hợp đồng dịch vụ thương mại chuẩn mực'
   const html = `
-    <div style="font-family: 'Be Vietnam Pro', Arial, sans-serif; line-height: 1.6; color: #1C1B18;">
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px; border: none;">
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 18px; border: none;">
         <tr>
-          <td style="width: 100%; text-align: center; border: none;">
-            <strong style="font-size: 13pt;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong><br/>
-            <strong style="font-size: 12pt;">Độc lập - Tự do - Hạnh phúc</strong><br/>
-            <span style="font-size: 11pt;">***</span>
+          <td style="width: 44%; text-align: center; vertical-align: top; border: none;">
+            <p style="margin: 0;"><strong><u>CÔNG TY CỔ PHẦN ....................</u></strong></p>
+            <p style="margin: 6px 0 0 0;">Số: ......./2026/HĐDV-............</p>
+          </td>
+          <td style="width: 56%; text-align: center; vertical-align: top; border: none;">
+            <p style="margin: 0;"><strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong></p>
+            <p style="margin: 0;"><strong><u>Độc lập - Tự do - Hạnh phúc</u></strong></p>
+            <p style="margin: 6px 0 0 0;"><em>Hà Nội, ngày ..... tháng ..... năm 2026</em></p>
           </td>
         </tr>
       </table>
 
-      <h1 style="text-align: center; font-size: 18pt; text-transform: uppercase; margin-bottom: 6px; color: #8B3A1A;">
-        HỢP ĐỒNG CUNG CẤP DỊCH VỤ VÀ PHÁT TRIỂN DỰ ÁN
+      <h1 style="text-align: center; font-size: 16pt; text-transform: uppercase; margin-bottom: 6px;">
+        <strong>HỢP ĐỒNG CUNG CẤP DỊCH VỤ VÀ PHÁT TRIỂN DỰ ÁN</strong>
       </h1>
-      <p style="text-align: center; font-size: 11pt; margin-top: 0; margin-bottom: 24px;">
-        <em>Số: ......./2026/HĐDV/ITAC-LYCERO</em><br/>
-        <em>Hôm nay, ngày ..... tháng ..... năm 2026, tại Trụ sở Công ty Cổ phần ....................</em>
+      <p style="text-align: center; font-size: 12pt; margin-top: 0; margin-bottom: 20px;">
+        <em>(Căn cứ Bộ luật Dân sự số 91/2015/QH13 và Luật Thương mại số 36/2005/QH11)</em>
       </p>
 
       <h2 style="font-size: 13pt; color: #8B3A1A; border-bottom: 1.5px solid #DDD9CE; padding-bottom: 4px;">
@@ -686,7 +688,6 @@ export function buildBusinessContractHtml(): { title: string; html: string } {
           </td>
         </tr>
       </table>
-    </div>
   `
   return { title, html }
 }
@@ -695,12 +696,25 @@ export function buildBusinessContractHtml(): { title: string; html: string } {
 export function buildMeetingMinutesHtml(): { title: string; html: string } {
   const title = 'Biên bản cuộc họp điều hành doanh nghiệp'
   const html = `
-    <div style="font-family: 'Be Vietnam Pro', Arial, sans-serif; line-height: 1.6; color: #1C1B18;">
-      <h1 style="text-align: center; font-size: 18pt; text-transform: uppercase; margin-bottom: 4px; color: #8B3A1A;">
-        BIÊN BẢN CUỘC HỌP ĐIỀU HÀNH & KẾ HOẠCH DỰ ÁN
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 18px; border: none;">
+        <tr>
+          <td style="width: 44%; text-align: center; vertical-align: top; border: none;">
+            <p style="margin: 0;"><strong><u>CÔNG TY / ĐƠN VỊ: ........................</u></strong></p>
+            <p style="margin: 6px 0 0 0;">Số: ....../BB-............</p>
+          </td>
+          <td style="width: 56%; text-align: center; vertical-align: top; border: none;">
+            <p style="margin: 0;"><strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong></p>
+            <p style="margin: 0;"><strong><u>Độc lập - Tự do - Hạnh phúc</u></strong></p>
+            <p style="margin: 6px 0 0 0;"><em>Hà Nội, ngày ..... tháng ..... năm 2026</em></p>
+          </td>
+        </tr>
+      </table>
+
+      <h1 style="text-align: center; font-size: 16pt; text-transform: uppercase; margin-bottom: 4px;">
+        <strong>BIÊN BẢN CUỘC HỌP ĐIỀU HÀNH & KẾ HOẠCH DỰ ÁN</strong>
       </h1>
-      <p style="text-align: center; font-size: 11pt; margin-top: 0; margin-bottom: 20px;">
-        <strong>Chủ đề cuộc họp: Đánh giá Tiến độ Q3 và Kế hoạch Tăng trưởng Q4/2026</strong><br/>
+      <p style="text-align: center; font-size: 12pt; margin-top: 0; margin-bottom: 20px;">
+        <strong>Về việc: Đánh giá Tiến độ Q3 và Kế hoạch Tăng trưởng Q4/2026</strong><br/>
         <em>Thời gian: 09:00 - 11:30, Ngày ...../...../2026 | Địa điểm: Phòng họp tầng 5 & Online</em>
       </p>
 
@@ -763,7 +777,6 @@ export function buildMeetingMinutesHtml(): { title: string; html: string } {
           </td>
         </tr>
       </table>
-    </div>
   `
   return { title, html }
 }
@@ -797,9 +810,22 @@ export function buildFinancialPlanCsv(): string {
 export function buildResearchProposalHtml(): { title: string; html: string } {
   const title = 'Đề cương nghiên cứu khoa học (Research Proposal)'
   const html = `
-    <div style="font-family: 'Be Vietnam Pro', 'Times New Roman', serif; line-height: 1.6; color: #1C1B18;">
-      <h1 style="text-align: center; font-size: 18pt; text-transform: uppercase; margin-bottom: 4px; color: #8B3A1A;">
-        THUYẾT MINH ĐỀ TÀI NGHIÊN CỨU KHOA HỌC
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 18px; border: none;">
+        <tr>
+          <td style="width: 44%; text-align: center; vertical-align: top; border: none;">
+            <p style="margin: 0;">BỘ GIÁO DỤC VÀ ĐÀO TẠO</p>
+            <p style="margin: 0;"><strong><u>ĐƠN VỊ CHỦ TRÌ: ........................</u></strong></p>
+          </td>
+          <td style="width: 56%; text-align: center; vertical-align: top; border: none;">
+            <p style="margin: 0;"><strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong></p>
+            <p style="margin: 0;"><strong><u>Độc lập - Tự do - Hạnh phúc</u></strong></p>
+            <p style="margin: 6px 0 0 0;"><em>Hà Nội, ngày ..... tháng ..... năm 2026</em></p>
+          </td>
+        </tr>
+      </table>
+
+      <h1 style="text-align: center; font-size: 16pt; text-transform: uppercase; margin-bottom: 4px;">
+        <strong>THUYẾT MINH ĐỀ TÀI NGHIÊN CỨU KHOA HỌC</strong>
       </h1>
       <p style="text-align: center; font-size: 13pt; margin-top: 0; margin-bottom: 24px;">
         <strong>TÊN ĐỀ TÀI: [ỨNG DỤNG MÔ HÌNH NGÔN NGỮ LỚN VÀ ĐỒ THỊ TRI THỨC VÀO CÁ NHÂN HÓA HỌC TẬP]</strong><br/>
@@ -830,7 +856,6 @@ export function buildResearchProposalHtml(): { title: string; html: string } {
         4. PHƯƠNG PHÁP NGHIÊN CỨU (METHODOLOGY)
       </h2>
       <p>Mô tả chi tiết phương pháp hỗn hợp (Mixed Methods): Thu thập dữ liệu định lượng qua khảo sát (N=500), phỏng vấn sâu định tính (N=20), và kiểm định giả thuyết mô hình SEM / ANOVA.</p>
-    </div>
   `
   return { title, html }
 }
@@ -839,125 +864,183 @@ export function buildResearchProposalHtml(): { title: string; html: string } {
 export function buildOfficialDispatchNd30Html(): { title: string; html: string } {
   const title = 'Công văn / Tờ trình chuẩn Nghị định 30/2020/NĐ-CP'
   const html = `
-    <div style="font-family: 'Times New Roman', 'Be Vietnam Pro', serif; line-height: 1.5; color: #1C1B18; font-size: 13pt;">
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 18px; border: none;">
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 14px; border: none;">
         <tr>
-          <td style="width: 42%; text-align: center; vertical-align: top; border: none;">
-            <span style="font-size: 12pt; text-transform: uppercase;">CƠ QUAN CHỦ QUẢN CẤP TRÊN</span><br/>
-            <strong style="font-size: 12.5pt; text-transform: uppercase;">TÊN CƠ QUAN, TỔ CHỨC BAN HÀNH</strong><br/>
-            <span style="font-size: 11pt;">───────────</span><br/>
-            <span style="font-size: 12pt;">Số: ....../TTr-............</span>
+          <td style="width: 44%; text-align: center; vertical-align: top; border: none;">
+            <p style="margin: 0; font-size: 12pt;">CÔNG TY CỔ PHẦN LYCERO VIỆT NAM</p>
+            <p style="margin: 0; font-size: 12.5pt;"><strong><u>PHÒNG HÀNH CHÍNH - QUẢN TRỊ</u></strong></p>
+            <p style="margin: 6px 0 0 0; font-size: 13pt;">Số: 15/2026/TTr-HCQT</p>
           </td>
-          <td style="width: 58%; text-align: center; vertical-align: top; border: none;">
-            <strong style="font-size: 12.5pt; text-transform: uppercase;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong><br/>
-            <strong style="font-size: 13pt;">Độc lập - Tự do - Hạnh phúc</strong><br/>
-            <span style="font-size: 11pt;">───────────────────</span><br/>
-            <em style="font-size: 12.5pt;">Hà Nội, ngày ..... tháng ..... năm 2026</em>
+          <td style="width: 56%; text-align: center; vertical-align: top; border: none;">
+            <p style="margin: 0; font-size: 12.5pt;"><strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong></p>
+            <p style="margin: 0; font-size: 13.5pt;"><strong><u>Độc lập - Tự do - Hạnh phúc</u></strong></p>
+            <p style="margin: 6px 0 0 0; font-size: 13pt;"><em>Hà Nội, ngày 30 tháng 10 năm 2026</em></p>
           </td>
         </tr>
       </table>
 
-      <h1 style="text-align: center; font-size: 15pt; text-transform: uppercase; margin-top: 16px; margin-bottom: 4px; color: #1C1B18;">
-        TỜ TRÌNH
-      </h1>
-      <p style="text-align: center; font-size: 13pt; font-weight: bold; margin-top: 0; margin-bottom: 18px;">
-        Về việc phê duyệt Kế hoạch chuyển đổi số và triển khai nền tảng trí tuệ nhân tạo năm 2026
+      <p style="text-align: center; font-size: 15pt; margin-top: 12px; margin-bottom: 4px;">
+        <strong>TỜ TRÌNH</strong>
+      </p>
+      <p style="text-align: center; font-size: 13.5pt; margin-top: 0; margin-bottom: 14px;">
+        <strong>Về việc phê duyệt dự toán kinh phí triển khai khóa đào tạo nâng cao năng lực số và ứng dụng AI văn phòng năm 2026</strong>
       </p>
 
-      <p style="text-align: center; margin-bottom: 18px;">
-        <strong>Kính gửi:</strong> Ban Giám đốc / Hội đồng Quản trị ....................................................
+      <p style="text-align: center; margin-bottom: 14px;">
+        <strong>Kính gửi:</strong> Ban Tổng Giám đốc Công ty Cổ phần Lycero Việt Nam
       </p>
 
-      <h2 style="font-size: 13pt; font-weight: bold; margin-top: 14px; margin-bottom: 6px;">
-        I. CĂN CỨ PHÁP LÝ VÀ SỰ CẦN THIẾT
-      </h2>
+      <p style="text-align: left; text-indent: 1.27cm; margin-bottom: 6px;">
+        <em>Căn cứ Nghị định số 30/2020/NĐ-CP ngày 05 tháng 3 năm 2020 của Chính phủ về công tác văn thư;</em>
+      </p>
+      <p style="text-align: left; text-indent: 1.27cm; margin-bottom: 6px;">
+        <em>Căn cứ Quy chế chi tiêu nội bộ và Quản lý tài chính hiện hành của Công ty Cổ phần Lycero Việt Nam;</em>
+      </p>
+      <p style="text-align: left; text-indent: 1.27cm; margin-bottom: 10px;">
+        <em>Căn cứ Kế hoạch đào tạo và phát triển nguồn nhân lực Quý IV năm 2026 đã được Ban Tổng Giám đốc phê duyệt;</em>
+      </p>
+
       <p style="text-align: justify; text-indent: 1.27cm; margin-bottom: 8px;">
-        Căn cứ Nghị định số 30/2020/NĐ-CP ngày 05 tháng 3 năm 2020 của Chính phủ về công tác văn thư;
-      </p>
-      <p style="text-align: justify; text-indent: 1.27cm; margin-bottom: 8px;">
-        Căn cứ Quyết định số ....../QĐ-...... ngày ...../...../2026 về Chiến lược phát triển và tối ưu hóa vận hành của đơn vị giai đoạn 2026 - 2030;
-      </p>
-      <p style="text-align: justify; text-indent: 1.27cm; margin-bottom: 12px;">
-        Nhằm nâng cao năng suất xử lý hồ sơ, chuẩn hóa quy trình văn bản định chế và giảm 45% thời gian tổng hợp báo cáo định kỳ, Phòng/Ban ........................ kính trình Ban Giám đốc xem xét, phê duyệt phương án triển khai như sau:
+        <strong>1. Sự cần thiết và mục đích thực hiện:</strong> Nhằm chuẩn hóa kỹ năng soạn thảo văn bản hành chính theo Nghị định 30/2020/NĐ-CP, nâng cao năng suất xử lý bảng tính và thiết kế thuyết trình cho đội ngũ cán bộ nhân viên, Phòng Hành chính - Quản trị kính trình Ban Tổng Giám đốc xem xét, phê duyệt kinh phí tổ chức khóa đào tạo nội bộ chuyên sâu.
       </p>
 
-      <h2 style="font-size: 13pt; font-weight: bold; margin-top: 14px; margin-bottom: 6px;">
-        II. NỘI DUNG ĐỀ XUẤT VÀ PHƯƠNG ÁN THỰC HIỆN
-      </h2>
-      <table style="width: 100%; border-collapse: collapse; font-size: 12pt; border: 1px solid #1C1B18; margin-top: 8px; margin-bottom: 14px;">
+      <p style="text-align: justify; text-indent: 1.27cm; margin-bottom: 6px;">
+        <strong>2. Dự toán kinh phí chi tiết:</strong>
+      </p>
+      <table style="width: 100%; border-collapse: collapse; font-size: 12.5pt; border: 1px solid #1C1B18; margin-top: 4px; margin-bottom: 8px;">
         <thead>
           <tr style="background: #F4F2EB; text-align: center;">
-            <th style="border: 1px solid #1C1B18; padding: 6px; width: 8%;">TT</th>
-            <th style="border: 1px solid #1C1B18; padding: 6px; width: 37%;">Hạng mục công việc</th>
-            <th style="border: 1px solid #1C1B18; padding: 6px; width: 25%;">Đơn vị chủ trì</th>
-            <th style="border: 1px solid #1C1B18; padding: 6px; width: 15%;">Thời gian</th>
-            <th style="border: 1px solid #1C1B18; padding: 6px; width: 15%;">Dự toán (VNĐ)</th>
+            <th style="border: 1px solid #1C1B18; padding: 6px; width: 6%; text-align: center;"><strong>STT</strong></th>
+            <th style="border: 1px solid #1C1B18; padding: 6px; width: 44%; text-align: center;"><strong>Nội dung chi</strong></th>
+            <th style="border: 1px solid #1C1B18; padding: 6px; width: 10%; text-align: center;"><strong>ĐVT</strong></th>
+            <th style="border: 1px solid #1C1B18; padding: 6px; width: 8%; text-align: center;"><strong>SL</strong></th>
+            <th style="border: 1px solid #1C1B18; padding: 6px; width: 15%; text-align: center;"><strong>Đơn giá (đ)</strong></th>
+            <th style="border: 1px solid #1C1B18; padding: 6px; width: 17%; text-align: center;"><strong>Thành tiền (đ)</strong></th>
           </tr>
         </thead>
         <tbody>
           <tr>
             <td style="border: 1px solid #1C1B18; padding: 6px; text-align: center;">1</td>
-            <td style="border: 1px solid #1C1B18; padding: 6px;">Chuẩn hóa kho biểu mẫu hành chính Nghị định 30 & Hợp đồng chuẩn</td>
-            <td style="border: 1px solid #1C1B18; padding: 6px;">Phòng Hành chính - Pháp chế</td>
-            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: center;">Tháng 11/2026</td>
-            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: right;">25.000.000</td>
+            <td style="border: 1px solid #1C1B18; padding: 6px;">Chi phí thù lao chuyên gia giảng dạy và biên soạn học liệu thực hành</td>
+            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: center;">Buổi</td>
+            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: center;">04</td>
+            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: right;">5.000.000</td>
+            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: right;">20.000.000</td>
           </tr>
           <tr>
             <td style="border: 1px solid #1C1B18; padding: 6px; text-align: center;">2</td>
-            <td style="border: 1px solid #1C1B18; padding: 6px;">Đào tạo và trang bị Lycero Office cho các phòng ban nghiệp vụ</td>
-            <td style="border: 1px solid #1C1B18; padding: 6px;">Phòng Công nghệ thông tin</td>
-            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: center;">Tháng 12/2026</td>
-            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: right;">45.000.000</td>
+            <td style="border: 1px solid #1C1B18; padding: 6px;">Thuê hội trường, hệ thống âm thanh, màn hình LED và thiết bị kỹ thuật</td>
+            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: center;">Ngày</td>
+            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: center;">02</td>
+            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: right;">7.500.000</td>
+            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: right;">15.000.000</td>
+          </tr>
+          <tr>
+            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: center;">3</td>
+            <td style="border: 1px solid #1C1B18; padding: 6px;">In ấn bộ cẩm nang nghiệp vụ, văn phòng phẩm và hậu cần lớp học</td>
+            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: center;">Bộ</td>
+            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: center;">50</td>
+            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: right;">200.000</td>
+            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: right;">10.000.000</td>
+          </tr>
+          <tr>
+            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: center;"></td>
+            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: center;"><strong>TỔNG CỘNG</strong></td>
+            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: center;"></td>
+            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: center;"></td>
+            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: right;"></td>
+            <td style="border: 1px solid #1C1B18; padding: 6px; text-align: right;"><strong>45.000.000</strong></td>
           </tr>
         </tbody>
       </table>
-
-      <h2 style="font-size: 13pt; font-weight: bold; margin-top: 14px; margin-bottom: 6px;">
-        III. KIẾN NGHỊ VÀ ĐỀ XUẤT
-      </h2>
-      <p style="text-align: justify; text-indent: 1.27cm;">
-        Kính trình Ban Giám đốc xem xét, phê duyệt chủ trương và kinh phí thực hiện để các bộ phận liên quan triển khai đúng tiến độ./.
+      <p style="text-align: left; text-indent: 1.27cm; margin-bottom: 8px;">
+        <em>(Số tiền bằng chữ: Bốn mươi lăm triệu đồng chẵn./.)</em>
       </p>
 
-      <table style="width: 100%; border-collapse: collapse; margin-top: 24px; border: none;">
+      <p style="text-align: justify; text-indent: 1.27cm; margin-bottom: 12px;">
+        <strong>3. Kiến nghị:</strong> Phòng Hành chính - Quản trị kính trình Ban Tổng Giám đốc xem xét, phê duyệt dự toán kinh phí nêu trên để đơn vị phối hợp với Phòng Tài chính - Kế toán triển khai thực hiện đúng tiến độ./.
+      </p>
+
+      <table style="width: 100%; border-collapse: collapse; margin-top: 12px; border: none;">
         <tr>
-          <td style="width: 50%; vertical-align: top; border: none; font-size: 11pt;">
-            <strong><em>Nơi nhận:</em></strong><br/>
-            - Như trên;<br/>
-            - Ban Giám đốc (để b/c);<br/>
-            - Phòng TC-KT, HC-NS (để p/h);<br/>
-            - Lưu: VT, ............
+          <td style="width: 50%; vertical-align: top; text-align: left; border: none; font-size: 11pt;">
+            <p style="margin: 0;"><strong><em>Nơi nhận:</em></strong></p>
+            <p style="margin: 0;">- Như trên;</p>
+            <p style="margin: 0;">- Phòng TC-KT, HC-NS (để p/h);</p>
+            <p style="margin: 0;">- Lưu: VT, HCQT.</p>
           </td>
-          <td style="width: 50%; text-align: center; vertical-align: top; border: none; font-size: 12.5pt;">
-            <strong>THỦ TRƯỞNG ĐƠN VỊ TRÌNH</strong><br/>
-            <em style="font-size: 11pt;">(Ký, ghi rõ họ tên và đóng dấu)</em><br/><br/><br/><br/><br/>
-            <strong>Nguyễn Văn A</strong>
+          <td style="width: 50%; text-align: center; vertical-align: top; border: none; font-size: 13pt;">
+            <p style="margin: 0;"><strong>TRƯỞNG PHÒNG HÀNH CHÍNH - QUẢN TRỊ</strong></p>
+            <p style="margin: 0; font-size: 11pt;"><em>(Ký, ghi rõ họ tên và đóng dấu)</em></p>
+            <p style="margin: 0;">&nbsp;</p>
+            <p style="margin: 0;">&nbsp;</p>
+            <p style="margin: 0;">&nbsp;</p>
+            <p style="margin: 0;"><strong>Nguyễn Văn Minh</strong></p>
           </td>
         </tr>
       </table>
-    </div>
   `
   return { title, html }
 }
 
-// ── 11. Mẫu Bảng Lương 3P & Bảo Hiểm Xã Hội (HR & Payroll 3P) ──────────────
+// ── 11. Mẫu Bảng Lương 3P & Bảo Hiểm Xã Hội (HR & Payroll 3P — Luật Thuế TNCN 2026) ──
 export function buildPayroll3pCsv(): string {
   const lines: string[] = [
-    'BẢNG TÍNH LƯƠNG 3P (P1 - VỊ TRÍ, P2 - NĂNG LỰC, P3 - HIỆU SUẤT KPI) & TRÍCH NỘP BHXH NĂM 2026',
-    'Đơn vị: Công ty Cổ phần Công nghệ ....................;Kỳ lương: Tháng 10/2026;Đơn vị tính: VNĐ',
-    '',
-    'Mã NV,Họ và tên,Phòng ban,Chức danh,Lương P1 (Vị trí),Lương P2 (Năng lực),Hệ số KPI (%),Thưởng P3 (Hiệu suất),Phụ cấp (Ăn/Xăng),Tổng thu nhập (Gross),Lương đóng BHXH,Trích BHXH (8%),Trích BHYT (1.5%),Trích BHTN (1%),Thuế TNCN tạm tính,Thực lĩnh (Net)',
-    'NV001,Nguyễn Minh Quân,Ban Giám đốc,Giám đốc Khối Sản phẩm,35000000,15000000,115%,17250000,2500000,69750000,35000000,2800000,525000,350000,6850000,59225000',
-    'NV002,Trần Thu Hà,Kỹ thuật AI,Kỹ sư Trưởng (Principal AI),28000000,12000000,110%,13200000,2000000,55200000,28000000,2240000,420000,280000,4150000,48110000',
-    'NV003,Lê Hoàng Nam,Phát triển SP,Senior Fullstack Engineer,22000000,8000000,105%,9450000,1500000,40950000,22000000,1760000,330000,220000,2180000,36460000',
-    'NV004,Phạm Bảo Ngọc,Thiết kế UI/UX,Lead Product Designer,20000000,7000000,108%,8640000,1500000,37140000,20000000,1600000,300000,200000,1690000,33350000',
-    'NV005,Hoàng Gia Bảo,Kinh doanh B2B,Trưởng nhóm Kinh doanh,16000000,5000000,120%,14400000,2000000,37400000,16000000,1280000,240000,160000,1780000,33940000',
-    'NV006,Đỗ Thùy Trang,Tài chính - Kế toán,Kế toán Tổng hợp,15000000,5000000,100%,5000000,1200000,26200000,15000000,1200000,225000,150000,680000,23945000',
-    'NV007,Vũ Đức Anh,Hành chính - Nhân sự,Chuyên viên C&B / Pháp chế,13000000,4000000,102%,4080000,1200000,22280000,13000000,1040000,195000,130000,390000,20525000',
-    'NV008,Bùi Khánh Linh,Chăm sóc KH,Chuyên viên Tư vấn Giáo dục,11000000,3000000,105%,3675000,1200000,18875000,11000000,880000,165000,110000,185000,17535000',
-    'TỔNG CỘNG,,,,160000000,59000000,108%,75695000,13100000,307795000,160000000,12800000,2400000,1600000,17905000,273090000',
-    '',
-    'Ghi chú chuẩn 3P & BHXH: Tổng Gross = P1 + P2 + Thưởng P3 (theo KPI) + Phụ cấp; Trích nộp NLĐ = 10.5% Lương đóng BHXH (8% BHXH + 1.5% BHYT + 1% BHTN); Thực lĩnh (Net) = Tổng Gross - Trích BHXH/BHYT/BHTN - Thuế TNCN',
+    'Mã NV,Họ và tên,Phòng ban,Chức danh,Lương P1 (Vị trí),Lương P2 (Năng lực),Thưởng P3 (KPI),Phụ cấp chịu thuế,Tổng thu nhập (Gross),Lương đóng BHXH,BHXH NLĐ (8%),BHYT NLĐ (1.5%),BHTN NLĐ (1%),Số NPT,Thu nhập tính thuế (TNTT),Thuế TNCN (Biểu 5 bậc 2026),Thực lĩnh (Net),BHXH+BHYT+BHTN+KPCĐ DN (23.5%),Tổng chi phí NSDLĐ',
+    'NV001,Nguyễn Minh Quân,Ban Giám đốc,Giám đốc Khối Sản phẩm,35000000,15000000,17250000,2500000,"=E2+F2+G2+H2",35000000,"=J2*0.08","=J2*0.015","=J2*0.01",2,"=MAX(0,I2-K2-L2-M2-15500000-N2*6200000)","=ROUND(MAX(0,O2)*0.05+MAX(0,O2-10000000)*0.05+MAX(0,O2-30000000)*0.1+MAX(0,O2-60000000)*0.1+MAX(0,O2-100000000)*0.05,0)","=I2-K2-L2-M2-P2","=J2*0.235","=I2+R2"',
+    'NV002,Trần Thu Hà,Kỹ thuật AI,Kỹ sư Trưởng (Principal AI),28000000,12000000,13200000,2000000,"=E3+F3+G3+H3",28000000,"=J3*0.08","=J3*0.015","=J3*0.01",1,"=MAX(0,I3-K3-L3-M3-15500000-N3*6200000)","=ROUND(MAX(0,O3)*0.05+MAX(0,O3-10000000)*0.05+MAX(0,O3-30000000)*0.1+MAX(0,O3-60000000)*0.1+MAX(0,O3-100000000)*0.05,0)","=I3-K3-L3-M3-P3","=J3*0.235","=I3+R3"',
+    'NV003,Lê Hoàng Nam,Phát triển SP,Senior Fullstack Engineer,22000000,8000000,9450000,1500000,"=E4+F4+G4+H4",22000000,"=J4*0.08","=J4*0.015","=J4*0.01",1,"=MAX(0,I4-K4-L4-M4-15500000-N4*6200000)","=ROUND(MAX(0,O4)*0.05+MAX(0,O4-10000000)*0.05+MAX(0,O4-30000000)*0.1+MAX(0,O4-60000000)*0.1+MAX(0,O4-100000000)*0.05,0)","=I4-K4-L4-M4-P4","=J4*0.235","=I4+R4"',
+    'NV004,Phạm Bảo Ngọc,Thiết kế UI/UX,Lead Product Designer,20000000,7000000,8640000,1500000,"=E5+F5+G5+H5",20000000,"=J5*0.08","=J5*0.015","=J5*0.01",0,"=MAX(0,I5-K5-L5-M5-15500000-N5*6200000)","=ROUND(MAX(0,O5)*0.05+MAX(0,O5-10000000)*0.05+MAX(0,O5-30000000)*0.1+MAX(0,O5-60000000)*0.1+MAX(0,O5-100000000)*0.05,0)","=I5-K5-L5-M5-P5","=J5*0.235","=I5+R5"',
+    'NV005,Hoàng Gia Bảo,Kinh doanh B2B,Trưởng nhóm Kinh doanh,16000000,5000000,14400000,2000000,"=E6+F6+G6+H6",16000000,"=J6*0.08","=J6*0.015","=J6*0.01",2,"=MAX(0,I6-K6-L6-M6-15500000-N6*6200000)","=ROUND(MAX(0,O6)*0.05+MAX(0,O6-10000000)*0.05+MAX(0,O6-30000000)*0.1+MAX(0,O6-60000000)*0.1+MAX(0,O6-100000000)*0.05,0)","=I6-K6-L6-M6-P6","=J6*0.235","=I6+R6"',
+    'NV006,Đỗ Thùy Trang,Tài chính - Kế toán,Kế toán Tổng hợp,15000000,5000000,5000000,1200000,"=E7+F7+G7+H7",15000000,"=J7*0.08","=J7*0.015","=J7*0.01",1,"=MAX(0,I7-K7-L7-M7-15500000-N7*6200000)","=ROUND(MAX(0,O7)*0.05+MAX(0,O7-10000000)*0.05+MAX(0,O7-30000000)*0.1+MAX(0,O7-60000000)*0.1+MAX(0,O7-100000000)*0.05,0)","=I7-K7-L7-M7-P7","=J7*0.235","=I7+R7"',
+    'NV007,Vũ Đức Anh,Hành chính - Nhân sự,Chuyên viên C&B / Pháp chế,13000000,4000000,4080000,1200000,"=E8+F8+G8+H8",13000000,"=J8*0.08","=J8*0.015","=J8*0.01",0,"=MAX(0,I8-K8-L8-M8-15500000-N8*6200000)","=ROUND(MAX(0,O8)*0.05+MAX(0,O8-10000000)*0.05+MAX(0,O8-30000000)*0.1+MAX(0,O8-60000000)*0.1+MAX(0,O8-100000000)*0.05,0)","=I8-K8-L8-M8-P8","=J8*0.235","=I8+R8"',
+    'NV008,Bùi Khánh Linh,Chăm sóc KH,Chuyên viên Tư vấn Giáo dục,11000000,3000000,3675000,1200000,"=E9+F9+G9+H9",11000000,"=J9*0.08","=J9*0.015","=J9*0.01",0,"=MAX(0,I9-K9-L9-M9-15500000-N9*6200000)","=ROUND(MAX(0,O9)*0.05+MAX(0,O9-10000000)*0.05+MAX(0,O9-30000000)*0.1+MAX(0,O9-60000000)*0.1+MAX(0,O9-100000000)*0.05,0)","=I9-K9-L9-M9-P9","=J9*0.235","=I9+R9"',
+    'TỔNG CỘNG,,,,"=SUM(E2:E9)","=SUM(F2:F9)","=SUM(G2:G9)","=SUM(H2:H9)","=SUM(I2:I9)","=SUM(J2:J9)","=SUM(K2:K9)","=SUM(L2:L9)","=SUM(M2:M9)","=SUM(N2:N9)","=SUM(O2:O9)","=SUM(P2:P9)","=SUM(Q2:Q9)","=SUM(R2:R9)","=SUM(S2:S9)"',
+    'GHI CHÚ QUY ĐỊNH 2026,Giảm trừ bản thân: 15.500.000 đ/tháng,Giảm trừ người phụ thuộc: 6.200.000 đ/tháng/người,Biểu thuế lũy tiến 5 bậc: Bậc 1 (đến 10tr: 5%) | Bậc 2 (trên 10-30tr: 10%) | Bậc 3 (trên 30-60tr: 20%) | Bậc 4 (trên 60-100tr: 30%) | Bậc 5 (trên 100tr: 35%),,,,,,,,,,,,,,,',
+  ]
+  return lines.join('\n')
+}
+
+// ── 11b. Mẫu Định Giá Doanh Nghiệp DCF & WACC (Sheets .xlsx có công thức) ──
+export function buildDcfValuationCsv(): string {
+  const lines: string[] = [
+    'Chỉ tiêu (Tỷ VNĐ),Năm cơ sở (2025A),Năm 1 (2026F),Năm 2 (2027F),Năm 3 (2028F),Năm 4 (2029F),Năm 5 (2030F),Ghi chú / Công thức chuẩn',
+    '1. Doanh thu thuần,500.0,600.0,714.0,835.4,960.7,1085.6,Tăng trưởng 20% -> 13%/năm',
+    '2. EBITDA (Biên 22%),110.0,"=ROUND(C2*0.22,1)","=ROUND(D2*0.22,1)","=ROUND(E2*0.22,1)","=ROUND(F2*0.22,1)","=ROUND(G2*0.22,1)",Biên EBITDA 22%',
+    '3. Khấu hao & Phân bổ (D&A),25.0,28.0,32.0,36.0,40.0,44.0,Theo lịch biểu TSCĐ',
+    '4. Lợi nhuận hoạt động (EBIT),"=B3-B4","=C3-C4","=D3-D4","=E3-E4","=F3-F4","=G3-G4",= EBITDA - D&A',
+    '5. Thuế TNDN thực nộp (20%),"=ROUND(B5*0.2,1)","=ROUND(C5*0.2,1)","=ROUND(D5*0.2,1)","=ROUND(E5*0.2,1)","=ROUND(F5*0.2,1)","=ROUND(G5*0.2,1)",Thuế suất TNDN 20%',
+    '6. NOPAT (Lợi nhuận sau thuế HĐKD),"=B5-B6","=C5-C6","=D5-D6","=E5-E6","=F5-F6","=G5-G6",= EBIT * (1 - t)',
+    '7. Chi đầu tư TSCĐ (CapEx),35.0,40.0,45.0,48.0,50.0,52.0,Đầu tư mở rộng công suất',
+    '8. Thay đổi Vốn lưu động ròng (Delta NWC),8.0,10.0,11.4,12.1,12.5,12.5,10% mức tăng doanh thu',
+    '9. Dòng tiền tự do doanh nghiệp (FCFF),"=B7+B4-B8-B9","=C7+C4-C8-C9","=D7+D4-D8-D9","=E7+E4-E8-E9","=F7+F4-F8-F9","=G7+G4-G8-G9",= NOPAT + D&A - CapEx - Delta NWC',
+    '10. Hệ số chiết khấu (WACC = 11.5%),1.000,"=ROUND(1/(1+0.115)^1,4)","=ROUND(1/(1+0.115)^2,4)","=ROUND(1/(1+0.115)^3,4)","=ROUND(1/(1+0.115)^4,4)","=ROUND(1/(1+0.115)^5,4)",1 / (1 + WACC)^t',
+    '11. Giá trị hiện tại FCFF (PV of FCFF),0.0,"=ROUND(C10*C11,1)","=ROUND(D10*D11,1)","=ROUND(E10*E11,1)","=ROUND(F10*F11,1)","=ROUND(G10*G11,1)",= FCFF * Hệ số chiết khấu',
+    '12. Tổng PV của FCFF (5 năm),,"=ROUND(NPV(0.115,C10:G10),1)",,,,,=NPV(WACC; FCFF_1..5)',
+    '13. Giá trị cuối kỳ (Terminal Value - g=3%),,,,,,"=ROUND(G10*(1+0.03)/(0.115-0.03),1)",= FCFF_5 * (1+g) / (WACC - g)',
+    '14. PV của Terminal Value,,"=ROUND(G14*G11,1)",,,,,= Terminal Value * DF_5',
+    '15. Giá trị Doanh nghiệp (Enterprise Value - EV),,"=C13+C15",,,,,= PV(FCFF) + PV(TV)',
+    '16. Trừ: Nợ vay ròng (Net Debt),,-120.0,,,,,= Tổng nợ vay - Tiền mặt',
+    '17. Giá trị Vốn chủ sở hữu (Equity Value),,"=C16+C17",,,,,= EV - Net Debt',
+  ]
+  return lines.join('\n')
+}
+
+// ── 11c. Mẫu Dự Toán BOQ & Thanh Toán Khối Lượng Xây Dựng IPC (Sheets .xlsx) ──
+export function buildBoqIpcCsv(): string {
+  const lines: string[] = [
+    'Mã hiệu ĐM,Nội dung công việc (Hạng mục),Đơn vị,KL Hợp đồng,Đơn giá HĐ (VNĐ),Thành tiền HĐ (VNĐ),KL lũy kế kỳ trước,KL thực hiện kỳ này,KL lũy kế đến kỳ này,Tỷ lệ hoàn thành (%),Giá trị hoàn thành kỳ này (VNĐ),Giá trị lũy kế đến kỳ này (VNĐ)',
+    'AF.11210,Công tác đào móng bằng máy đào 1.25m3 đất cấp II,100m3,45.5,1850000,"=D2*E2",30.0,15.5,"=G2+H2","=ROUND(I2/D2*100,1)","=H2*E2","=I2*E2"',
+    'AF.11310,Bê tông lót móng đá 4x6 vữa M100 dày 100mm,m3,120.0,1420000,"=D3*E3",120.0,0.0,"=G3+H3","=ROUND(I3/D3*100,1)","=H3*E3","=I3*E3"',
+    'AF.12210,Bê tông móng và đà kiềng thương phẩm M300,m3,850.0,2150000,"=D4*E4",500.0,350.0,"=G4+H4","=ROUND(I4/D4*100,1)","=H4*E4","=I4*E4"',
+    'AF.61120,Gia công lắp dựng cốt thép móng D<=18mm CB400-V,tấn,92.4,24500000,"=D5*E5",60.0,32.4,"=G5+H5","=ROUND(I5/D5*100,1)","=H5*E5","=I5*E5"',
+    'AF.81130,Ván khuôn móng và đà kiềng phủ phim tiêu chuẩn,100m2,38.0,12800000,"=D6*E6",25.0,13.0,"=G6+H6","=ROUND(I6/D6*100,1)","=H6*E6","=I6*E6"',
+    'TỔNG CỘNG,Cộng giá trị trước thuế GTGT,,,,"=SUM(F2:F6)",,,,"=ROUND(L7/F7*100,1)","=SUM(K2:K6)","=SUM(L2:L6)"',
+    'VAT 10%,Thuế Giá trị gia tăng (10%),,,,"=ROUND(F7*0.1,0)",,,,,"=ROUND(K7*0.1,0)","=ROUND(L7*0.1,0)"',
+    'TỔNG SAU THUẾ,Tổng giá trị thanh toán sau thuế GTGT,,,,"=F7+F8",,,,,"=K7+K8","=L7+L8"',
+    'THU HỒI TẠM ỨNG,Khấu trừ tạm ứng hợp đồng (20%),,,,,,,,,"=ROUND(K9*0.2,0)","=ROUND(L9*0.2,0)"',
+    'GIỮ LẠI BẢO HÀNH,Giữ lại bảo hành công trình (5%),,,,,,,,,"=ROUND(K9*0.05,0)","=ROUND(L9*0.05,0)"',
+    'THỰC NHẬN KỲ NÀY,Giá trị đề nghị thanh toán thực nhận kỳ này (IPC),,,,,,,,,"=K9-K10-K11","=L9-L10-L11"',
   ]
   return lines.join('\n')
 }
@@ -1770,7 +1853,7 @@ export function buildPitchDeckSpec(): DeckSpec {
               {
                 runs: [
                   {
-                    text: 'Giúp doanh nghiệp Đông Nam Á tăng 3.2 lần hiệu suất làm việc văn phòng với kiến trúc AI bảo mật dữ liệu nội bộ tuyệt đối (Local-First & Zero Data Retention).',
+                    text: 'Giúp doanh nghiệp Đông Nam Á tối ưu hiệu suất làm việc văn phòng với kiến trúc AI bảo mật dữ liệu nội bộ tuyệt đối (Local-First & Zero Data Retention).',
                     sizePt: 17,
                     color: '#DDD9CE',
                     font,
@@ -1796,8 +1879,8 @@ export function buildPitchDeckSpec(): DeckSpec {
             w: 292,
             h: 120,
             paragraphs: [
-              { runs: [{ text: '$2.4M ARR', sizePt: 30, bold: true, color: '#D97757', font }], spaceAfterPt: 6 },
-              { runs: [{ text: 'Tăng trưởng doanh thu định kỳ 185% YoY với 420+ khách hàng B2B', sizePt: 12, color: '#DDD9CE', font }] },
+              { runs: [{ text: '[cần số liệu]', sizePt: 26, bold: true, color: '#D97757', font }], spaceAfterPt: 6 },
+              { runs: [{ text: 'Doanh thu định kỳ hàng năm (ARR) & tốc độ tăng trưởng YoY', sizePt: 12, color: '#DDD9CE', font }] },
             ],
           },
           {
@@ -1817,8 +1900,8 @@ export function buildPitchDeckSpec(): DeckSpec {
             w: 292,
             h: 120,
             paragraphs: [
-              { runs: [{ text: '138% NDR', sizePt: 30, bold: true, color: '#D97757', font }], spaceAfterPt: 6 },
-              { runs: [{ text: 'Tỷ lệ giữ chân doanh thu thuần vượt chuẩn SaaS Enterprise toàn cầu', sizePt: 12, color: '#DDD9CE', font }] },
+              { runs: [{ text: '[cần số liệu]', sizePt: 26, bold: true, color: '#D97757', font }], spaceAfterPt: 6 },
+              { runs: [{ text: 'Tỷ lệ giữ chân doanh thu thuần (NDR) khối khách hàng B2B', sizePt: 12, color: '#DDD9CE', font }] },
             ],
           },
           {
@@ -1838,8 +1921,8 @@ export function buildPitchDeckSpec(): DeckSpec {
             w: 292,
             h: 120,
             paragraphs: [
-              { runs: [{ text: '78% Margin', sizePt: 30, bold: true, color: '#D97757', font }], spaceAfterPt: 6 },
-              { runs: [{ text: 'Biên lợi nhuận gộp cao nhờ kiến trúc xử lý lai Local + Cloud', sizePt: 12, color: '#DDD9CE', font }] },
+              { runs: [{ text: '[cần số liệu]', sizePt: 26, bold: true, color: '#D97757', font }], spaceAfterPt: 6 },
+              { runs: [{ text: 'Biên lợi nhuận gộp nhờ kiến trúc xử lý lai Local + Cloud', sizePt: 12, color: '#DDD9CE', font }] },
             ],
           },
         ],
@@ -1880,7 +1963,7 @@ export function buildPitchDeckSpec(): DeckSpec {
               {
                 runs: [
                   {
-                    text: '• Phân mảnh công cụ: Nhân sự mất trung bình 2.3 giờ/ngày chuyển đổi qua lại giữa trình soạn thảo văn bản, bảng tính và các cửa sổ chat AI rời rạc.\n\n• Rủi ro rò rỉ dữ liệu: 68% doanh nghiệp cấm nhân viên tải hợp đồng, báo cáo tài chính lên các công cụ AI đám mây công cộng vì lo ngại lộ dữ liệu nhạy cảm.\n\n• Chi phí bản quyền đắt đỏ: Gói phần mềm văn phòng kèm Copilot quốc tế vượt quá ngân sách của 90% doanh nghiệp SME và tổ chức giáo dục.',
+                    text: '• Phân mảnh công cụ: Nhân sự mất nhiều thời gian chuyển đổi qua lại giữa trình soạn thảo văn bản, bảng tính và các cửa sổ chat AI rời rạc.\n\n• Rủi ro rò rỉ dữ liệu: Nhiều doanh nghiệp hạn chế nhân viên tải hợp đồng, báo cáo tài chính lên các công cụ AI đám mây công cộng vì lo ngại lộ dữ liệu nhạy cảm.\n\n• Chi phí bản quyền đắt đỏ: Gói phần mềm văn phòng kèm Copilot quốc tế vượt quá ngân sách của đa số doanh nghiệp SME và tổ chức giáo dục.',
                     sizePt: 14,
                     color: '#1C1B18',
                     font,
@@ -1958,7 +2041,7 @@ export function buildPitchDeckSpec(): DeckSpec {
               {
                 runs: [
                   {
-                    text: '• Bảo toàn 100% cấu trúc byte-level của file .docx, .xlsx, .pptx khi mở và lưu.\n• Hỗ trợ Track Changes, bình luận, công thức mảng và biểu đồ phức tạp.\n• Hoạt động mượt mà 100% cả khi ngoại tuyến (Offline Core).',
+                    text: '• Bảo toàn cấu trúc byte-level của file .docx, .xlsx, .pptx khi mở và lưu.\n• Hỗ trợ Track Changes, bình luận, công thức mảng và biểu đồ phức tạp.\n• Hoạt động mượt mà cả khi ngoại tuyến (Offline Core).',
                     sizePt: 14,
                     color: '#4A473E',
                     font,
@@ -1989,7 +2072,7 @@ export function buildPitchDeckSpec(): DeckSpec {
               {
                 runs: [
                   {
-                    text: '• Tự động lập dàn ý, viết văn bản dài, dựng slide 16:9 và kiểm toán công thức bảng tính.\n• Kết nối trực tiếp kho Cloud Skills và công cụ MCP chuyên ngành từ Web Server.\n• Nén ngữ cảnh thông minh tiết kiệm 60% chi phí token.',
+                    text: '• Tự động lập dàn ý, viết văn bản dài, dựng slide 16:9 và kiểm toán công thức bảng tính.\n• Kết nối trực tiếp kho Cloud Skills và công cụ MCP chuyên ngành từ Web Server.\n• Nén ngữ cảnh thông minh giúp tối ưu chi phí vận hành.',
                     sizePt: 14,
                     color: '#4A473E',
                     font,
@@ -2043,7 +2126,7 @@ export function buildPitchDeckSpec(): DeckSpec {
             h: 95,
             paragraphs: [
               { runs: [{ text: '03 • CHỈ SỐ TĂNG TRƯỞNG & HIỆU QUẢ ĐƠN VỊ (UNIT ECONOMICS)', sizePt: 13, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 6 },
-              { runs: [{ text: 'Tăng Trưởng Bền Vững Với Hiệu Suất Thu Hồi Vốn Vượt Trội', sizePt: 28, bold: true, color: '#1C1B18', font }] },
+              { runs: [{ text: 'Khung Chỉ Số Đo Lường Tăng Trưởng & Hiệu Quả Thu Hồi Vốn', sizePt: 28, bold: true, color: '#1C1B18', font }] },
             ],
           },
           {
@@ -2063,9 +2146,9 @@ export function buildPitchDeckSpec(): DeckSpec {
             w: 230,
             h: 170,
             paragraphs: [
-              { runs: [{ text: '6.4x', sizePt: 40, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 6 },
+              { runs: [{ text: '[cần số liệu]', sizePt: 26, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 6 },
               { runs: [{ text: 'Tỷ Lệ LTV / CAC', sizePt: 16, bold: true, color: '#1C1B18', font }], spaceAfterPt: 4 },
-              { runs: [{ text: 'Thời gian hoàn vốn CAC trung bình chỉ 4.5 tháng', sizePt: 12, color: '#4A473E', font }] },
+              { runs: [{ text: 'Thời gian hoàn vốn CAC (Payback Period): [cần số liệu]', sizePt: 12, color: '#4A473E', font }] },
             ],
           },
           {
@@ -2085,9 +2168,9 @@ export function buildPitchDeckSpec(): DeckSpec {
             w: 230,
             h: 170,
             paragraphs: [
-              { runs: [{ text: '82,000+', sizePt: 38, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 6 },
+              { runs: [{ text: '[cần số liệu]', sizePt: 26, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 6 },
               { runs: [{ text: 'Người Dùng Hoạt Động', sizePt: 16, bold: true, color: '#1C1B18', font }], spaceAfterPt: 4 },
-              { runs: [{ text: 'Tỷ lệ chuyển đổi từ Free sang Pro đạt 11.4%', sizePt: 12, color: '#4A473E', font }] },
+              { runs: [{ text: 'Tỷ lệ chuyển đổi từ Free sang Pro: [cần số liệu]', sizePt: 12, color: '#4A473E', font }] },
             ],
           },
           {
@@ -2107,7 +2190,7 @@ export function buildPitchDeckSpec(): DeckSpec {
             w: 230,
             h: 170,
             paragraphs: [
-              { runs: [{ text: '1.2%', sizePt: 40, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 6 },
+              { runs: [{ text: '[cần số liệu]', sizePt: 26, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 6 },
               { runs: [{ text: 'Monthly Logo Churn', sizePt: 16, bold: true, color: '#1C1B18', font }], spaceAfterPt: 4 },
               { runs: [{ text: 'Độ gắn kết cao nhờ lưu trữ tài liệu & quy trình hàng ngày', sizePt: 12, color: '#4A473E', font }] },
             ],
@@ -2129,9 +2212,9 @@ export function buildPitchDeckSpec(): DeckSpec {
             w: 230,
             h: 170,
             paragraphs: [
-              { runs: [{ text: '$8.5M', sizePt: 40, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 6 },
-              { runs: [{ text: 'Mục Tiêu ARR 2027', sizePt: 16, bold: true, color: '#1C1B18', font }], spaceAfterPt: 4 },
-              { runs: [{ text: 'Mở rộng sang thị trường Thái Lan, Indonesia & Nhật Bản', sizePt: 12, color: '#4A473E', font }] },
+              { runs: [{ text: '[cần số liệu]', sizePt: 26, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 6 },
+              { runs: [{ text: 'Mục Tiêu ARR Năm Tới', sizePt: 16, bold: true, color: '#1C1B18', font }], spaceAfterPt: 4 },
+              { runs: [{ text: 'Mở rộng sang thị trường khu vực Đông Nam Á', sizePt: 12, color: '#4A473E', font }] },
             ],
           },
           {
@@ -2155,7 +2238,7 @@ export function buildPitchDeckSpec(): DeckSpec {
               {
                 runs: [
                   {
-                    text: '• Q1/2026: $380K ARR — Ra mắt phiên bản Desktop Windows/macOS và chinh phục 120 trường học, doanh nghiệp đầu tiên.\n• Q2/2026: $820K ARR — Triển khai Kho Cloud Skills & Work Bundles cho khối Pháp chế, Tài chính và Giáo dục.\n• Q3-Q4/2026: $2.4M ARR — Ký kết 18 hợp đồng Enterprise quy mô trên 500 ghế/đơn vị, đạt điểm hòa vốn dòng tiền vận hành.',
+                    text: '• Q1: [cần số liệu] — Ra mắt phiên bản Desktop Windows/macOS và triển khai nhóm khách hàng tiên phong.\n• Q2: [cần số liệu] — Triển khai Kho Cloud Skills & Work Bundles cho khối Pháp chế, Tài chính và Giáo dục.\n• Q3-Q4: [cần số liệu] — Mở rộng hợp đồng Enterprise quy mô lớn và tối ưu dòng tiền vận hành.',
                     sizePt: 14,
                     color: '#1C1B18',
                     font,
@@ -2202,7 +2285,7 @@ export function buildPitchDeckSpec(): DeckSpec {
               {
                 runs: [
                   {
-                    text: '• So với Bộ Office truyền thống: Tích hợp sẵn Agentic AI chỉnh sửa trực tiếp trên tài liệu với chi phí chỉ bằng 1/4, không yêu cầu mua thêm gói addon đắt đỏ.\n\n• So với Web Chatbots (ChatGPT / Claude Web): Không phải copy-paste thủ công làm hỏng định dạng bảng biểu, công thức và bố cục trang A4/Slide.\n\n• Chuẩn hóa Pháp규 & Giáo dục Việt Nam: Duy nhất hỗ trợ sâu Nghị định 30, Thông tư 22, Công văn 5512 và kế toán doanh nghiệp.',
+                    text: '• So với Bộ Office truyền thống: Tích hợp sẵn Agentic AI chỉnh sửa trực tiếp trên tài liệu với chi phí tối ưu, không yêu cầu mua thêm gói addon rời rạc.\n\n• So với Web Chatbots (ChatGPT / Claude Web): Không phải copy-paste thủ công làm hỏng định dạng bảng biểu, công thức và bố cục trang A4/Slide.\n\n• Chuẩn hóa Pháp quy & Giáo dục Việt Nam: Hỗ trợ chuyên sâu Nghị định 30, Thông tư 22, Công văn 5512 và kế toán doanh nghiệp.',
                     sizePt: 14,
                     color: '#1C1B18',
                     font,
@@ -2232,7 +2315,7 @@ export function buildPitchDeckSpec(): DeckSpec {
               {
                 runs: [
                   {
-                    text: '1. Product-Led Growth (PLG): Bản Desktop miễn phí trọn đời cho tính năng biên tập cơ bản giúp lan tỏa tự nhiên tới hàng trăm nghìn người dùng cá nhân.\n\n2. B2B Work Bundles: Bán gói giải pháp theo phòng ban (HR, Pháp chế, Tài chính, R&D) với ROI đo lường được ngay trong tuần đầu tiên.\n\n3. Liên minh Giáo dục & Sở/Trường: Triển khai đồng bộ cấp trường và đại học thông qua hệ sinh thái EdTech.',
+                    text: '1. Product-Led Growth (PLG): Bản Desktop miễn phí cho tính năng biên tập cơ bản giúp lan tỏa tự nhiên tới cộng đồng người dùng văn phòng.\n\n2. B2B Work Bundles: Cung cấp gói giải pháp theo phòng ban (HR, Pháp chế, Tài chính, R&D) với hiệu quả vận hành rõ rệt.\n\n3. Liên minh Giáo dục & Sở/Trường: Triển khai đồng bộ cấp trường và đại học thông qua hệ sinh thái EdTech.',
                     sizePt: 14,
                     color: '#1C1B18',
                     font,
@@ -2254,8 +2337,8 @@ export function buildPitchDeckSpec(): DeckSpec {
             w: 1152,
             h: 110,
             paragraphs: [
-              { runs: [{ text: '05 • ĐỀ XUẤT ĐẦU TƯ & LỘ TRÌNH CHIẾN LƯỢC 18 THÁNG', sizePt: 13, bold: true, color: '#D97757', font }], spaceAfterPt: 8 },
-              { runs: [{ text: 'Vòng Gọi Vốn $5.0M Series A Để Dẫn Đầu Thị Trường Khu Vực', sizePt: 30, bold: true, color: '#F5F4EF', font }] },
+              { runs: [{ text: '05 • ĐỀ XUẤT ĐẦU TƯ & LỘ TRÌNH CHIẾN LƯỢC', sizePt: 13, bold: true, color: '#D97757', font }], spaceAfterPt: 8 },
+              { runs: [{ text: 'Kế Hoạch Huy Động Vốn ([cần số liệu]) & Phân Bổ Nguồn Lực', sizePt: 30, bold: true, color: '#F5F4EF', font }] },
             ],
           },
           {
@@ -2279,7 +2362,7 @@ export function buildPitchDeckSpec(): DeckSpec {
               {
                 runs: [
                   {
-                    text: '• 45% Nghiên cứu & Phát triển (R&D): Tối ưu hóa động cơ Rust/OOXML cục bộ, mô hình AI chuyên biệt cho tài liệu và hạ tầng Cloud MCP.\n\n• 35% Mở rộng Kinh doanh (Enterprise Sales & GTM): Xây dựng đội ngũ B2B tại Hà Nội, TP.HCM, Bangkok và Jakarta.\n\n• 20% Vận hành & Bảo mật Quốc tế: Chứng chỉ SOC2 Type II, ISO 27001 và dự trữ thanh khoản.',
+                    text: '• Nghiên cứu & Phát triển (R&D - [cần số liệu]%): Tối ưu hóa động cơ Rust/OOXML cục bộ, mô hình AI chuyên biệt cho tài liệu và hạ tầng Cloud MCP.\n\n• Mở rộng Kinh doanh (Enterprise Sales & GTM - [cần số liệu]%): Xây dựng đội ngũ tư vấn B2B và mạng lưới đối tác triển khai.\n\n• Vận hành & Bảo mật Quốc tế ([cần số liệu]%): Chứng chỉ SOC2 Type II, ISO 27001 và dự trữ thanh khoản.',
                     sizePt: 14,
                     color: '#F5F4EF',
                     font,
@@ -2309,7 +2392,7 @@ export function buildPitchDeckSpec(): DeckSpec {
               {
                 runs: [
                   {
-                    text: '• Q2/2027: Đạt mốc 250,000 người dùng hoạt động và $5.0M ARR.\n\n• Q4/2027: Đạt $8.5M ARR với 1,200 khách hàng doanh nghiệp trả phí định kỳ, sẵn sàng cho vòng Series B.\n\n• Liên hệ Ban Điều hành: founders@lycero.com | https://lycero.com',
+                    text: '• Cột mốc giai đoạn 1: [cần số liệu] người dùng hoạt động và chỉ tiêu ARR [cần số liệu].\n\n• Cột mốc giai đoạn 2: [cần số liệu] khách hàng doanh nghiệp trả phí định kỳ, sẵn sàng cho vòng gọi vốn tiếp theo.\n\n• Liên hệ Ban Điều hành: founders@lycero.com | https://lycero.com',
                     sizePt: 14,
                     color: '#F5F4EF',
                     font,
@@ -2370,14 +2453,37 @@ export async function createPedagogicalTemplate(
         return {}
       }
 
-      const csvContent =
+      const rawCsvOrJson =
         cloudMatch.csv ??
         (cloudMatch.format === 'xlsx' && typeof cloudMatch.content === 'string'
           ? cloudMatch.content
           : undefined)
-      if (csvContent && csvContent.trim()) {
+      if (rawCsvOrJson && rawCsvOrJson.trim()) {
+        let normalizedCsv = rawCsvOrJson.trim()
+        if (normalizedCsv.startsWith('{')) {
+          try {
+            const parsedJson = JSON.parse(normalizedCsv) as {
+              columns?: unknown[]
+              rows?: unknown[][]
+            }
+            if (Array.isArray(parsedJson.columns) && Array.isArray(parsedJson.rows)) {
+              const encodeCsvCell = (cell: unknown): string => {
+                const str = cell == null ? '' : String(cell)
+                return /[",\n\r]/.test(str) ? `"${str.replaceAll('"', '""')}"` : str
+              }
+              normalizedCsv = [
+                parsedJson.columns.map(encodeCsvCell).join(','),
+                ...parsedJson.rows.map((r) =>
+                  Array.isArray(r) ? r.map(encodeCsvCell).join(',') : '',
+                ),
+              ].join('\n')
+            }
+          } catch {
+            // Keep rawCsvOrJson as-is
+          }
+        }
         const sheetName = (cloudMatch.title || templateId).slice(0, 31)
-        const buffer = await sheetCsvToXlsxBuffer(csvContent, sheetName)
+        const buffer = await sheetCsvToXlsxBuffer(normalizedCsv, sheetName)
         const fileName = `${templateId}-${Date.now().toString().slice(-4)}.xlsx`
         const filePath = join(saveDir, fileName)
         writeFileSync(filePath, buffer)
@@ -2464,6 +2570,22 @@ export async function createPedagogicalTemplate(
     const csv = buildPayroll3pCsv()
     const buffer = await sheetCsvToXlsxBuffer(csv, 'Bảng Lương 3P & BHXH')
     const fileName = `Bang-Luong-3P-BHXH-2026-${Date.now().toString().slice(-4)}.xlsx`
+    const filePath = join(saveDir, fileName)
+    writeFileSync(filePath, buffer)
+    return { filePath }
+  }
+  if (templateId === 'dinh-gia-dcf-wacc') {
+    const csv = buildDcfValuationCsv()
+    const buffer = await sheetCsvToXlsxBuffer(csv, 'Định Giá DCF WACC')
+    const fileName = `Mo-Hinh-Dinh-Gia-DCF-WACC-2026-${Date.now().toString().slice(-4)}.xlsx`
+    const filePath = join(saveDir, fileName)
+    writeFileSync(filePath, buffer)
+    return { filePath }
+  }
+  if (templateId === 'du-toan-khoi-luong-xay-dung-boq-ipc') {
+    const csv = buildBoqIpcCsv()
+    const buffer = await sheetCsvToXlsxBuffer(csv, 'Dự Toán BOQ & IPC')
+    const fileName = `Du-Toan-BOQ-Thanh-Toan-IPC-2026-${Date.now().toString().slice(-4)}.xlsx`
     const filePath = join(saveDir, fileName)
     writeFileSync(filePath, buffer)
     return { filePath }

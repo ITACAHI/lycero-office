@@ -1485,12 +1485,8 @@ export function App() {
     setDirty(true)
   }, [])
 
-  const [aiLiveTarget, setAiLiveTarget] = useState<AiLiveSlideTarget | null>(null)
-  const [aiLiveFocusIdx, setAiLiveFocusIdx] = useState(0)
   const handleLiveTargetChange = useCallback(
     (target: AiLiveSlideTarget | null) => {
-      setAiLiveTarget(target)
-      setAiLiveFocusIdx(0)
       if (target && target.slideIndex >= 0 && target.slideIndex < slides.length) {
         setCurrent(target.slideIndex)
         setSelectedSlides([target.slideIndex])
@@ -1504,14 +1500,6 @@ export function App() {
     },
     [slides.length],
   )
-
-  useEffect(() => {
-    if (!aiLiveTarget) return
-    const id = window.setInterval(() => {
-      setAiLiveFocusIdx((prev) => prev + 1)
-    }, 340)
-    return () => window.clearInterval(id)
-  }, [aiLiveTarget])
 
   // Effect sliders fire continuously while dragging; each tick costs an IPC round trip
   // (XML patch + full slide relayout). Keep exactly one request in flight and remember
@@ -3852,7 +3840,7 @@ export function App() {
                               data-index={i}
                               role="option"
                               aria-selected={selectedSlides.includes(i)}
-                              className={`thumb ${i === current ? 'active' : selectedSlides.includes(i) ? 'selected' : ''} ${s.hidden ? 'thumb-hidden' : ''}${aiLiveTarget?.slideIndex === i ? ' ai-live-thumb' : ''}${thumbDragCls(i)}`}
+                              className={`thumb ${i === current ? 'active' : selectedSlides.includes(i) ? 'selected' : ''} ${s.hidden ? 'thumb-hidden' : ''}${thumbDragCls(i)}`}
                               data-tip={s.hidden ? t('appThumbHiddenTitle') : undefined}
                               {...thumbDragProps(i)}
                               onClick={(e) => selectThumb(i, e)}
@@ -4177,60 +4165,6 @@ export function App() {
                                     : null
                               }
                             />
-                            {aiLiveTarget && aiLiveTarget.slideIndex === current && (() => {
-                              const flatNodes: RenderNode[] = []
-                              const walk = (list: RenderNode[]) => {
-                                for (const n of list) {
-                                  flatNodes.push(n)
-                                  if (n.type === 'group') walk((n as GroupRenderNode).children)
-                                }
-                              }
-                              walk(slide.nodes)
-                              const wantedIds = new Set(aiLiveTarget.elementIds)
-                              const matchedNodes =
-                                wantedIds.size > 0
-                                  ? flatNodes.filter(
-                                      (n) =>
-                                        wantedIds.has(n.sourceId) ||
-                                        (n.durableId != null && wantedIds.has(n.durableId)),
-                                    )
-                                  : slide.nodes.slice(0, 3)
-                              const focusedNode =
-                                matchedNodes.length > 0
-                                  ? matchedNodes[aiLiveFocusIdx % matchedNodes.length]
-                                  : undefined
-                              return (
-                                <div className="ai-live-stage-layer" aria-hidden="true">
-                                  {focusedNode && (
-                                    <div
-                                      key="ai-live-morph-frame"
-                                      className="ai-live-morph-frame"
-                                      style={{
-                                        left: focusedNode.box.x,
-                                        top: focusedNode.box.y,
-                                        width: Math.max(24, focusedNode.box.w),
-                                        height: Math.max(20, focusedNode.box.h),
-                                      }}
-                                    />
-                                  )}
-                                  {matchedNodes.map((n, idx) => {
-                                    const isFocused = focusedNode?.sourceId === n.sourceId
-                                    return (
-                                      <div
-                                        key={`${n.sourceId}-${idx}`}
-                                        className={`ai-live-el-spotlight${isFocused ? ' is-focused' : ''}`}
-                                        style={{
-                                          left: n.box.x,
-                                          top: n.box.y,
-                                          width: Math.max(24, n.box.w),
-                                          height: Math.max(20, n.box.h),
-                                        }}
-                                      />
-                                    )
-                                  })}
-                                </div>
-                              )
-                            })()}
                             {showGrid && <div className="grid-overlay" />}
                             {showGuides &&
                               guides.map((g, gi) => (

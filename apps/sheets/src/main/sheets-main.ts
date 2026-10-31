@@ -124,6 +124,7 @@ import {
   webSearchTool,
   imageSearchTool,
   generateImageTool,
+  analyzeMediaTool,
   localMediaRoots,
 } from '@lycero/ai-search'
 import { parseFileToText } from '@lycero/file-parse'
@@ -3925,6 +3926,40 @@ export function registerSheetsIpc(): void {
       const ext = name.split('.').pop()?.toLowerCase() ?? ''
       if (!ATTACHMENT_EXTS.has(ext)) return { ok: false, error: tm('errUnsupportedExt', { ext }) }
       if (ATTACHMENT_IMAGE_EXTS.has(ext)) {
+        try {
+          const stat = statSync(validatedPath)
+          const stamp = `${stat.mtimeMs}:${stat.size}`
+          const cached = attachmentTextCache.get(validatedPath)
+          let text = cached && cached.stamp === stamp ? cached.text : ''
+          if (!text) {
+            const analyzed = await analyzeMediaTool(
+              SETTINGS_PATH(),
+              {
+                mediaUrls: [validatedPath],
+                requirements:
+                  'Trích xuất chính xác toàn bộ văn bản (giữ nguyên tiếng Việt có dấu, số liệu, bảng biểu) và mô tả chi tiết nội dung hình ảnh này.',
+              },
+              { mediaRoots: localMediaRoots(dirname(validatedPath)) },
+            )
+            if (analyzed.text?.trim()) {
+              text = analyzed.text.trim()
+              attachmentTextCache.set(validatedPath, { stamp, text })
+            }
+          }
+          if (text) {
+            const start = Math.max(0, Math.floor(Number(offset)) || 0)
+            const size = Math.min(Math.max(1, Math.floor(Number(maxChars)) || 1), 48_000)
+            return {
+              ok: true,
+              name,
+              totalChars: text.length,
+              offset: start,
+              text: text.slice(start, start + size),
+            }
+          }
+        } catch {
+          // fall back to errImageNoText
+        }
         return { ok: false, error: tm('errImageNoText') }
       }
       try {

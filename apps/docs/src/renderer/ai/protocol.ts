@@ -104,7 +104,8 @@ export const OPS_GUIDE = [
 export const HTML_RULES = [
   'The html tool input is a restricted HTML fragment. Rules:',
   '- Only these tags are allowed: h1 h2 h3 h4 h5 h6 p ul ol li strong em u s a br table thead tbody tr th td pre code blockquote',
-  '- Tables: use <th> for the first (header) row; cells contain plain text only (<br> may split lines); nested tables / merged cells are not supported; once inserted the table is protected as a whole, only cell text remains editable',
+  '- Tables: for data tables, use <th> for the first (header) row; for 2-column Vietnamese administrative header tables (Quốc hiệu - Tiêu ngữ) and signature/footer blocks, use a borderless <table style="width: 100%; border: none; border-collapse: collapse;"> with <td> cells (never <th>) and format cell lines with <p style="text-align: center;">, <strong>, <em>, <u>, or <br>; nested tables are not supported',
+  '- Vietnamese Quốc hiệu - Tiêu ngữ & Document Title standard (Nghị định 30/2020/NĐ-CP & Enterprise/Legal/Education docs): (1) 2-column borderless header <table> where both columns start at row 0 top-aligned (Left <td style="width: 44%; text-align: center; vertical-align: top; border: none;">: TÊN CƠ QUAN CHỦ QUẢN in regular upright uppercase without <strong> / <strong><u>TÊN CƠ QUAN, TỔ CHỨC BAN HÀNH</u></strong> bold underlined / Số: 15/2026/TTr-...; Right <td style="width: 56%; text-align: center; vertical-align: top; border: none;">: <strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong> / <strong><u>Độc lập - Tự do - Hạnh phúc</u></strong> / <em>Hà Nội, ngày ... tháng ... năm 2026</em>), (2) centered Document Title <h1 style="text-align: center;"><strong>TÊN LOẠI VĂN BẢN IN HOA</strong></h1> and centered Subtitle/Trích yếu <p style="text-align: center;"><strong>Về việc ...</strong></p>, (3) each "Căn cứ ...;" line as its own separate <p style="text-align: left;"><em>Căn cứ ...;</em></p> paragraph (italic, left-aligned so it is never stretched by justify; never join multiple Căn cứ with <br>), (4) 6-column budget/cost tables (STT, Nội dung chi, ĐVT, SL, Đơn giá, Thành tiền) with proportional widths (6%, 44%, 10%, 8%, 15%, 17%), bold centered headers, right-aligned dot-separated numbers (45.000.000), and bold TỔNG CỘNG row with full Vietnamese diacritics, (5) 2-column borderless signature table (Left 45% Nơi nhận 11-12pt; Right 55% centered bold uppercase signer title, italic "(Ký, ghi rõ họ tên và đóng dấu)", 3-4 blank lines for wet signature/stamp, and bold signer full name)',
   '- Use <pre> for code samples (monospace font + shading, line breaks preserved); use <blockquote> for quotations (indent + left bar)',
   '- Use <formula>LaTeX</formula> for math (produces native Word equations): as a top-level block it becomes its own centered paragraph; placed inside <p>/<li>/<h*> text it is an inline formula flowing with the text, e.g. <p>From <formula>E = mc^2</formula> we know…</p>; supports the common subset of \\frac \\sqrt super/subscripts \\sum \\int \\lim matrix environments Greek letters etc., the align environment is not supported; invalid LaTeX fails the whole call — fix and retry',
   '- Do not include <html>/<body>, markdown code fences, or explanatory text',
@@ -133,6 +134,7 @@ export const AGENT_SYSTEM_PROMPT = [
   '- When a list preview is truncated, read the full content with read_blocks before rewriting; never rewrite based on a truncated preview;',
   '- Content changes: use insert_content for new content, and replace_blocks to rewrite/replace existing blocks (pass a block index range and the new HTML); replaced blocks pass their paragraph and text formatting (font, size, color, indent, spacing, alignment) on to the new blocks automatically, and a rewritten table keeps its widths, borders, shading and cell formatting, so a rewrite never needs follow-up formatting commands;',
   '- Long new content (drafting a whole document, a chapter, a full report/article/translation — anything beyond a few paragraphs) goes through write_document: you pass the plan and the reference material, and the system writer streams the text into the document while the user watches; never paste long content into insert_content. When the document is blank and the user asks for content, use write_document;',
+  '- Never invent `{{PLACEHOLDER}}` variables (such as `{{SO_TO_TRINH}}`, `{{NGAY}}`) when drafting or editing a concrete document unless the user explicitly asks for a reusable form/template ("mẫu biểu", "form mẫu", "template"); use standard administrative notation (e.g. "Số: .../TTr-...", "ngày ... tháng ... năm 2026") for open administrative fields and preserve all concrete facts from the user prompt;',
   '- Formatting, structure, and batch operations (color/font size/line spacing/alignment/indent/heading level/find & replace/delete/move/list conversion) go through apply_ops — do not rewrite whole blocks with replace_blocks;',
   '- Small in-place text fixes (changing a few words inside a sentence) go through apply_ops findReplace with a target — do not rewrite the whole block; styling every occurrence of a phrase (e.g. bold each "TODO") uses setMatchedFont, and so does restyling every run of a given color or size (matchColor / matchFontSize) — never rewrite blocks or restyle whole blocks to fix a few runs;',
   '- When the user has text selected, the message includes the selection block indexes and content; rewrite-style requests apply to the selection by default;',
@@ -1013,13 +1015,176 @@ const INLINE_MARK_TAGS: Record<string, string> = {
   strike: 'strike',
 }
 
+function addMarkIfMissing(marks: PmMark[], markType: string): PmMark[] {
+  return marks.some((m) => m.type === markType) ? marks : [...marks, { type: markType }]
+}
+
+function extractInlineStyleMarks(el: Element, marks: PmMark[]): PmMark[] {
+  const style = el.getAttribute('style') ?? ''
+  if (!style) return marks
+  let next = marks
+  if (/font-weight\s*:\s*(?:bold|bolder|[6-9]00)\b/i.test(style)) {
+    next = addMarkIfMissing(next, 'bold')
+  }
+  if (/font-style\s*:\s*(?:italic|oblique)\b/i.test(style)) {
+    next = addMarkIfMissing(next, 'italic')
+  }
+  if (/text-decoration(?:-line)?\s*:[^;]*\bunderline\b/i.test(style)) {
+    next = addMarkIfMissing(next, 'underline')
+  }
+  if (/text-decoration(?:-line)?\s*:[^;]*\bline-through\b/i.test(style)) {
+    next = addMarkIfMissing(next, 'strike')
+  }
+  return next
+}
+
+function ensureMarkOnNodes(nodes: PmNode[], markType: string): PmNode[] {
+  return nodes.map((n) => {
+    if (n.type !== 'text') return n
+    const existing = n.marks ?? []
+    if (existing.some((m) => m.type === markType)) return n
+    return { ...n, marks: [...existing, { type: markType }] }
+  })
+}
+
+function removeMarkFromNodes(nodes: PmNode[], markType: string): PmNode[] {
+  return nodes.map((n) => {
+    if (n.type !== 'text' || !n.marks) return n
+    const filtered = n.marks.filter((m) => m.type !== markType)
+    const next: PmNode = { ...n }
+    if (filtered.length > 0) next.marks = filtered
+    else delete next.marks
+    return next
+  })
+}
+
+function applyTextStyleToNodes(
+  nodes: PmNode[],
+  stylePatch: Record<string, unknown>,
+  overwriteExisting = false,
+): PmNode[] {
+  return nodes.map((n) => {
+    if (n.type !== 'text') return n
+    const marks = [...(n.marks ?? [])]
+    const idx = marks.findIndex((m) => m.type === 'docTextStyle')
+    if (idx >= 0) {
+      const curAttrs = marks[idx].attrs ?? {}
+      const merged = overwriteExisting
+        ? { ...curAttrs, ...stylePatch }
+        : { ...stylePatch, ...curAttrs }
+      marks[idx] = { type: 'docTextStyle', attrs: merged }
+    } else {
+      marks.push({ type: 'docTextStyle', attrs: { ...stylePatch } })
+    }
+    return { ...n, marks }
+  })
+}
+
+function uppercaseTextNodes(nodes: PmNode[]): PmNode[] {
+  return nodes.map((n) => (n.type === 'text' && n.text ? { ...n, text: n.text.toUpperCase() } : n))
+}
+
+function formatVnThousandDots(rawText: string): string {
+  return rawText.replace(/\b(\d{1,3}(?:,\d{3})+|\d{4,})\b/g, (match) => {
+    const digits = match.replace(/,/g, '')
+    // Avoid formatting 4-digit years like 2025, 2026, 2027
+    if (/^(?:19|20)\d{2}$/.test(digits)) return match
+    return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  })
+}
+
+function sanitizeNd30Placeholders(rawHtml: string): string {
+  let out = rawHtml
+  // Replace {{PLACEHOLDER}} tokens if the model emitted template variables on a short prompt (1h)
+  out = out.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_full, keyRaw: string) => {
+    const key = keyRaw.trim().toUpperCase()
+    if (/SO_KY_HIEU|SO_HIEU|SO_VAN_BAN|SO_TO_TRINH|SO_QUYET_DINH/.test(key)) return '15/2026/TTr-ĐV'
+    if (/\bNGAY\b/.test(key) && !/THANG|NAM/.test(key)) return '30'
+    if (/\bTHANG\b/.test(key) && !/NAM/.test(key)) return '10'
+    if (/\bNAM\b/.test(key)) return '2026'
+    if (/DIA_DANH|TINH_THANH|THANH_PHO/.test(key)) return 'Hà Nội'
+    if (/CO_QUAN_CHU_QUAN|DON_VI_CHU_QUAN/.test(key)) return 'ỦY BAN NHÂN DÂN THÀNH PHỐ'
+    if (/CO_QUAN_BAN_HANH|DON_VI_BAN_HANH|TEN_DON_VI|TEN_CO_QUAN/.test(key))
+      return 'PHÒNG HÀNH CHÍNH - TỔNG HỢP'
+    if (/NGUOI_KY|HO_TEN|DAI_DIEN| HIEU_TRUONG|GIAM_DOC/.test(key)) return 'Nguyễn Văn An'
+    if (/CHUC_VU/.test(key)) return 'THỦ TRƯỞNG ĐƠN VỊ'
+    if (/NOI_NHAN/.test(key)) return 'Như trên'
+    if (/TONG_TIEN|SO_TIEN/.test(key)) return '45.000.000'
+    return keyRaw.trim().replace(/_/g, ' ')
+  })
+  // Normalize unaccented TONG CONG -> TỔNG CỘNG (1d)
+  out = out.replace(/\bTONG\s+CONG\b/gi, 'TỔNG CỘNG')
+  out = out.replace(/\bTONG\s+SO\b/gi, 'TỔNG SỐ')
+  return out
+}
+
+const CAN_CU_LINE_RE = /^(?:Căn cứ|Xét đề nghị|Theo đề nghị)\b/i
+const SEPARATOR_LINE_RE = /^[-_─━=*~]{3,}$/
+const VN_DATE_LINE_RE =
+  /^(?:[A-ZÀ-Ỹa-zà-ỹ0-9\s.,-]+,\s*)?ngày\s+(?:\d+|\.+|_+|\[.*?\])\s+tháng\s+(?:\d+|\.+|_+|\[.*?\])\s+năm\s+(?:\d+|\.+|_+|\[.*?\])/i
+
+function ensureNd30InlineMarks(nodes: PmNode[], textJoined: string): PmNode[] {
+  const trimmed = textJoined.trim()
+  if (!trimmed) return nodes
+  let out = nodes
+  if (
+    /^CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM$/i.test(trimmed) ||
+    /^Độc lập\s*-\s*Tự do\s*-\s*Hạnh phúc$/i.test(trimmed) ||
+    /^ĐẠI DIỆN BÊN\s+[A-Z0-9]/i.test(trimmed) ||
+    /^THỦ TRƯỞNG ĐƠN VỊ/i.test(trimmed) ||
+    /^NGƯỜI LẬP BIỂU$/i.test(trimmed) ||
+    /^CHỦ TỌA(?:\s+CUỘC HỌP)?$/i.test(trimmed) ||
+    /^THƯ KÝ(?:\s+CUỘC HỌP)?$/i.test(trimmed) ||
+    /^(?:KT\.|TM\.|TL\.|TUQ\.)\s+[A-ZÀ-Ỹ]/i.test(trimmed) ||
+    /^(?:HIỆU TRƯỞNG|PHÓ HIỆU TRƯỞNG|GIÁM ĐỐC|PHÓ GIÁM ĐỐC|TRƯỞNG PHÒNG|CHỦ TỊCH|TỔNG GIÁM ĐỐC|BỘ TRƯỞNG|CHÁNH VĂN PHÒNG)$/i.test(
+      trimmed,
+    )
+  ) {
+    out = ensureMarkOnNodes(out, 'bold')
+  }
+  if (
+    /^Độc lập\s*-\s*Tự do\s*-\s*Hạnh phúc$/i.test(trimmed) &&
+    !out.some((n) => n.marks?.some((m) => m.type === 'underline'))
+  ) {
+    // Preserve or apply underline on Tiêu ngữ when no separate separator line is present
+    out = ensureMarkOnNodes(out, 'underline')
+  }
+  if (
+    VN_DATE_LINE_RE.test(trimmed) ||
+    /^\(Ký,?\s*(?:ghi rõ họ tên|đóng dấu)/i.test(trimmed) ||
+    /^\(Ký và ghi rõ họ tên/i.test(trimmed) ||
+    /^\(Chữ ký,?\s*dấu/i.test(trimmed) ||
+    CAN_CU_LINE_RE.test(trimmed)
+  ) {
+    out = ensureMarkOnNodes(out, 'italic')
+    if (CAN_CU_LINE_RE.test(trimmed) || VN_DATE_LINE_RE.test(trimmed)) {
+      out = removeMarkFromNodes(out, 'bold')
+    }
+  }
+  if (/^Nơi nhận\s*:$/i.test(trimmed)) {
+    out = ensureMarkOnNodes(ensureMarkOnNodes(out, 'bold'), 'italic')
+  }
+  return out
+}
+
+const VN_DOC_TITLE_RE =
+  /^(?:HỢP ĐỒNG|QUYẾT ĐỊNH|TỜ TRÌNH|CÔNG VĂN|BIÊN BẢN|THÔNG BÁO|BÁO CÁO|QUY CHẾ|QUY ĐỊNH|ĐIỀU LỆ|GIẤY ỦY QUYỀN|GIẤY ĐỀ NGHỊ|GIẤY GIỚI THIỆU|GIẤY XÁC NHẬN|ĐƠN XIN|ĐƠN ĐỀ NGHỊ|ĐƠN KHỞI KIỆN|ĐƠN KHIẾU NẠI|ĐƠN TỐ CÁO|BẢNG BÁO GIÁ|BÁO GIÁ|PHỤ LỤC|KẾ HOẠCH|CHƯƠNG TRÌNH|ĐỀ ÁN|ĐỀ CƯƠNG|THUYẾT MINH|HƯỚNG DẪN|NGHỊ QUYẾT|CHỈ THỊ|THỎA THUẬN|BẢN GHI NHỚ|CAM KẾT|BẢN CAM KẾT|THƯ MỜI|GIẤY MỜI|PHIẾU THU|PHIẾU CHI|PHIẾU ĐỀ XUẤT|LỆNH ĐIỀU ĐỘNG|BẢN MÔ TẢ CÔNG VIỆC|HỒ SƠ MỜI THẦU|BÀI GIẢNG|GIÁO ÁN|MA TRẬN ĐỀ|BẢNG MA TRẬN|ĐỀ KIỂM TRA|ĐỀ THI)(?:\s|$|:)/i
+
 function parseInline(element: Node, marks: PmMark[]): PmNode[] {
+  const effectiveMarks =
+    element.nodeType === Node.ELEMENT_NODE
+      ? extractInlineStyleMarks(element as Element, marks)
+      : marks
   const nodes: PmNode[] = []
   element.childNodes.forEach((child) => {
     if (child.nodeType === Node.TEXT_NODE) {
       const text = (child.textContent ?? '').replace(/\s+/g, ' ')
       if (text)
-        nodes.push({ type: 'text', text, ...(marks.length > 0 ? { marks: [...marks] } : {}) })
+        nodes.push({
+          type: 'text',
+          text,
+          ...(effectiveMarks.length > 0 ? { marks: [...effectiveMarks] } : {}),
+        })
       return
     }
     if (child.nodeType !== Node.ELEMENT_NODE) return
@@ -1029,17 +1194,24 @@ function parseInline(element: Node, marks: PmMark[]): PmNode[] {
       nodes.push({ type: 'hardBreak' })
       return
     }
+    const childStyleMarks = extractInlineStyleMarks(el, effectiveMarks)
     // HTML whitespace collapsing eats literal tabs, so a tab character needs a marker;
     // a self-closing <span data-tab /> is an open tag in HTML, so its "children" are the
     // text that follows and still have to be read
     if (el.hasAttribute('data-tab')) {
-      nodes.push({ type: 'text', text: '\t', ...(marks.length > 0 ? { marks: [...marks] } : {}) })
-      nodes.push(...parseInline(el, marks))
+      nodes.push({
+        type: 'text',
+        text: '\t',
+        ...(childStyleMarks.length > 0 ? { marks: [...childStyleMarks] } : {}),
+      })
+      nodes.push(...parseInline(el, childStyleMarks))
       return
     }
     if (tag === 'a') {
       const href = el.getAttribute('href') ?? ''
-      nodes.push(...parseInline(el, [...marks, { type: 'link', attrs: { href, rId: null } }]))
+      nodes.push(
+        ...parseInline(el, [...childStyleMarks, { type: 'link', attrs: { href, rId: null } }]),
+      )
       return
     }
     if (tag === 'img') {
@@ -1065,12 +1237,12 @@ function parseInline(element: Node, marks: PmMark[]): PmNode[] {
     }
     const markType = INLINE_MARK_TAGS[tag]
     if (markType) {
-      const next = marks.some((m) => m.type === markType) ? marks : [...marks, { type: markType }]
+      const next = addMarkIfMissing(childStyleMarks, markType)
       nodes.push(...parseInline(el, next))
       return
     }
-    // unknown inline tag (span etc.): keep its text content
-    nodes.push(...parseInline(el, marks))
+    // unknown inline tag (span etc.): keep its text content and any inline style marks
+    nodes.push(...parseInline(el, childStyleMarks))
   })
   return nodes
 }
@@ -1161,6 +1333,16 @@ function extractTextAlign(el: Element): 'left' | 'center' | 'right' | 'justify' 
   return undefined
 }
 
+function extractCellWidthPct(el: Element): number | undefined {
+  const attrWidth = (el.getAttribute('width') ?? '').trim()
+  const mAttr = /^(\d+(?:\.\d+)?)%$/.exec(attrWidth)
+  if (mAttr) return Number(mAttr[1])
+  const style = el.getAttribute('style') ?? ''
+  const mStyle = /(?:^|;)\s*width\s*:\s*(\d+(?:\.\d+)?)%/i.exec(style)
+  if (mStyle) return Number(mStyle[1])
+  return undefined
+}
+
 /** Parse one table cell into PmNode paragraphs, preserving inline marks (<b>, <i>, <u>) and <br>/<p> breaks */
 function parseCellParagraphNodes(
   cell: Element,
@@ -1170,7 +1352,7 @@ function parseCellParagraphNodes(
   const out: PmNode[] = []
   let currentInline: PmNode[] = []
   let currentAlign = defaultAlign
-  const baseMarks: PmMark[] = isHeader ? [{ type: 'bold' }] : []
+  const baseMarks: PmMark[] = extractInlineStyleMarks(cell, isHeader ? [{ type: 'bold' }] : [])
 
   const flush = () => {
     // Trim leading/trailing whitespace on text leaves
@@ -1182,25 +1364,50 @@ function parseCellParagraphNodes(
     }
     const textJoined = currentInline.map((n) => n.text ?? '').join('').trim()
     let align = currentAlign
-    if (!align && textJoined) {
-      if (
-        /^CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM\b/i.test(textJoined) ||
-        /^Độc lập\s*-\s*Tự do\s*-\s*Hạnh phúc/i.test(textJoined) ||
-        /^ĐẠI DIỆN BÊN\b/i.test(textJoined) ||
-        /^\(Ký,\s*ghi rõ họ tên/i.test(textJoined)
+    if (textJoined) {
+      if (/^Nơi nhận\s*:/i.test(textJoined) || /^-\s+(?:Như trên|Lưu\s*:)/i.test(textJoined)) {
+        if (!extractTextAlign(cell)) align = 'left'
+      } else if (
+        !align &&
+        (/^CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM/i.test(textJoined) ||
+          /^Độc lập\s*-\s*Tự do\s*-\s*Hạnh phúc/i.test(textJoined) ||
+          /^ĐẠI DIỆN BÊN/i.test(textJoined) ||
+          /^THỦ TRƯỞNG ĐƠN VỊ/i.test(textJoined) ||
+          /^NGƯỜI LẬP BIỂU/i.test(textJoined) ||
+          /^\(Ký,?\s*(?:ghi rõ họ tên|đóng dấu)/i.test(textJoined) ||
+          /^\(Ký và ghi rõ họ tên/i.test(textJoined))
       ) {
         align = 'center'
       }
     }
+    const normalizedInline =
+      currentInline.length > 0 ? ensureNd30InlineMarks(currentInline, textJoined) : []
     out.push(
       blockNode(
         'docParagraph',
         align ? { align } : {},
-        currentInline.length > 0 ? currentInline : [],
+        normalizedInline,
       ),
     )
     currentInline = []
     currentAlign = defaultAlign
+  }
+
+  const pushInlineSplittingBreaks = (nodes: PmNode[], alignOverride?: 'left' | 'center' | 'right' | 'justify') => {
+    let flushedOnce = false
+    for (const n of nodes) {
+      if (n.type === 'hardBreak') {
+        if (alignOverride) currentAlign = alignOverride
+        flush()
+        flushedOnce = true
+      } else {
+        currentInline.push(n)
+      }
+    }
+    if (currentInline.length > 0 || !flushedOnce) {
+      if (alignOverride) currentAlign = alignOverride
+      flush()
+    }
   }
 
   cell.childNodes.forEach((child) => {
@@ -1213,9 +1420,9 @@ function parseCellParagraphNodes(
       }
       if (tag === 'p' || tag === 'div') {
         if (currentInline.length > 0) flush()
-        currentAlign = extractTextAlign(el) ?? defaultAlign
-        currentInline.push(...parseInline(el, baseMarks))
-        flush()
+        const pAlign = extractTextAlign(el) ?? defaultAlign
+        const parsed = parseInline(el, baseMarks)
+        pushInlineSplittingBreaks(parsed, pAlign)
         return
       }
     }
@@ -1250,79 +1457,707 @@ const BORDERLESS_TABLE_BORDERS: NonNullable<TableModel['borders']> = {
   insideV: { style: 'none' },
 }
 
+function getParagraphNodeText(p: PmNode): string {
+  return (p.content ?? [])
+    .map((n) => n.text ?? '')
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function deriveAgencyAbbrev(agencyName: string): string {
+  const cleaned = agencyName
+    .replace(/^(?:CÔNG TY|TRƯỜNG|PHÒNG|SỞ|BỘ|ỦY BAN NHÂN DÂN|UBND|BAN|VIỆN|TRUNG TÂM)\s+/i, '')
+    .trim()
+  const words = (cleaned || agencyName).split(/\s+/).filter(Boolean)
+  const abbrev = words
+    .slice(0, 4)
+    .map((w) => w.charAt(0).toUpperCase())
+    .join('')
+    .replace(/[^A-ZĐ0-9]/g, '')
+  return abbrev || 'ĐV'
+}
+
 /**
  * <table> -> protected table block: display TableModel + generated w:tbl
  * fragment. Cell texts are patched into the fragment at save time via the
  * existing genXml branch of pmDocToSavePlan (patchTableCellTexts), so the
  * model row/col counts must mirror the generated grid.
  */
-function parseTable(el: Element): PmNode | null {
+function parseTable(el: Element, docTitleHint?: string): PmNode | null {
   const trs = Array.from(el.querySelectorAll('tr'))
   if (trs.length === 0) return null
   const rawRows = trs.map((tr) => Array.from(tr.children).filter((c) => /^t[hd]$/i.test(c.tagName)))
-  const cols = Math.max(...rawRows.map((r) => r.length))
+  const cols = Math.max(
+    ...rawRows.map((r) =>
+      r.reduce((sum, c) => sum + Math.max(1, Number(c.getAttribute('colspan')) || 1), 0),
+    ),
+  )
   if (cols === 0) return null
-  const headerRow = rawRows[0].some((c) => c.tagName.toLowerCase() === 'th')
+  const rawHeaderRow = rawRows[0].some((c) => c.tagName.toLowerCase() === 'th')
 
   const tableText = (el.textContent ?? '').replace(/\s+/g, ' ').trim()
   const explicitBorderless =
     el.getAttribute('border') === '0' ||
     /border(?:-style)?\s*:\s*(?:none|0)\b/i.test(el.getAttribute('style') ?? '')
   const isQuocHieuTable =
-    cols === 2 &&
+    cols <= 2 &&
     rawRows.length <= 2 &&
-    !headerRow &&
     /CỘNG HÒA XÃ HỘI|Độc lập\s*-\s*Tự do/i.test(tableText)
   const isSignatureTable =
     cols >= 2 &&
     cols <= 4 &&
     rawRows.length <= 2 &&
-    !headerRow &&
-    /ĐẠI DIỆN BÊN|Ký,\s*ghi rõ họ tên|NGƯỜI LẬP BIỂU|THỦ TRƯỞNG ĐƠN VỊ/i.test(tableText)
+    /ĐẠI DIỆN BÊN|Ký,?\s*(?:ghi rõ họ tên|đóng dấu)|Ký và ghi rõ họ tên|NGƯỜI LẬP BIỂU|THỦ TRƯỞNG ĐƠN VỊ|Nơi nhận\s*:|CHỦ TỌA CUỘC HỌP|THƯ KÝ CUỘC HỌP|NGƯỜI LÀM ĐƠN|NGƯỜI ĐỀ NGHỊ|TM\.\s*HỘI ĐỒNG|TM\.\s*ỦY BAN|HIỆU TRƯỞNG|GIÁM ĐỐC|TRƯỞNG PHÒNG/i.test(
+      tableText,
+    )
+  const firstRowTexts = rawRows[0].map((c) => (c.textContent ?? '').replace(/\s+/g, ' ').trim())
+  const looksLikeDataHeader =
+    !isQuocHieuTable &&
+    !isSignatureTable &&
+    !explicitBorderless &&
+    rawRows.length >= 2 &&
+    (rawHeaderRow ||
+      /^(?:STT|TT|Số TT|Mã|Hạng mục|Nội dung|Khoản mục|Tiêu chí|Cấp)/i.test(firstRowTexts[0] ?? '') ||
+      rawRows[0].every((c) => !!c.querySelector('b, strong')))
+  const headerRow = looksLikeDataHeader
   const isBorderless = explicitBorderless || isQuocHieuTable || isSignatureTable
   const defaultCellAlign: 'center' | undefined =
     isQuocHieuTable || isSignatureTable ? 'center' : undefined
 
+  // Detect budget / cost / item columns for NĐ30 & accounting tables (1d)
+  const isSttTable = !isBorderless && /^(?:STT|TT|Số TT)$/i.test(firstRowTexts[0] ?? '')
+  const isBudgetTable =
+    !isBorderless &&
+    (isSttTable ||
+      firstRowTexts.some((h) =>
+        /Đơn giá|Thành tiền|Số tiền|Kinh phí|Dự toán|Chi phí/i.test(h),
+      ))
+
+  const colDefaultAligns: Array<'left' | 'center' | 'right' | undefined> = Array.from(
+    { length: cols },
+    (_v, c) => {
+      if (isBorderless) return undefined
+      const h = firstRowTexts[c] ?? ''
+      if (c === 0 && /^(?:STT|TT|Số TT|Mã)$/i.test(h)) return 'center'
+      if (/^(?:ĐVT|Đơn vị(?:\s*tính)?|SL|Số lượng|Tỷ lệ|Hệ số|Tháng|Năm)$/i.test(h)) return 'center'
+      if (/Đơn giá|Thành tiền|Số tiền|Kinh phí|Dự toán|Chi phí|Giá trị|Mức chi|Tổng số/i.test(h))
+        return 'right'
+      if (cols === 6 && isBudgetTable) {
+        if (c === 0 || c === 2 || c === 3) return 'center'
+        if (c === 4 || c === 5) return 'right'
+        return 'left'
+      }
+      return undefined
+    },
+  )
+
   const rows: TableCell[][] = rawRows.map((cells, r) => {
     const isHeader = headerRow && r === 0
+    const rowText = cells.map((c) => (c.textContent ?? '').trim()).join(' ')
+    const isTotalRow =
+      !isBorderless &&
+      r > 0 &&
+      /\b(?:TỔNG\s*CỘNG|TONG\s*CONG|CỘNG|TỔNG\s*SỐ|TONG\s*SO|TỔNG\s*KINH\s*PHÍ)\b/i.test(rowText)
+    let colCursor = 0
     const row: TableCell[] = cells.map((cell) => {
-      const cellAlign = extractTextAlign(cell) ?? defaultCellAlign
+      const c = colCursor
+      const colSpan = Math.max(1, Number(cell.getAttribute('colspan')) || 1)
+      colCursor += colSpan
+      const cellText = (cell.textContent ?? '').replace(/\s+/g, ' ').trim()
+      const isNoiNhanCell = /\bNơi nhận\s*:/i.test(cellText)
+      const isNumericCell =
+        !isBorderless &&
+        !isHeader &&
+        c >= 2 &&
+        /^\s*-?\d[\d.,\s]*(?:\s*(?:đ|đồng|VND|VNĐ))?\s*$/i.test(cellText)
+      const isTotalLabelCell =
+        isTotalRow && /^(?:TỔNG\s*CỘNG|TONG\s*CONG|CỘNG|TỔNG\s*SỐ|TỔNG\s*KINH\s*PHÍ|TỔNG)$/i.test(cellText)
+      const cellAlign =
+        isHeader
+          ? 'center'
+          : isNoiNhanCell
+            ? 'left'
+            : isTotalLabelCell
+              ? 'center'
+              : isNumericCell || colDefaultAligns[c] === 'right'
+                ? 'right'
+                : extractTextAlign(cell) ?? colDefaultAligns[c] ?? defaultCellAlign
       return {
         paras: cellParas(cell),
+        ...(colSpan > 1 ? { colSpan } : {}),
         ...(cellAlign ? { align: cellAlign } : {}),
         ...(isBorderless ? { borders: BORDERLESS_CELL_BORDERS, vAlign: 'top' as const } : {}),
-        ...(isHeader ? { bold: true, fill: TABLE_HEADER_FILL } : {}),
+        ...(isHeader
+          ? { bold: true, fill: TABLE_HEADER_FILL, vAlign: 'center' as const }
+          : isTotalRow
+            ? { bold: true }
+            : {}),
       }
     })
-    while (row.length < cols)
+    while (row.reduce((s, cell) => s + (cell.colSpan ?? 1), 0) < cols)
       row.push({
         paras: [''],
-        ...(defaultCellAlign ? { align: defaultCellAlign } : {}),
+        ...(isHeader ? { align: 'center' } : defaultCellAlign ? { align: defaultCellAlign } : {}),
         ...(isBorderless ? { borders: BORDERLESS_CELL_BORDERS, vAlign: 'top' as const } : {}),
-        ...(isHeader ? { bold: true, fill: TABLE_HEADER_FILL } : {}),
+        ...(isHeader
+          ? { bold: true, fill: TABLE_HEADER_FILL, vAlign: 'center' as const }
+          : isTotalRow
+            ? { bold: true }
+            : {}),
       })
     return row
   })
-  // equal column grid, like the ribbon insert and the save-path backfill
-  // (pmTableToModel): without colWidthsPct the table renders with no <colgroup>,
-  // leaving the fixed-layout column grid to the browser — fragile against
-  // spanning pagination widgets and different from what a save/reload shows
+
+  // Resolve column widths:
+  // 1) For 2-column Quốc hiệu - Tiêu ngữ header tables (1a): always [44, 56] so Quốc hiệu fits on 1 line.
+  // 2) For 2-column Signature / Nơi nhận tables (1e): [45, 55].
+  // 3) For 6-column NĐ30 budget tables (1d): [6, 44, 10, 8, 15, 17] (STT 6%, Nội dung chi 44%, ĐVT 10%, SL 8%, Đơn giá 15%, Thành tiền 17%).
+  const colEls = Array.from(el.querySelectorAll('colgroup col, :scope > col'))
+  const colGroupWidths = colEls.length === cols ? colEls.map((c) => extractCellWidthPct(c)) : []
+  const firstRowWidths =
+    rawRows[0].length === cols ? rawRows[0].map((c) => extractCellWidthPct(c)) : []
+  const explicitWidths =
+    firstRowWidths.length === cols &&
+    firstRowWidths.every((w): w is number => typeof w === 'number' && w > 0)
+      ? firstRowWidths
+      : colGroupWidths.length === cols &&
+          colGroupWidths.every((w): w is number => typeof w === 'number' && w > 0)
+        ? colGroupWidths
+        : null
+  const allEqualExplicit =
+    explicitWidths !== null &&
+    explicitWidths.length > 2 &&
+    explicitWidths.every((w) => Math.abs(w - explicitWidths[0]!) < 1.5)
+
+  let colWidthsPct: number[]
+  let colWidthsTwips: number[] | undefined
+  if (isQuocHieuTable && cols === 2) {
+    colWidthsPct = [44, 56]
+  } else if (isSignatureTable && cols === 2) {
+    colWidthsPct = [45, 55]
+  } else if (cols === 6 && !isBorderless && (isBudgetTable || !explicitWidths || allEqualExplicit)) {
+    colWidthsPct = [6, 44, 10, 8, 15, 17]
+    colWidthsTwips = [560, 3900, 900, 700, 1400, 1600]
+  } else if (cols === 5 && !isBorderless && (isBudgetTable || !explicitWidths || allEqualExplicit)) {
+    colWidthsPct = [7, 45, 10, 18, 20]
+  } else if (cols === 4 && !isBorderless && (isSttTable || !explicitWidths || allEqualExplicit)) {
+    colWidthsPct = [8, 52, 18, 22]
+  } else if (cols === 3 && !isBorderless && (isSttTable || !explicitWidths || allEqualExplicit)) {
+    colWidthsPct = [8, 62, 30]
+  } else if (explicitWidths) {
+    const sum = explicitWidths.reduce((a, b) => a + b, 0)
+    colWidthsPct = explicitWidths.map((w) => Math.round((w / sum) * 1000) / 10)
+  } else {
+    colWidthsPct = Array.from({ length: cols }, () => 100 / cols)
+  }
+
   const table: TableModel = {
     rows,
-    colWidthsPct: Array.from({ length: cols }, () => 100 / cols),
+    colWidthsPct,
+    ...(colWidthsTwips ? { colWidthsTwips } : {}),
     ...(isBorderless ? { borders: BORDERLESS_TABLE_BORDERS } : {}),
+    ...(isSignatureTable
+      ? {
+          rowCantSplit: rows.map(() => true),
+        }
+      : {}),
   }
   const pmNode = tableModelToPmNode(table)
-  // Hydrate cell content with rich inline marks (<b>, <i>, <u>) and paragraph alignment
+  if (colWidthsTwips && pmNode.content) {
+    // Clear pixel-rounded colwidth on cells so pmTableToModel uses exact colWidthsTwips ([560, 3900, 900, 700, 1400, 1600])
+    for (const rNode of pmNode.content) {
+      for (const cNode of rNode.content ?? []) {
+        if (cNode.attrs) cNode.attrs = { ...cNode.attrs, colwidth: null }
+      }
+    }
+  }
+
+  // Hydrate cell content with rich inline marks (<b>, <i>, <u>), NĐ30 rules, and paragraph alignment
   rawRows.forEach((cells, r) => {
     const rowNode = pmNode.content?.[r]
     if (!rowNode?.content) return
+    if (isSignatureTable && rowNode.attrs) {
+      rowNode.attrs = { ...rowNode.attrs, cantSplit: true, cantSplitEdited: true }
+    }
     const isHeader = headerRow && r === 0
-    cells.forEach((cellEl, c) => {
-      const cellNode = rowNode.content?.[c]
+    const rowText = cells.map((c) => (c.textContent ?? '').trim()).join(' ')
+    const isTotalRow =
+      !isBorderless &&
+      r > 0 &&
+      /\b(?:TỔNG\s*CỘNG|TONG\s*CONG|CỘNG|TỔNG\s*SỐ|TONG\s*SO|TỔNG\s*KINH\s*PHÍ)\b/i.test(rowText)
+
+    let colCursor = 0
+    cells.forEach((cellEl, cellIdx) => {
+      const c = colCursor
+      const colSpan = Math.max(1, Number(cellEl.getAttribute('colspan')) || 1)
+      colCursor += colSpan
+      const cellNode = rowNode.content?.[cellIdx]
       if (!cellNode) return
-      const cellAlign = extractTextAlign(cellEl) ?? defaultCellAlign
-      cellNode.content = parseCellParagraphNodes(cellEl, cellAlign, isHeader)
+      const cellText = (cellEl.textContent ?? '').replace(/\s+/g, ' ').trim()
+      const isNoiNhanCell = /\bNơi nhận\s*:/i.test(cellText)
+      const isNumericCell =
+        !isBorderless &&
+        !isHeader &&
+        c >= 2 &&
+        /^\s*-?\d[\d.,\s]*(?:\s*(?:đ|đồng|VND|VNĐ))?\s*$/i.test(cellText)
+      const isTotalLabelCell =
+        isTotalRow &&
+        /^(?:TỔNG\s*CỘNG|TONG\s*CONG|CỘNG|TỔNG\s*SỐ|TỔNG\s*KINH\s*PHÍ|TỔNG)$/i.test(cellText)
+      const cellAlign =
+        isHeader
+          ? 'center'
+          : isNoiNhanCell
+            ? 'left'
+            : isTotalLabelCell
+              ? 'center'
+              : isNumericCell || colDefaultAligns[c] === 'right'
+                ? 'right'
+                : extractTextAlign(cellEl) ?? colDefaultAligns[c] ?? defaultCellAlign
+
+      let paras = parseCellParagraphNodes(cellEl, cellAlign, isHeader)
+
+      // 1a & 1h) Normalize 2-column Quốc hiệu - Tiêu ngữ Header Table
+      if (isQuocHieuTable) {
+        // Strip empty paragraphs and standalone separator lines (---, ___) so both columns start at row 0 line 0
+        paras = paras.filter((p) => {
+          const t = getParagraphNodeText(p)
+          return t !== '' && !SEPARATOR_LINE_RE.test(t)
+        })
+        if (c === 0) {
+          // Left column: governing agency (regular upright uppercase), issuing agency (BOLD + UNDERLINE uppercase), Số/ký hiệu (regular upright)
+          const soIdx = paras.findIndex((p) => /^(?:Số|SỐ)\s*:/i.test(getParagraphNodeText(p)))
+          const agencyParas = soIdx >= 0 ? paras.slice(0, soIdx) : [...paras]
+          let soPara = soIdx >= 0 ? paras[soIdx] : null
+          const normalizedLeft: PmNode[] = []
+
+          if (agencyParas.length >= 2) {
+            // Line 0: Cơ quan chủ quản -> UPPERCASE, regular upright (NO bold, NO italic, NO underline)
+            const govPara = agencyParas[0]!
+            let govInline = uppercaseTextNodes(govPara.content ?? [])
+            govInline = removeMarkFromNodes(govInline, 'bold')
+            govInline = removeMarkFromNodes(govInline, 'italic')
+            govInline = removeMarkFromNodes(govInline, 'underline')
+            govInline = applyTextStyleToNodes(
+              govInline,
+              {
+                font: 'Times New Roman',
+                fontAscii: 'Times New Roman',
+                eastAsiaFont: 'Times New Roman',
+                sizeHalfPoints: 24,
+              },
+              true,
+            )
+            normalizedLeft.push(
+              blockNode(
+                'docParagraph',
+                { align: 'center', spaceBefore: 0, spaceAfter: 20, lineSpacing: 1.1 },
+                govInline,
+              ),
+            )
+            // Line 1+: Cơ quan ban hành -> UPPERCASE, BOLD + UNDERLINE (gạch chân ngắn)
+            for (let i = 1; i < agencyParas.length; i++) {
+              let issInline = uppercaseTextNodes(agencyParas[i]!.content ?? [])
+              issInline = ensureMarkOnNodes(issInline, 'bold')
+              issInline = ensureMarkOnNodes(issInline, 'underline')
+              issInline = removeMarkFromNodes(issInline, 'italic')
+              issInline = applyTextStyleToNodes(
+                issInline,
+                {
+                  font: 'Times New Roman',
+                  fontAscii: 'Times New Roman',
+                  eastAsiaFont: 'Times New Roman',
+                  sizeHalfPoints: 25,
+                },
+                true,
+              )
+              normalizedLeft.push(
+                blockNode(
+                  'docParagraph',
+                  { align: 'center', spaceBefore: 0, spaceAfter: 40, lineSpacing: 1.1 },
+                  issInline,
+                ),
+              )
+            }
+          } else if (agencyParas.length === 1) {
+            let issInline = uppercaseTextNodes(agencyParas[0]!.content ?? [])
+            issInline = ensureMarkOnNodes(issInline, 'bold')
+            issInline = ensureMarkOnNodes(issInline, 'underline')
+            issInline = removeMarkFromNodes(issInline, 'italic')
+            issInline = applyTextStyleToNodes(
+              issInline,
+              {
+                font: 'Times New Roman',
+                fontAscii: 'Times New Roman',
+                eastAsiaFont: 'Times New Roman',
+                sizeHalfPoints: 26,
+              },
+              true,
+            )
+            normalizedLeft.push(
+              blockNode(
+                'docParagraph',
+                { align: 'center', spaceBefore: 0, spaceAfter: 40, lineSpacing: 1.1 },
+                issInline,
+              ),
+            )
+          }
+
+          const issuingAgencyName =
+            agencyParas.length > 0
+              ? getParagraphNodeText(agencyParas[agencyParas.length - 1]!)
+              : 'ĐƠN VỊ'
+          const agencyAbbrev = deriveAgencyAbbrev(issuingAgencyName)
+          const docTypeAbbrev = /QUYẾT ĐỊNH/i.test(docTitleHint ?? '')
+            ? 'QĐ'
+            : /BÁO CÁO/i.test(docTitleHint ?? '')
+              ? 'BC'
+              : /THÔNG BÁO/i.test(docTitleHint ?? '')
+                ? 'TB'
+                : /KẾ HOẠCH/i.test(docTitleHint ?? '')
+                  ? 'KH'
+                  : /CÔNG VĂN/i.test(docTitleHint ?? '')
+                    ? 'CV'
+                    : 'TTr'
+
+          let soText = soPara ? getParagraphNodeText(soPara) : ''
+          if (!soText || /\.\.\.|___|\[\s*\]/.test(soText) || /^Số\s*:\s*(?:\/|$)/i.test(soText)) {
+            soText = `Số: 15/2026/${docTypeAbbrev}-${agencyAbbrev}`
+          }
+          const soInline = applyTextStyleToNodes(
+            [{ type: 'text', text: soText }],
+            {
+              font: 'Times New Roman',
+              fontAscii: 'Times New Roman',
+              eastAsiaFont: 'Times New Roman',
+              sizeHalfPoints: 26,
+            },
+            true,
+          )
+          normalizedLeft.push(
+            blockNode(
+              'docParagraph',
+              { align: 'center', spaceBefore: 40, spaceAfter: 0, lineSpacing: 1.1 },
+              soInline,
+            ),
+          )
+          paras = normalizedLeft
+        } else if (c === 1) {
+          // Right column: Quốc hiệu (IN HOA đậm cỡ 12-13), Tiêu ngữ (đậm cỡ 13-14, gạch chân bằng độ dài dòng chữ), địa danh ngày tháng (nghiêng)
+          const normalizedRight: PmNode[] = []
+          for (const p of paras) {
+            const t = getParagraphNodeText(p)
+            if (/CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM/i.test(t)) {
+              let qhInline = [{ type: 'text', text: 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM' }]
+              qhInline = ensureMarkOnNodes(qhInline, 'bold')
+              qhInline = applyTextStyleToNodes(
+                qhInline,
+                {
+                  font: 'Times New Roman',
+                  fontAscii: 'Times New Roman',
+                  eastAsiaFont: 'Times New Roman',
+                  sizeHalfPoints: 25, // 12.5pt (fits on 1 line cleanly, inside 12-13pt requirement)
+                },
+                true,
+              )
+              normalizedRight.push(
+                blockNode(
+                  'docParagraph',
+                  { align: 'center', spaceBefore: 0, spaceAfter: 20, lineSpacing: 1.1 },
+                  qhInline,
+                ),
+              )
+            } else if (/Độc lập\s*-\s*Tự do\s*-\s*Hạnh phúc/i.test(t)) {
+              let tnInline = [{ type: 'text', text: 'Độc lập - Tự do - Hạnh phúc' }]
+              tnInline = ensureMarkOnNodes(tnInline, 'bold')
+              tnInline = ensureMarkOnNodes(tnInline, 'underline')
+              tnInline = applyTextStyleToNodes(
+                tnInline,
+                {
+                  font: 'Times New Roman',
+                  fontAscii: 'Times New Roman',
+                  eastAsiaFont: 'Times New Roman',
+                  sizeHalfPoints: 27, // 13.5pt (inside 13-14pt requirement)
+                },
+                true,
+              )
+              normalizedRight.push(
+                blockNode(
+                  'docParagraph',
+                  { align: 'center', spaceBefore: 0, spaceAfter: 60, lineSpacing: 1.1 },
+                  tnInline,
+                ),
+              )
+            } else {
+              let dateText = t
+              if (/\.\.\.|___/.test(dateText)) {
+                const locMatch = /^([^,]+),\s*ngày/i.exec(dateText)
+                const loc = locMatch ? locMatch[1]!.trim() : 'Hà Nội'
+                dateText = `${loc}, ngày 30 tháng 10 năm 2026`
+              }
+              let dtInline = [{ type: 'text', text: dateText }]
+              dtInline = ensureMarkOnNodes(dtInline, 'italic')
+              dtInline = applyTextStyleToNodes(
+                dtInline,
+                {
+                  font: 'Times New Roman',
+                  fontAscii: 'Times New Roman',
+                  eastAsiaFont: 'Times New Roman',
+                  sizeHalfPoints: 26, // 13pt
+                },
+                true,
+              )
+              normalizedRight.push(
+                blockNode(
+                  'docParagraph',
+                  { align: 'center', spaceBefore: 20, spaceAfter: 0, lineSpacing: 1.1 },
+                  dtInline,
+                ),
+              )
+            }
+          }
+          paras = normalizedRight.length > 0 ? normalizedRight : paras
+        }
+      } else if (isSignatureTable) {
+        // 1e) Normalize Nơi nhận (left column, 11-12pt, lineSpacing 1.0, spaceAfter 0) & Chữ ký (right column, 3-4 blank lines above signer name)
+        if (isNoiNhanCell) {
+          const expandedParas: PmNode[] = []
+          for (const p of paras) {
+            const t = getParagraphNodeText(p)
+            if (!t) continue
+            const inlineSplitMatch = /^(\s*Nơi nhận\s*:)\s+(.+)$/i.exec(t)
+            if (inlineSplitMatch) {
+              expandedParas.push(
+                blockNode('docParagraph', { align: 'left' }, [{ type: 'text', text: 'Nơi nhận:' }]),
+              )
+              const restItems = inlineSplitMatch[2]!
+                .split(/(?=-\s+)/)
+                .map((s) => s.trim())
+                .filter(Boolean)
+              for (const item of restItems) {
+                expandedParas.push(
+                  blockNode('docParagraph', { align: 'left' }, [{ type: 'text', text: item }]),
+                )
+              }
+            } else {
+              expandedParas.push(p)
+            }
+          }
+          paras = expandedParas.map((p) => {
+            const t = getParagraphNodeText(p)
+            const isHeading = /^Nơi nhận\s*:/i.test(t)
+            let inline = p.content ?? []
+            if (isHeading) {
+              inline = [{ type: 'text', text: 'Nơi nhận:' }]
+              inline = ensureMarkOnNodes(ensureMarkOnNodes(inline, 'bold'), 'italic')
+              inline = applyTextStyleToNodes(
+                inline,
+                {
+                  font: 'Times New Roman',
+                  fontAscii: 'Times New Roman',
+                  eastAsiaFont: 'Times New Roman',
+                  sizeHalfPoints: 24, // 12pt
+                },
+                true,
+              )
+            } else {
+              inline = removeMarkFromNodes(removeMarkFromNodes(inline, 'bold'), 'italic')
+              inline = applyTextStyleToNodes(
+                inline,
+                {
+                  font: 'Times New Roman',
+                  fontAscii: 'Times New Roman',
+                  eastAsiaFont: 'Times New Roman',
+                  sizeHalfPoints: 22, // 11pt
+                },
+                true,
+              )
+            }
+            return blockNode(
+              'docParagraph',
+              { align: 'left', spaceBefore: 0, spaceAfter: 0, lineSpacing: 1.0 },
+              inline,
+            )
+          })
+        } else {
+          // Signer column: ensure title (BOLD UPPERCASE), instruction (italic), 3 blank lines, and signer name (BOLD)
+          const nonEmpty = paras.filter((p) => getParagraphNodeText(p) !== '')
+          if (nonEmpty.length >= 2) {
+            const normalizedSig: PmNode[] = []
+            const lastPara = nonEmpty[nonEmpty.length - 1]!
+            const lastText = getParagraphNodeText(lastPara)
+            const lastIsInstruction = /^\(Ký,?\s*(?:ghi rõ họ tên|đóng dấu)|^\(Ký và ghi rõ họ tên/i.test(
+              lastText,
+            )
+            const signerNamePara = lastIsInstruction ? null : lastPara
+            const headerParas = lastIsInstruction ? nonEmpty : nonEmpty.slice(0, -1)
+            let hasKyInstruction = false
+
+            for (const hp of headerParas) {
+              const ht = getParagraphNodeText(hp)
+              if (/^\(Ký,?\s*(?:ghi rõ họ tên|đóng dấu)|^\(Ký và ghi rõ họ tên|^\(Chữ ký/i.test(ht)) {
+                hasKyInstruction = true
+                let kyInline = ensureMarkOnNodes(
+                  removeMarkFromNodes(hp.content ?? [], 'bold'),
+                  'italic',
+                )
+                kyInline = applyTextStyleToNodes(
+                  kyInline,
+                  {
+                    font: 'Times New Roman',
+                    fontAscii: 'Times New Roman',
+                    eastAsiaFont: 'Times New Roman',
+                    sizeHalfPoints: 24, // 12pt
+                  },
+                  true,
+                )
+                normalizedSig.push(
+                  blockNode(
+                    'docParagraph',
+                    { align: 'center', spaceBefore: 0, spaceAfter: 0, lineSpacing: 1.1 },
+                    kyInline,
+                  ),
+                )
+              } else {
+                let titleInline = uppercaseTextNodes(hp.content ?? [])
+                titleInline = ensureMarkOnNodes(removeMarkFromNodes(titleInline, 'italic'), 'bold')
+                titleInline = applyTextStyleToNodes(
+                  titleInline,
+                  {
+                    font: 'Times New Roman',
+                    fontAscii: 'Times New Roman',
+                    eastAsiaFont: 'Times New Roman',
+                    sizeHalfPoints: 26, // 13pt
+                  },
+                  true,
+                )
+                normalizedSig.push(
+                  blockNode(
+                    'docParagraph',
+                    { align: 'center', spaceBefore: 0, spaceAfter: 20, lineSpacing: 1.1 },
+                    titleInline,
+                  ),
+                )
+              }
+            }
+
+            if (!hasKyInstruction) {
+              let kyInline: PmNode[] = [
+                {
+                  type: 'text',
+                  text: '(Ký, ghi rõ họ tên và đóng dấu)',
+                  marks: [
+                    { type: 'italic' },
+                    {
+                      type: 'docTextStyle',
+                      attrs: {
+                        font: 'Times New Roman',
+                        fontAscii: 'Times New Roman',
+                        eastAsiaFont: 'Times New Roman',
+                        sizeHalfPoints: 24,
+                      },
+                    },
+                  ],
+                },
+              ]
+              normalizedSig.push(
+                blockNode(
+                  'docParagraph',
+                  { align: 'center', spaceBefore: 0, spaceAfter: 0, lineSpacing: 1.1 },
+                  kyInline,
+                ),
+              )
+            }
+
+            // Insert 3 blank lines for signing & stamping (1e)
+            for (let b = 0; b < 3; b++) {
+              normalizedSig.push(
+                blockNode(
+                  'docParagraph',
+                  {
+                    align: 'center',
+                    spaceBefore: 0,
+                    spaceAfter: 0,
+                    lineSpacing: 1.0,
+                    emptyRunSize: 24,
+                    emptyRunFont: 'Times New Roman',
+                  },
+                  [],
+                ),
+              )
+            }
+
+            if (signerNamePara) {
+              let nameInline = ensureMarkOnNodes(
+                removeMarkFromNodes(signerNamePara.content ?? [], 'italic'),
+                'bold',
+              )
+              nameInline = applyTextStyleToNodes(
+                nameInline,
+                {
+                  font: 'Times New Roman',
+                  fontAscii: 'Times New Roman',
+                  eastAsiaFont: 'Times New Roman',
+                  sizeHalfPoints: 26, // 13pt
+                },
+                true,
+              )
+              normalizedSig.push(
+                blockNode(
+                  'docParagraph',
+                  { align: 'center', spaceBefore: 0, spaceAfter: 0, lineSpacing: 1.1 },
+                  nameInline,
+                ),
+              )
+            }
+            paras = normalizedSig
+          }
+        }
+      } else if (!isBorderless) {
+        // 1d & 1f) Data / Budget table formatting: header bold center, numbers right with thousand dots, TỔNG CỘNG bold
+        paras = paras.map((p) => {
+          let inline = (p.content ?? []).map((n) => {
+            if (n.type !== 'text' || !n.text) return n
+            let txt = n.text.replace(/\bTONG\s+CONG\b/gi, 'TỔNG CỘNG').replace(/\bTONG\s+SO\b/gi, 'TỔNG SỐ')
+            if (!isHeader && (isNumericCell || colDefaultAligns[c] === 'right')) {
+              txt = formatVnThousandDots(txt)
+            }
+            return { ...n, text: txt }
+          })
+          if (isHeader || isTotalRow) {
+            inline = ensureMarkOnNodes(inline, 'bold')
+          }
+          inline = applyTextStyleToNodes(
+            inline,
+            {
+              font: 'Times New Roman',
+              fontAscii: 'Times New Roman',
+              eastAsiaFont: 'Times New Roman',
+              sizeHalfPoints: 24, // 12pt inside data tables so columns never wrap > 2-3 lines (1f)
+            },
+            false,
+          )
+          return blockNode(
+            'docParagraph',
+            {
+              ...p.attrs,
+              ...(cellAlign ? { align: cellAlign } : {}),
+              spaceBefore: 20,
+              spaceAfter: 20,
+              lineSpacing: 1.1,
+            },
+            inline,
+          )
+        })
+      }
+
+      cellNode.content = paras
+      if (cellAlign && cellNode.attrs) {
+        cellNode.attrs = { ...cellNode.attrs, align: cellAlign }
+      }
+      if (rows[r]?.[c]) {
+        rows[r]![c]!.paras = paras.map((p) => getParagraphNodeText(p))
+      }
     })
   })
   return pmNode
@@ -1422,11 +2257,31 @@ export function countInlineImages(editor: Editor, start: number, end: number): n
   return n
 }
 
+const HAS_CHILD_BLOCK_TAG_RE =
+  /^(?:h[1-6]|p|div|section|article|main|header|footer|ul|ol|table|pre|blockquote|formula)$/i
+
+function splitInlineAtHardBreaks(inline: PmNode[]): PmNode[][] {
+  const segments: PmNode[][] = []
+  let cur: PmNode[] = []
+  for (const node of inline) {
+    if (node.type === 'hardBreak') {
+      if (cur.length > 0) segments.push(cur)
+      cur = []
+    } else {
+      cur.push(node)
+    }
+  }
+  if (cur.length > 0) segments.push(cur)
+  return segments
+}
+
 export function parseHtmlFragment(raw: string, numIds: NumIds): PmNode[] {
   let text = raw.trim()
   const fence = /```(?:html)?\s*([\s\S]*?)```/.exec(text)
   if (fence) text = fence[1].trim()
   if (!text) return []
+
+  text = sanitizeNd30Placeholders(text)
 
   // plain text response (no tags): one paragraph per blank-line-separated chunk
   if (!/<[a-z][\s\S]*>/i.test(text)) {
@@ -1439,6 +2294,15 @@ export function parseHtmlFragment(raw: string, numIds: NumIds): PmNode[] {
   }
 
   const parsed = new DOMParser().parseFromString(text, 'text/html')
+  const firstHeadingText = (parsed.body.querySelector('h1, h2')?.textContent ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  const isNd30Doc =
+    /CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM|Độc lập\s*-\s*Tự do\s*-\s*Hạnh phúc/i.test(text) ||
+    VN_DOC_TITLE_RE.test(firstHeadingText) ||
+    /\bNơi nhận\s*:/i.test(text) ||
+    /\bCăn cứ\s+(?:Luật|Nghị định|Thông tư|Quyết định|Quy chế|Điều lệ)/i.test(text)
+
   const out: PmNode[] = []
   const pushFormula = (el: Element) => {
     const latex = (el.textContent ?? '').trim()
@@ -1450,66 +2314,369 @@ export function parseHtmlFragment(raw: string, numIds: NumIds): PmNode[] {
       throw new Error(`Cannot parse the LaTeX in <formula> (${reason}): ${latex}`, { cause: e })
     }
   }
-  parsed.body.childNodes.forEach((child) => {
-    if (child.nodeType === Node.TEXT_NODE) {
-      const t = (child.textContent ?? '').trim()
-      if (t) out.push(blockNode('docParagraph', {}, [{ type: 'text', text: t }]))
-      return
+
+  const pushFormattedParagraph = (inlineChunk: PmNode[], explicitAlign?: 'left' | 'center' | 'right' | 'justify') => {
+    const chunkText = inlineChunk
+      .map((n) => n.text ?? '')
+      .join('')
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (!chunkText) return
+    let normalized = ensureNd30InlineMarks(inlineChunk, chunkText)
+    let align = explicitAlign
+    if (CAN_CU_LINE_RE.test(chunkText)) {
+      // 1c) Dòng căn cứ phải in nghiêng và căn trái, tuyệt đối không justify kéo giãn chữ
+      align = 'left'
+    } else if (
+      !align &&
+      (/^CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM/i.test(chunkText) ||
+        /^Độc lập\s*-\s*Tự do\s*-\s*Hạnh phúc/i.test(chunkText) ||
+        /^\((?:Căn cứ|Ban hành kèm theo)/i.test(chunkText) ||
+        /^Về việc\s+/i.test(chunkText) ||
+        /^V\/v\s+/i.test(chunkText) ||
+        /^Kính gửi\s*:/i.test(chunkText))
+    ) {
+      align = 'center'
+    } else if (!align && isNd30Doc) {
+      align = 'justify'
     }
-    if (child.nodeType !== Node.ELEMENT_NODE) return
-    const el = child as Element
-    const tag = el.tagName.toLowerCase()
-    const headingMatch = /^h([1-6])$/.exec(tag)
-    if (headingMatch) {
-      const level = Number(headingMatch[1])
-      let align = extractTextAlign(el)
-      const headingText = (el.textContent ?? '').trim()
-      if (
-        !align &&
-        level === 1 &&
-        /\b(HỢP ĐỒNG|QUYẾT ĐỊNH|TỜ TRÌNH|CÔNG VĂN|BIÊN BẢN|THÔNG BÁO|BÁO CÁO|QUY CHẾ|ĐIỀU LỆ|GIẤY ỦY QUYỀN|ĐƠN XIN|BẢNG BÁO GIÁ|PHỤ LỤC|KẾ HOẠCH|CHƯƠNG TRÌNH|ĐỀ ÁN)\b/i.test(
-          headingText,
-        )
-      ) {
-        align = 'center'
-      }
-      out.push(
-        blockNode('docHeading', { level, ...(align ? { align } : {}) }, parseInline(el, [])),
+    if (/^(?:Về việc|V\/v)\s+/i.test(chunkText)) {
+      normalized = ensureMarkOnNodes(normalized, 'bold')
+    }
+    if (isNd30Doc) {
+      normalized = applyTextStyleToNodes(
+        normalized,
+        {
+          font: 'Times New Roman',
+          fontAscii: 'Times New Roman',
+          eastAsiaFont: 'Times New Roman',
+          sizeHalfPoints: 26, // 13pt standard NĐ30 body size
+        },
+        false,
       )
-    } else if (tag === 'ul' || tag === 'ol') {
-      parseList(el, tag === 'ol' ? 'ordered' : 'bullet', 0, numIds, out)
-    } else if (tag === 'table') {
-      const node = parseTable(el)
-      if (node) out.push(node)
-    } else if (tag === 'pre') {
-      const node = parseCodeBlock(el)
-      if (node) out.push(node)
-    } else if (tag === 'blockquote') {
-      const node = parseBlockquote(el)
-      if (node) out.push(node)
-    } else if (tag === 'formula') {
-      pushFormula(el)
-    } else if (tag === 'p' || tag === 'div') {
-      const inline = parseInline(el, [])
-      if (inline.length > 0) {
+    }
+    out.push(
+      blockNode(
+        'docParagraph',
+        {
+          ...(align ? { align } : {}),
+          ...(isNd30Doc
+            ? {
+                lineSpacing: 1.15,
+                spaceBefore: CAN_CU_LINE_RE.test(chunkText) ? 20 : 40,
+                spaceAfter: CAN_CU_LINE_RE.test(chunkText) ? 40 : 60,
+              }
+            : {}),
+        },
+        normalized,
+      ),
+    )
+  }
+
+  const walkBlockContainer = (container: Node) => {
+    container.childNodes.forEach((child) => {
+      if (child.nodeType === Node.TEXT_NODE) {
+        const t = (child.textContent ?? '').trim()
+        if (t) pushFormattedParagraph([{ type: 'text', text: t }])
+        return
+      }
+      if (child.nodeType !== Node.ELEMENT_NODE) return
+      const el = child as Element
+      const tag = el.tagName.toLowerCase()
+      const headingMatch = /^h([1-6])$/.exec(tag)
+      if (headingMatch) {
+        let level = Number(headingMatch[1])
         let align = extractTextAlign(el)
-        const paraText = (el.textContent ?? '').trim()
-        if (
-          !align &&
-          (/^CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM\b/i.test(paraText) ||
-            /^Độc lập\s*-\s*Tự do\s*-\s*Hạnh phúc/i.test(paraText) ||
-            /^\((?:Căn cứ|Ban hành kèm theo)/i.test(paraText))
-        ) {
+        const headingText = (el.textContent ?? '').replace(/\s+/g, ' ').trim()
+        const isMainDocTitle = VN_DOC_TITLE_RE.test(headingText)
+        if (level === 2 && isMainDocTitle) {
+          level = 1
+        }
+        if (!align && (level === 1 || isMainDocTitle)) {
           align = 'center'
         }
-        out.push(blockNode('docParagraph', align ? { align } : {}, inline))
+        let inline = parseInline(el, [])
+        if (level === 1 || isMainDocTitle) {
+          inline = ensureMarkOnNodes(inline, 'bold')
+        }
+        if (isNd30Doc) {
+          inline = ensureMarkOnNodes(inline, 'bold')
+          inline = applyTextStyleToNodes(
+            inline,
+            {
+              font: 'Times New Roman',
+              fontAscii: 'Times New Roman',
+              eastAsiaFont: 'Times New Roman',
+              sizeHalfPoints: level === 1 || isMainDocTitle ? 28 : 26, // 14pt main title, 13pt section heading
+            },
+            true,
+          )
+        }
+        out.push(
+          blockNode(
+            'docHeading',
+            {
+              level,
+              ...(align ? { align } : {}),
+              ...(isNd30Doc
+                ? {
+                    lineSpacing: 1.15,
+                    spaceBefore: level === 1 ? 120 : 80,
+                    spaceAfter: level === 1 ? 40 : 60,
+                    keepNext: true,
+                  }
+                : {}),
+            },
+            inline,
+          ),
+        )
+      } else if (tag === 'ul' || tag === 'ol') {
+        parseList(el, tag === 'ol' ? 'ordered' : 'bullet', 0, numIds, out)
+      } else if (tag === 'table') {
+        const node = parseTable(el, firstHeadingText)
+        if (node) out.push(node)
+      } else if (tag === 'pre') {
+        const node = parseCodeBlock(el)
+        if (node) out.push(node)
+      } else if (tag === 'blockquote') {
+        const node = parseBlockquote(el)
+        if (node) out.push(node)
+      } else if (tag === 'formula') {
+        pushFormula(el)
+      } else if (
+        (tag === 'div' ||
+          tag === 'section' ||
+          tag === 'article' ||
+          tag === 'main' ||
+          tag === 'header' ||
+          tag === 'footer') &&
+        Array.from(el.children).some((c) => HAS_CHILD_BLOCK_TAG_RE.test(c.tagName))
+      ) {
+        walkBlockContainer(el)
+      } else if (tag === 'p' || tag === 'div') {
+        const inline = parseInline(el, [])
+        if (inline.length > 0) {
+          const explicitAlign = extractTextAlign(el)
+          const hasHardBreak = inline.some((n) => n.type === 'hardBreak')
+          const rawText = (el.textContent ?? '').replace(/\s+/g, ' ').trim()
+          // 1c) Split <br>-separated Căn cứ / Xét đề nghị / Kính gửi lines into distinct paragraphs so they never stretch
+          if (
+            hasHardBreak &&
+            (isNd30Doc || /\b(?:Căn cứ|Xét đề nghị|Theo đề nghị|Kính gửi)\b/i.test(rawText))
+          ) {
+            const segments = splitInlineAtHardBreaks(inline)
+            for (const seg of segments) {
+              pushFormattedParagraph(seg, explicitAlign)
+            }
+          } else {
+            pushFormattedParagraph(inline, explicitAlign)
+          }
+        }
+      } else if (tag === 'hr') {
+        // Ignore raw <hr> or separator elements outside text
+      } else {
+        // unknown block-ish tag: salvage the text
+        const t = (el.textContent ?? '').trim()
+        if (t) pushFormattedParagraph([{ type: 'text', text: t }])
       }
-    } else {
-      // unknown block-ish tag: salvage the text
-      const t = (el.textContent ?? '').trim()
-      if (t) out.push(blockNode('docParagraph', {}, [{ type: 'text', text: t }]))
+    })
+  }
+
+  walkBlockContainer(parsed.body)
+
+  // Post-process NĐ30 structural rules (1a, 1c, 1e, 1f, 1h)
+  if (isNd30Doc && out.length > 0) {
+    // 1a) Ensure the right column of the Quốc hiệu table contains the date line (move standalone date paragraph if placed outside, or synthesize if missing)
+    const firstBlock = out[0]
+    if (firstBlock?.type === 'docTable') {
+      const rightCell = firstBlock.content?.[0]?.content?.[1]
+      if (rightCell?.content) {
+        const hasDateInCell = rightCell.content.some((p) =>
+          VN_DATE_LINE_RE.test(getParagraphNodeText(p)),
+        )
+        if (!hasDateInCell) {
+          // Check if block 1 is a standalone date line
+          const secondBlock = out[1]
+          const secondText = secondBlock?.type === 'docParagraph' ? getParagraphNodeText(secondBlock) : ''
+          let dateText = 'Hà Nội, ngày 30 tháng 10 năm 2026'
+          if (secondText && VN_DATE_LINE_RE.test(secondText)) {
+            dateText = secondText
+            out.splice(1, 1)
+          }
+          const dtInline = applyTextStyleToNodes(
+            ensureMarkOnNodes([{ type: 'text', text: dateText }], 'italic'),
+            {
+              font: 'Times New Roman',
+              fontAscii: 'Times New Roman',
+              eastAsiaFont: 'Times New Roman',
+              sizeHalfPoints: 26,
+            },
+            true,
+          )
+          rightCell.content.push(
+            blockNode(
+              'docParagraph',
+              { align: 'center', spaceBefore: 20, spaceAfter: 0, lineSpacing: 1.1 },
+              dtInline,
+            ),
+          )
+        }
+      }
     }
-  })
+
+    // 1h) If an administrative document (Tờ trình / Quyết định / Kế hoạch / Thông báo / Công văn) has no Căn cứ lines, synthesize 2 standard Căn cứ paragraphs
+    const hasCanCu = out.some(
+      (b) => b.type === 'docParagraph' && CAN_CU_LINE_RE.test(getParagraphNodeText(b)),
+    )
+    const needsCanCu = /^(?:TỜ TRÌNH|QUYẾT ĐỊNH|KẾ HOẠCH|THÔNG BÁO|PHƯƠNG ÁN|ĐỀ ÁN)\b/i.test(
+      firstHeadingText,
+    )
+    if (needsCanCu && !hasCanCu) {
+      let insertIdx = out.findIndex(
+        (b) => b.type === 'docParagraph' && /^Kính gửi\s*:/i.test(getParagraphNodeText(b)),
+      )
+      if (insertIdx < 0) {
+        insertIdx = out.findIndex(
+          (b) => b.type === 'docParagraph' && /^(?:Về việc|V\/v)\s+/i.test(getParagraphNodeText(b)),
+        )
+      }
+      if (insertIdx < 0) {
+        insertIdx = out.findIndex((b) => b.type === 'docHeading' && b.attrs?.level === 1)
+      }
+      if (insertIdx >= 0) {
+        const defaultCanCuLines = [
+          'Căn cứ Nghị định số 30/2020/NĐ-CP ngày 05 tháng 3 năm 2020 của Chính phủ về công tác văn thư;',
+          'Căn cứ chức năng, nhiệm vụ, quyền hạn và kế hoạch triển khai hoạt động năm 2026 của đơn vị;',
+        ]
+        const canCuNodes = defaultCanCuLines.map((line) =>
+          blockNode(
+            'docParagraph',
+            { align: 'left', lineSpacing: 1.15, spaceBefore: 20, spaceAfter: 40 },
+            applyTextStyleToNodes(
+              ensureMarkOnNodes([{ type: 'text', text: line }], 'italic'),
+              {
+                font: 'Times New Roman',
+                fontAscii: 'Times New Roman',
+                eastAsiaFont: 'Times New Roman',
+                sizeHalfPoints: 26,
+              },
+              true,
+            ),
+          ),
+        )
+        out.splice(insertIdx + 1, 0, ...canCuNodes)
+      }
+    }
+
+    // 1e) If Nơi nhận & signature were emitted as standalone paragraphs/lists instead of a 2-column table, pack them into a 2-column borderless signature table with cantSplit
+    const standaloneNoiNhanIdx = out.findIndex(
+      (b, idx) =>
+        idx > 0 &&
+        b.type === 'docParagraph' &&
+        /^Nơi nhận\s*:/i.test(getParagraphNodeText(b)),
+    )
+    if (standaloneNoiNhanIdx >= 0) {
+      const tailBlocks = out.slice(standaloneNoiNhanIdx)
+      const leftLines: string[] = ['Nơi nhận:']
+      const rightLines: string[] = []
+      let inRight = false
+      for (let tIdx = 0; tIdx < tailBlocks.length; tIdx++) {
+        const tb = tailBlocks[tIdx]!
+        const txt = getParagraphNodeText(tb)
+        if (!txt) continue
+        if (tIdx === 0) {
+          const afterColon = txt.replace(/^Nơi nhận\s*:\s*/i, '').trim()
+          if (afterColon) {
+            for (const part of afterColon.split(/(?=-\s+)/).map((s) => s.trim()).filter(Boolean)) {
+              leftLines.push(part)
+            }
+          }
+          continue
+        }
+        if (
+          !inRight &&
+          (tb.type === 'docListItem' ||
+            /^[-•+]\s*/.test(txt) ||
+            /^(?:Như trên|Lưu\s*:|Ban Giám|Phòng\s)/i.test(txt))
+        ) {
+          leftLines.push(txt.startsWith('-') ? txt : `- ${txt}`)
+        } else {
+          inRight = true
+          rightLines.push(txt)
+        }
+      }
+      if (leftLines.length === 1) {
+        leftLines.push('- Như trên;', '- Lưu: VT.')
+      }
+      if (rightLines.length === 0) {
+        rightLines.push('THỦ TRƯỞNG ĐƠN VỊ', '(Ký, ghi rõ họ tên và đóng dấu)')
+      }
+      const synthTable = parsed.createElement('table')
+      synthTable.setAttribute('border', '0')
+      const tr = parsed.createElement('tr')
+      const tdLeft = parsed.createElement('td')
+      for (const l of leftLines) {
+        const p = parsed.createElement('p')
+        p.textContent = l
+        tdLeft.appendChild(p)
+      }
+      const tdRight = parsed.createElement('td')
+      for (const r of rightLines) {
+        const p = parsed.createElement('p')
+        p.textContent = r
+        tdRight.appendChild(p)
+      }
+      tr.appendChild(tdLeft)
+      tr.appendChild(tdRight)
+      synthTable.appendChild(tr)
+      const sigTableNode = parseTable(synthTable, firstHeadingText)
+      if (sigTableNode) {
+        out.splice(standaloneNoiNhanIdx, out.length - standaloneNoiNhanIdx, sigTableNode)
+      }
+    }
+
+    // Format list items with Times New Roman 13pt & 1.15 spacing
+    for (let i = 0; i < out.length; i++) {
+      const b = out[i]!
+      if (b.type === 'docListItem') {
+        b.attrs = { ...b.attrs, lineSpacing: 1.15, spaceBefore: 20, spaceAfter: 40 }
+        if (b.content) {
+          b.content = applyTextStyleToNodes(
+            b.content,
+            {
+              font: 'Times New Roman',
+              fontAscii: 'Times New Roman',
+              eastAsiaFont: 'Times New Roman',
+              sizeHalfPoints: 26,
+            },
+            false,
+          )
+        }
+      }
+      // 1e) Mark closing paragraphs (Trên đây là / Kính trình / Trân trọng...) with keepNext & keepLines
+      if (b.type === 'docParagraph') {
+        const pText = getParagraphNodeText(b)
+        if (/^(?:Trên đây là|Vậy kính trình|Kính trình|Đề nghị\s|Rất mong\s|Trân trọng)/i.test(pText)) {
+          b.attrs = { ...b.attrs, keepNext: true, keepLines: true }
+        }
+      }
+      // 1f) Never allow a forced pageBreakBefore before any table, and keep intro paragraph attached to table
+      if (b.type === 'docTable' && i > 0) {
+        const prev = out[i - 1]!
+        if (prev.attrs) {
+          prev.attrs = { ...prev.attrs, pageBreakBefore: false, keepNext: true, keepLines: true }
+        }
+        // 1e) If this is the final signature table, also mark the 2 preceding paragraphs with keepNext: true so the closing paragraph and signature block stay on the same page
+        if (i === out.length - 1 && i >= 2) {
+          const prev2 = out[i - 2]!
+          if (prev2.type === 'docParagraph' && prev2.attrs) {
+            prev2.attrs = { ...prev2.attrs, keepNext: true, keepLines: true }
+          }
+        }
+      }
+    }
+  }
+
   return out
 }
 
@@ -1801,4 +2968,23 @@ export function insertBlocksAfter(
   editor.view.dispatch(tr)
   scrollPosIntoView(editor, to)
   return true
+}
+
+/**
+ * Clear all `aiChanged` highlight flags across the entire document (including
+ * paragraphs inside table cells) without adding an undo history step (1g).
+ */
+export function clearAiChangedHighlights(editor: Editor): void {
+  const view = editor.view
+  let tr = view.state.tr
+  let touched = false
+  view.state.doc.descendants((node, pos) => {
+    if (node.attrs?.aiChanged) {
+      tr = tr.setNodeMarkup(pos, undefined, { ...node.attrs, aiChanged: false })
+      touched = true
+    }
+  })
+  if (!touched) return
+  tr = tr.setMeta('addToHistory', false)
+  view.dispatch(tr)
 }

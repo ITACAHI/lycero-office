@@ -1871,16 +1871,16 @@ export const workbookPivotAddSchema = z
     /// lists (parallel), and the selected member per field (null = all).
     pageFieldIndices: z.array(z.number().int().nonnegative()).max(4).optional(),
     pageLevelItems: z
-      .array(z.array(z.string().max(255)).max(10_000))
+      .array(z.array(z.string().max(255)).max(50_000))
       .max(4)
       .optional(),
     pageItems: z.array(z.number().int().nonnegative().nullable()).max(4).optional(),
     /// Distinct row/column item captions in baked (first-appearance) order.
-    rowItems: z.array(z.string().max(255)).min(1).max(10_000),
+    rowItems: z.array(z.string().max(255)).min(1).max(50_000),
     /// Deduplicated member lists per row level (required for multi-level rows;
     /// omissible for single level = [rowItems]).
     rowLevelItems: z
-      .array(z.array(z.string().max(255)).max(10_000))
+      .array(z.array(z.string().max(255)).max(50_000))
       .max(8)
       .optional(),
     /// Row-by-row layout of the output data rows (required for multi-level rows):
@@ -1895,7 +1895,7 @@ export const workbookPivotAddSchema = z
           })
           .strict(),
       )
-      .max(20_000)
+      .max(100_000)
       .optional(),
     columnItems: z.array(z.string().max(255)).max(1_000).optional(),
     /// Multi-level columns: column dimension field indices (outer → inner). Takes

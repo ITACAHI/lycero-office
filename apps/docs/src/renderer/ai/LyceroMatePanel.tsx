@@ -51,7 +51,7 @@ import { createElectronTransport } from './transport'
 import { useI18n, t as tModule, aiLangDirective, type StringKey } from '../i18n/locale'
 import { Markdown } from '@lycero/ui'
 import { AiComposer, AiScopeQuote, AiTypingIndicator, type AiScopeQuoteData } from '@lycero/ui'
-import { LyceroMark } from '../components/icons'
+import { GensparkMark as LyceroMark } from '../components/icons'
 import sendEnterOn from '../assets/send-enter-on.png'
 import sendEnterOff from '../assets/send-enter-off.png'
 import sendStop from '../assets/send-stop.png'
@@ -546,7 +546,7 @@ export function LyceroMate({
     const view = editorRef.current.view
     let tr = view.state.tr
     let touched = false
-    view.state.doc.forEach((node, offset) => {
+    view.state.doc.descendants((node, offset) => {
       if (node.attrs.aiChanged) {
         tr = tr.setNodeMarkup(offset, undefined, { ...node.attrs, aiChanged: false })
         touched = true
@@ -832,7 +832,7 @@ export function LyceroMate({
       void capabilitiesMgr.setSkillActive(slug, active).then(() => {
         const activeSlugs = capabilitiesMgr.getActiveSkillSlugs()
         const cfg = capabilitiesMgr.getUserSkillConfig() as Record<string, unknown>
-        loopRef.current?.updateSkillConfig(activeSlugs, cfg)
+        ;(loopRef.current as unknown as { updateSkillConfig?: (s: string[], c: Record<string, unknown>) => void } | null)?.updateSkillConfig?.(activeSlugs, cfg)
       })
     },
     [capabilitiesMgr],
@@ -843,7 +843,7 @@ export function LyceroMate({
       void capabilitiesMgr.setSkillConfigValue(slug, fieldId, val).then(() => {
         const activeSlugs = capabilitiesMgr.getActiveSkillSlugs()
         const cfg = capabilitiesMgr.getUserSkillConfig() as Record<string, unknown>
-        loopRef.current?.updateSkillConfig(activeSlugs, cfg)
+        ;(loopRef.current as unknown as { updateSkillConfig?: (s: string[], c: Record<string, unknown>) => void } | null)?.updateSkillConfig?.(activeSlugs, cfg)
       })
     },
     [capabilitiesMgr],
@@ -971,6 +971,7 @@ export function LyceroMate({
           setBusy(false)
           // App listens: a run that generated content into a never-saved document
           // triggers a silent first save with a content-derived file name
+          if (!trackChangesRef.current) clearAiHighlights(true)
           window.dispatchEvent(new Event('ai-docs-run-done'))
           // persist outside the updater (a double-invoked updater would write history twice); tools stores the whole run's full activity.
           // Edits-only runs (tools ran, no text) persist too, or the whole turn vanishes from the restored transcript
@@ -2077,7 +2078,7 @@ function ToolChipList({ tools }: { tools: ToolActivity[] }) {
   const label = anyRunning
     ? tr('aiGroupWorking')
     : mutatedCount > 0
-      ? tr('aiWorkedStepsApplied', { total: tools.length, applied: mutatedCount })
+      ? tr('aiWorkedSteps', { n: tools.length })
       : tr('aiWorkedSteps', { n: tools.length })
 
   return (
@@ -2122,7 +2123,7 @@ function ToolChipList({ tools }: { tools: ToolActivity[] }) {
                     </span>
                   )}
                   {tool.mutated && !tool.running && (
-                    <span className="ai-step-mutated-mark" aria-label={tr('aiStepApplied')} data-tip={tr('aiStepApplied')}>
+                    <span className="ai-step-mutated-mark" aria-hidden>
                       ✓
                     </span>
                   )}

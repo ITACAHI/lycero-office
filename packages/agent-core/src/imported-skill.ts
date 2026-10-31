@@ -240,7 +240,7 @@ function unquote(value: string): string {
     (value.startsWith('"') && value.endsWith('"') && value.length > 1) ||
     (value.startsWith("'") && value.endsWith("'") && value.length > 1)
   ) {
-    return value.slice(1, -1).replace(/''/g, "'")
+    return value.slice(1, -1).replace(/''/g, "'").replace(/\\"/g, '"')
   }
   return value
 }

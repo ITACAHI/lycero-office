@@ -364,6 +364,9 @@ interface AiPanelProps {
   docExtras?: AiDocExtras
   /** footnote / endnote lists for insert_footnote, insert_endnote, delete_note, read_notes */
   notesAccess?: AiNotesAccess
+  /** Document-level Track Changes mode (synced with Ribbon & Status Bar; defaults to false) */
+  trackChanges?: boolean
+  onTrackChanges?: (on: boolean) => void
 }
 
 const MODEL_BRIDGE: AiModelPickerBridge = {
@@ -397,6 +400,8 @@ export function AiPanel({
   pageSetupAccess,
   docExtras,
   notesAccess,
+  trackChanges: trackChangesProp,
+  onTrackChanges,
 }: AiPanelProps) {
   const { t, lang } = useI18n()
   // Panel chrome follows the UI language; message text follows its own content (dir=auto below)
@@ -447,9 +452,7 @@ export function AiPanel({
   const writerEpochRef = useRef(0)
   /** Past conversation restored from JSONL (read-only transcript, not fed to the model) */
   const [historicChat, setHistoricChat] = useState<ChatEntry[]>([])
-  const [trackChanges, setTrackChanges] = useState(
-    () => localStorage.getItem(TRACK_CHANGES_KEY) === '1',
-  )
+  const [trackChanges, setTrackChanges] = useState<boolean>(() => trackChangesProp ?? false)
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
   const [attachments, setAttachments] = useState<AttachmentMeta[]>([])
   const [attachedSkills, setAttachedSkills] = useState<string[]>([])
@@ -626,7 +629,7 @@ export function AiPanel({
   const getActiveSkillSlugs = () => {
     const docHeadings = blocksRef.current
       .slice(0, 12)
-      .map((b) => b.text)
+      .map((b) => ('text' in b && typeof b.text === 'string' ? b.text : ''))
       .join(' ')
     return (
       cloudCapabilitiesRef.current?.classifySkillsForTurn({
@@ -664,14 +667,14 @@ export function AiPanel({
   const notesAccessRef = useRef(notesAccess)
   notesAccessRef.current = notesAccess
 
-  /** drop every aiChanged flag; silent = skip undo history (auto-accept path) */
+  /** drop every aiChanged flag (including nested table cells); silent = skip undo history (auto-accept path) */
   const clearAiHighlights = (silent = false) => {
     const view = editorRef.current.view
     let tr = view.state.tr
     let touched = false
-    view.state.doc.forEach((node, offset) => {
-      if (node.attrs.aiChanged) {
-        tr = tr.setNodeMarkup(offset, undefined, { ...node.attrs, aiChanged: false })
+    view.state.doc.descendants((node, pos) => {
+      if (node.attrs?.aiChanged) {
+        tr = tr.setNodeMarkup(pos, undefined, { ...node.attrs, aiChanged: false })
         touched = true
       }
     })
@@ -1061,9 +1064,9 @@ export function AiPanel({
         onToolExecuted: ({ call, execution, snapshotBefore }) => {
           // The run's first pre-edit state wins so one roll-back undoes the whole run
           if (snapshotBefore && !runSnapshotRef.current) runSnapshotRef.current = snapshotBefore
-          // Keep .ai-changed highlights visible during the live run and post-run review bar
-          // so the user can visually inspect the changed paragraphs on the A4 canvas.
-          // Highlights are cleared when the user clicks Keep / Undo or starts the next run.
+          // Only display edit marks when the user has Track Changes enabled;
+          // otherwise strip aiChanged immediately so the document stays completely natural.
+          if (!trackChangesRef.current) clearAiHighlights(true)
           // mind maps ride the UI-only display side channel onto the message
           const display = execution.display
           const mindmap = display?.kind === 'mindmap' ? display.tree : undefined
@@ -1125,6 +1128,7 @@ export function AiPanel({
           }))
           setBusy(false)
           setLiveDocTarget(null)
+          if (!trackChangesRef.current) clearAiHighlights(true)
           // App listens: a run that generated content into a never-saved document
           // triggers a silent first save with a content-derived file name
           window.dispatchEvent(new Event('ai-docs-run-done'))
@@ -1175,6 +1179,7 @@ export function AiPanel({
             .catch(() => {})
           setBusy(false)
           setLiveDocTarget(null)
+          if (!trackChangesRef.current) clearAiHighlights(true)
         },
       },
     })
@@ -1568,9 +1573,19 @@ export function AiPanel({
     clearAiHighlights()
   }
 
+  useEffect(() => {
+    if (trackChangesProp === undefined) return
+    setTrackChanges((prev) => {
+      if (prev === trackChangesProp) return prev
+      if (!trackChangesProp) clearAiHighlights(true)
+      return trackChangesProp
+    })
+  }, [trackChangesProp])
+
   const toggleTrackChanges = () => {
     const next = !trackChanges
     setTrackChanges(next)
+    onTrackChanges?.(next)
     localStorage.setItem(TRACK_CHANGES_KEY, next ? '1' : '0')
     // switching off keeps nothing pending: accept whatever is still highlighted
     if (!next) acceptChanges()

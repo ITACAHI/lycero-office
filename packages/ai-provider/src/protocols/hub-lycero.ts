@@ -86,18 +86,39 @@ function buildMessages(
   system: string,
   messages: AgentMessage[],
   maskText: (txt: string) => string,
+  multimodalContent = true,
 ): Array<Record<string, unknown>> {
   const out: Array<Record<string, unknown>> = [
     { role: 'system', content: maskText(system) },
   ]
   for (const m of messages) {
     if (m.role === 'user') {
-      out.push({
-        role: 'user',
-        content: m.images?.length
-          ? `[Hình ảnh đính kèm: ${m.images.length} file]`
-          : maskText(m.text),
-      })
+      const maskedText = maskText(m.text)
+      if (m.images?.length) {
+        const imageItems = m.images.map((img) => ({
+          mime: img.mime,
+          base64: img.base64,
+          url: `data:${img.mime};base64,${img.base64}`,
+        }))
+        out.push({
+          role: 'user',
+          content: multimodalContent
+            ? [
+                ...(maskedText ? [{ type: 'text', text: maskedText }] : []),
+                ...imageItems.map((img) => ({
+                  type: 'image_url',
+                  image_url: { url: img.url },
+                })),
+              ]
+            : maskedText,
+          images: imageItems,
+        })
+      } else {
+        out.push({
+          role: 'user',
+          content: maskedText,
+        })
+      }
     } else if (m.role === 'assistant') {
       const assistantMsg: Record<string, unknown> = {
         role: 'assistant',
@@ -214,7 +235,10 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
 
   // Tier-1 Client Pre-Flight Token Compaction (Delta Deduplication + AST Viewport Slicing)
   const clientCompaction = compactOutboundAgentTurn(messages)
-  const outboundMessages = buildMessages(system, clientCompaction.messages, maskText)
+  const hasImages = clientCompaction.messages.some(
+    (m) => m.role === 'user' && Boolean(m.images?.length),
+  )
+  let multimodalContent = true
   const lyceroCtx = resolveLyceroGatewayContext({
     baseUrl: url,
     system,
@@ -240,21 +264,23 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
     'X-Lycero-Client-Compaction': clientCompaction.headerJson,
     ...lyceroCtx.headers,
   }
-  const requestBody = JSON.stringify({
-    productCode: 'office',
-    modelId,
-    ...lyceroCtx.bodyExtras,
-    messages: outboundMessages,
-    ...(tools.length > 0
-      ? {
-          tools: tools.map((t) => ({
-            type: 'function',
-            function: { name: t.name, description: t.description, parameters: t.inputSchema },
-          })),
-        }
-      : {}),
-    stream: true,
-  })
+  const makeRequestBody = () =>
+    JSON.stringify({
+      productCode: 'office',
+      modelId,
+      ...lyceroCtx.bodyExtras,
+      messages: buildMessages(system, clientCompaction.messages, maskText, multimodalContent),
+      ...(tools.length > 0
+        ? {
+            tools: tools.map((t) => ({
+              type: 'function',
+              function: { name: t.name, description: t.description, parameters: t.inputSchema },
+            })),
+          }
+        : {}),
+      stream: true,
+    })
+  let requestBody = makeRequestBody()
 
   let authRetried = false
   const totalAttempts = Math.max(1, maxAttempts)
@@ -325,6 +351,16 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
             // use default
           }
           throw new Error(msg)
+        }
+
+        if (
+          (response.status === 400 || response.status === 422) &&
+          hasImages &&
+          multimodalContent
+        ) {
+          multimodalContent = false
+          requestBody = makeRequestBody()
+          throw new Error('__LYCERO_RETRY_STRING_CONTENT__')
         }
 
         if (!response.ok || !response.body) {
@@ -442,7 +478,10 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
       return
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      if (msg === '__LYCERO_RETRY_NEW_TOKEN__' && !cb.signal?.aborted) {
+      if (
+        (msg === '__LYCERO_RETRY_NEW_TOKEN__' || msg === '__LYCERO_RETRY_STRING_CONTENT__') &&
+        !cb.signal?.aborted
+      ) {
         attempt--
         continue
       }

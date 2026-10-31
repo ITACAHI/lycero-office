@@ -112,11 +112,15 @@ export const imageCommand: CommandDef = {
       },
       { mediaRoots },
     )
-    if (!r.url)
-      throw new CliError(EXIT.app, r.error ?? 'image generation failed', undefined, {
+    if (!r.url) {
+      const msg = r.error ?? 'image generation failed'
+      const isAppAuth = /not logged in|chưa đăng nhập|turned off|đang bị tắt/i.test(msg)
+      throw new CliError(isAppAuth ? EXIT.app : EXIT.conversion, msg, undefined, {
+        reason: isAppAuth ? 'app_unavailable' : 'conversion_failed',
         suggestion:
           'retry once later; if it persists, check the Lycero login in the Lycero Office app, configure a BYOK image provider under Settings (AI Media), or continue without generated images',
       })
+    }
     const image = await loadImage(r.url)
     const ext = EXTS_BY_MIME[image.mime]?.[0] ?? 'png'
     // the provider picks the encoding; a .png name holding JPEG bytes would mislead every reader,

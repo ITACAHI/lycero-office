@@ -17,11 +17,61 @@
  * The desktop session is owned exclusively by the bridge.
  */
 
+import { createDecipheriv, createHash, scryptSync } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, unlinkSync, unwatchFile, watchFile, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { asRecord } from './shared'
+
+const VERSION_DERIVED = 0x02
+const IV_BYTES = 12
+const TAG_BYTES = 16
+const APP_SECRET = 'lycero-office-v1-scp-k3y'
+const SCRYPT_SALT = 'lycero-desktop-auth-v1'
+
+function decodePotentiallyEncryptedAuthBlob(rawBuf: Buffer): string {
+  if (rawBuf.length === 0) return ''
+  // 1. Try AES-256-GCM derived key if version byte is 0x02
+  if (rawBuf[0] === VERSION_DERIVED && rawBuf.length >= 1 + IV_BYTES + TAG_BYTES + 1) {
+    try {
+      const machineKey = createHash('sha256')
+        .update(`${process.platform}-${homedir()}`)
+        .digest('hex')
+      const key = scryptSync(machineKey, `${APP_SECRET}:${SCRYPT_SALT}`, 32, {
+        N: 16384,
+        r: 8,
+        p: 1,
+      })
+      const iv = rawBuf.subarray(1, 1 + IV_BYTES)
+      const tag = rawBuf.subarray(rawBuf.length - TAG_BYTES)
+      const encrypted = rawBuf.subarray(1 + IV_BYTES, rawBuf.length - TAG_BYTES)
+      const decipher = createDecipheriv('aes-256-gcm', key, iv)
+      decipher.setAuthTag(tag)
+      return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8')
+    } catch {
+      // Fall through to safeStorage / UTF-8
+    }
+  }
+  // 2. Try Electron safeStorage (with or without leading 0x02 version byte)
+  if (process.versions.electron) {
+    try {
+      const electron = createRequire(import.meta.url)('electron')
+      if (electron?.safeStorage?.isEncryptionAvailable?.()) {
+        try {
+          return electron.safeStorage.decryptString(rawBuf)
+        } catch {
+          if (rawBuf[0] === VERSION_DERIVED) {
+            return electron.safeStorage.decryptString(rawBuf.subarray(1))
+          }
+        }
+      }
+    } catch {
+      // Fall through to UTF-8
+    }
+  }
+  return rawBuf.toString('utf-8')
+}
 
 /** Progress event for the browser login flow. */
 export interface GskLoginProgress {
@@ -111,7 +161,13 @@ function readAuthFile(): LyceroAuth | null {
           (process.platform === 'darwin'
             ? join(resolveHomeDir(), 'Library', 'Application Support')
             : join(resolveHomeDir(), '.config'))
-        for (const folder of ['Lycero Office', 'lycero-office']) {
+        for (const folder of [
+          'Lycero Office',
+          'Lycero Office-Dev',
+          'Lycero Office Dev',
+          'lycero-office',
+          'lycero-office-dev',
+        ]) {
           const candidate = join(appData, folder)
           if (existsSync(join(candidate, 'lycero', 'session.json'))) {
             userDataDir = candidate
@@ -123,17 +179,7 @@ function readAuthFile(): LyceroAuth | null {
         const sessionFile = join(userDataDir, 'lycero', 'session.json')
         if (existsSync(sessionFile)) {
           const rawBuf = readFileSync(sessionFile)
-          let jsonStr = ''
-          try {
-            const electron = createRequire(import.meta.url)('electron')
-            if (electron.safeStorage?.isEncryptionAvailable?.()) {
-              jsonStr = electron.safeStorage.decryptString(rawBuf)
-            } else {
-              jsonStr = rawBuf.toString('utf-8')
-            }
-          } catch {
-            jsonStr = rawBuf.toString('utf-8')
-          }
+          const jsonStr = decodePotentiallyEncryptedAuthBlob(rawBuf)
           const session = JSON.parse(jsonStr)
           if (isUsableToken(session?.token)) {
             return { apiKey: session.token, accessToken: session.token }
@@ -144,16 +190,13 @@ function readAuthFile(): LyceroAuth | null {
       /* ignore */
     }
 
-    // ── 2. Try ~/.lycero/auth.json (legacy plaintext, DEPRECATED) ─────────────
-    // DEPRECATION: this path exists for migration only. ai-auth now writes encrypted.
+    // ── 2. Try ~/.lycero/auth.json (encrypted or legacy plaintext) ─────────────
     try {
       const hubAuthPath = join(resolveHomeDir(), '.lycero', 'auth.json')
       if (existsSync(hubAuthPath)) {
-        console.warn(
-          '[lycero-auth/ai-search] DEPRECATION: reading legacy ~/.lycero/auth.json. ' +
-          'Re-authenticate to migrate to the encrypted desktop session.',
-        )
-        const parsed = JSON.parse(readFileSync(hubAuthPath, 'utf-8'))
+        const rawBuf = readFileSync(hubAuthPath)
+        const jsonStr = decodePotentiallyEncryptedAuthBlob(rawBuf)
+        const parsed = JSON.parse(jsonStr)
         if (isUsableToken(parsed?.tokens?.accessToken)) {
           return { apiKey: parsed.tokens.accessToken, accessToken: parsed.tokens.accessToken }
         }

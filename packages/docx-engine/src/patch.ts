@@ -1749,6 +1749,41 @@ export async function saveDocx(
     balanceFieldChars(parts.join('')) +
     documentXml.slice(bodyContentEnd)
 
+  const isNd30Doc =
+    newDocumentXml.includes('CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM') ||
+    newDocumentXml.includes('Độc lập - Tự do - Hạnh phúc')
+  if (isNd30Doc) {
+    if (/<w:pgMar[^>]*w:left="1440"/.test(newDocumentXml)) {
+      newDocumentXml = newDocumentXml.replace(
+        /<w:sectPr(?:\s[^>]*)?>[\s\S]*?<\/w:sectPr>/g,
+        (sectXml) =>
+          applySectionSettings(sectXml, {
+            pageWidth: 11906,
+            pageHeight: 16838,
+            orientation: 'portrait',
+            marginTop: 1134,
+            marginBottom: 1134,
+            marginLeft: 1701,
+            marginRight: 851,
+          }),
+      )
+    }
+    if (!options.defaultFonts) {
+      const file = zip.file(stylesPath)
+      const baseStylesXml =
+        stylesXmlOut ??
+        (file
+          ? await file.async('string')
+          : '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n' +
+            '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"></w:styles>')
+      stylesXmlOut = mergeDefaultFontsXml(baseStylesXml, {
+        font: 'Times New Roman',
+        eastAsiaFont: 'Times New Roman',
+        csFont: 'Times New Roman',
+      })
+    }
+  }
+
   // every ref-less body sectPr picks up the new header/footer references
   // (the trailing sectPr already received them above and is skipped by the
   // lookahead; sections that carry their own references keep them)

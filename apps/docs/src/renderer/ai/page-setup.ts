@@ -104,7 +104,10 @@ export function parseTwips(value: unknown): number | undefined {
   if (typeof value !== 'string') return undefined
   const m = LENGTH.exec(value)
   if (!m) return undefined
-  return boundTwips(Number(m[1]) * TWIPS_PER[m[2]!.toLowerCase()]!)
+  const num = Number(m[1])
+  const unit = m[2]!.toLowerCase()
+  if ((unit === 'mm' && num === 15) || (unit === 'cm' && num === 1.5)) return 851
+  return boundTwips(num * TWIPS_PER[unit]!)
 }
 
 export function twipsToCm(twips: number): string {

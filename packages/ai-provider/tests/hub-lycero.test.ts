@@ -506,4 +506,52 @@ describe('streamHubChat SSE parser', () => {
     expect(authHeaders).toEqual(['Bearer expired-jwt-token', 'Bearer mock-token'])
     expect(cb.onDelta).toHaveBeenCalledWith('Chào bạn!')
   })
+
+  it('preserves user text and attaches multimodal image_url parts when m.images is present', async () => {
+    const fn = mockFetch(
+      makeBody([
+        'data: {"type":"text","delta":"Đã đọc ảnh tờ trình"}',
+        'data: {"type":"finish","stopReason":"stop"}',
+      ]),
+    )
+    const cb = makeCallbacks({ signal: controller.signal })
+
+    await streamHubChat({
+      url: 'https://hub.lycero.com/api/v1/office',
+      modelId: 'lycero-2.5-auto',
+      system: 'sys',
+      messages: [
+        {
+          role: 'user',
+          text: 'thực hiện tác vụ này\n\nAttachment list:\n0 | shot.png | .png | 12KB',
+          images: [{ mime: 'image/png', base64: 'iVBORw0KGgoAAAANSUhEUg==' }],
+        },
+      ],
+      tools: [],
+      cb,
+    })
+
+    const reqBody = JSON.parse(fn.mock.calls[0]?.[1]?.body as string) as {
+      messages: Array<Record<string, unknown>>
+    }
+    const userMsg = reqBody.messages[1]!
+    expect(userMsg.role).toBe('user')
+    expect(userMsg.content).toEqual([
+      {
+        type: 'text',
+        text: 'thực hiện tác vụ này\n\nAttachment list:\n0 | shot.png | .png | 12KB',
+      },
+      {
+        type: 'image_url',
+        image_url: { url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==' },
+      },
+    ])
+    expect(userMsg.images).toEqual([
+      {
+        mime: 'image/png',
+        base64: 'iVBORw0KGgoAAAANSUhEUg==',
+        url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==',
+      },
+    ])
+  })
 })

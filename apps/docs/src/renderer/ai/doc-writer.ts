@@ -53,9 +53,16 @@ const WRITER_SYSTEM = [
   '## Writing rules',
   '- Write the requested content in full: every section in the plan, real prose, no "[to be added]" notes.',
   '- If the plan or reference material provides a template or structural HTML tables (`<table>`), preserve all `<table>` structures (e.g. 2-column Quốc hiệu/Tiêu ngữ header table, Party A/B details table, data/remuneration breakdown table, and 2-column signature table). Do NOT flatten tables into plain `<p>` lines.',
-  '- For formal contracts, administrative documents, and reports without an explicit template, structure the header (2-column table), party/metadata blocks (`<table>`), data schedules (`<table>`), and signature block (2-column `<table>`) as proper HTML tables.',
+  '- For Vietnamese administrative documents (Nghị định 30/2020/NĐ-CP), formal contracts, decisions, submissions (Tờ trình), minutes (Biên bản), official dispatches (Công văn), proposals, and education plans (KHBD 5512), ALWAYS follow these exact NĐ 30/2020/NĐ-CP rules:',
+  '  1. Header 2-column borderless `<table style="width: 100%; border: none; border-collapse: collapse;">` using `<td>` cells (never `<th>`), with both columns starting on the exact same top line (`vertical-align: top`):',
+  '     - Left `<td style="width: 44%; text-align: center; vertical-align: top; border: none;">`: `<p style="margin: 0;">TÊN CƠ QUAN CHỦ QUẢN (IN HOA THƯỜNG ĐỨNG, KHÔNG ĐẬM)</p><p style="margin: 0;"><strong><u>TÊN CƠ QUAN, TỔ CHỨC BAN HÀNH</u></strong></p><p style="margin: 4px 0 0 0;">Số: 15/2026/TTr-...</p>` (always generate a concrete document number/symbol even if the prompt is brief).',
+  '     - Right `<td style="width: 56%; text-align: center; vertical-align: top; border: none;">`: `<p style="margin: 0;"><strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong></p><p style="margin: 0;"><strong><u>Độc lập - Tự do - Hạnh phúc</u></strong></p><p style="margin: 4px 0 0 0;"><em>Hà Nội, ngày ... tháng ... năm 2026</em></p>`',
+  '  2. Main Document Title (`<h1>` centered, uppercase, bold, 14pt): `<h1 style="text-align: center;"><strong>TÊN LOẠI VĂN BẢN IN HOA</strong></h1>` and centered Subtitle / Trích yếu: `<p style="text-align: center;"><strong>Về việc ...</strong></p>` followed by `<p style="text-align: center;"><strong>Kính gửi: ...</strong></p>`.',
+  '  3. Legal & factual bases (`Căn cứ`): each `Căn cứ` MUST be its own separate `<p style="text-align: left;"><em>Căn cứ ...;</em></p>` paragraph (italic, left-aligned so the last line is never stretched by justify; NEVER join multiple `Căn cứ` lines with `<br>`). Always synthesize 2-3 appropriate legal/practical `Căn cứ` lines even when the user prompt is short.',
+  '  4. 6-column budget/cost tables (`STT`, `Nội dung chi`, `ĐVT`, `SL`, `Đơn giá`, `Thành tiền`): use proportional column widths (`6%`, `44%`, `10%`, `8%`, `15%`, `17%` — never 6 equal columns), bold centered `<th>` headers, right-aligned numbers/amounts with Vietnamese dot thousand separators (`45.000.000`), a bold `TỔNG CỘNG` row with full Vietnamese diacritics, and `<p><em>Số tiền bằng chữ: ... đồng chẵn.</em></p>` immediately below.',
+  '  5. Closing paragraph + 2-column borderless signature `<table style="width: 100%; border: none; border-collapse: collapse;">` kept on the same page (`keepNext`): Left `<td style="width: 45%; text-align: left; vertical-align: top; border: none;">` has `<p><strong><em>Nơi nhận:</em></strong></p><p>- Như trên;</p><p>- Lưu: VT.</p>` (11-12pt); Right `<td style="width: 55%; text-align: center; vertical-align: top; border: none;">` has `<p><strong>CHỨC VỤ NGƯỜI KÝ</strong></p><p><em>(Ký, ghi rõ họ tên và đóng dấu)</em></p><p></p><p></p><p></p><p><strong>Họ và tên người ký</strong></p>` (leave 3-4 blank lines above the signer name for signature and seal).',
   '- Never insert an English disclaimer line (such as "This is a reference draft, not legal advice...") inside a Vietnamese document.',
-  '- Real data only: use the facts, figures, names and quotes from the reference material and the plan; when specific party/company details are not yet provided by the user, use clean `{{ten_truong}}` placeholders.',
+  '- Real data only: use the facts, figures, names and quotes from the reference material and the plan. NEVER output `{{PLACEHOLDER}}` variables (such as `{{SO_TO_TRINH}}`, `{{NGAY}}`) — always generate realistic administrative numbers, dates, and legal bases when the prompt omits them.',
   '- Follow the length the plan asks for; when it gives none, write what the content genuinely needs.',
   '',
   '## Output',
@@ -197,8 +204,13 @@ export class DraftLanding {
     this.pending = null
     let next: ProseMirrorNode[]
     try {
+      const stripAiChangedJson = (n: ReturnType<typeof parseHtmlFragment>[number]): ReturnType<typeof parseHtmlFragment>[number] => {
+        const base = n.attrs ? { ...n, attrs: { ...n.attrs, aiChanged: false } } : n
+        if (!base.content?.length) return base
+        return { ...base, content: base.content.map(stripAiChangedJson) }
+      }
       next = parseHtmlFragment(html, this.numIds).map((n) =>
-        this.editor.schema.nodeFromJSON({ ...n, attrs: { ...n.attrs, aiChanged: true } }),
+        this.editor.schema.nodeFromJSON(stripAiChangedJson(n)),
       )
     } catch {
       return // a half-received formula or table is retried on the next tick

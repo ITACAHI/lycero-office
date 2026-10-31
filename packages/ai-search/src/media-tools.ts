@@ -338,6 +338,20 @@ export type GenerateImageToolOp = GskGenerateImageOptions & {
   transparentBackground?: boolean
 }
 
+/** Convert any local file paths or file:// URLs into base64 data: URLs before sending to Lycero Cloud Gateway. */
+async function resolveGatewayMediaUrls(
+  urls: readonly string[],
+  roots: readonly string[],
+): Promise<string[]> {
+  return Promise.all(
+    urls.map(async (u) => {
+      if (/^https?:\/\//i.test(u) || u.startsWith('data:')) return u
+      const blob = await loadMediaReference(u, roots)
+      return `data:${blob.mime};base64,${Buffer.from(blob.bytes).toString('base64')}`
+    }),
+  )
+}
+
 export async function generateImageTool(
   settingsPath: string,
   op: GenerateImageToolOp,
@@ -355,6 +369,9 @@ export async function generateImageTool(
       // gskGenerateImage hands the references straight to the CLI argv, so this route
       // enforces the same item ceiling as the BYOK one instead of passing them on
       assertMediaItemCount(op.referenceImageUrls?.length ?? 0, MEDIA_BUDGET.maxItems)
+      const resolvedReferenceUrls = op.referenceImageUrls?.length
+        ? await resolveGatewayMediaUrls(op.referenceImageUrls, mediaRoots)
+        : undefined
       const resolvedAspectRatio =
         op.aspectRatio ??
         options.defaultAspectRatio ??
@@ -371,6 +388,7 @@ export async function generateImageTool(
             : 'general')
       const gen = await gskGenerateImage({
         ...op,
+        ...(resolvedReferenceUrls ? { referenceImageUrls: resolvedReferenceUrls } : {}),
         prompt,
         aspectRatio: resolvedAspectRatio,
         contextType: resolvedContextType,
@@ -429,7 +447,8 @@ export async function analyzeMediaTool(
       // gskAnalyzeMedia spreads the URLs straight into the CLI argv, so this route
       // enforces the same item ceiling as the BYOK one instead of passing them on
       assertMediaItemCount(mediaUrls.length, MEDIA_BUDGET.maxItems)
-      return { text: await gskAnalyzeMedia({ mediaUrls, requirements }) }
+      const resolvedUrls = await resolveGatewayMediaUrls(mediaUrls, mediaRoots)
+      return { text: await gskAnalyzeMedia({ mediaUrls: resolvedUrls, requirements }) }
     }
     if (!imageByok && !videoByok) return await viaGsk()
     // route on the loaded bytes' real MIME, not the URL spelling: images go to the

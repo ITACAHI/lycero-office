@@ -57,9 +57,9 @@ function clearAiChangedFlags(editor: Editor): void {
   const view = editor.view
   let tr = view.state.tr
   let touched = false
-  view.state.doc.forEach((node, offset) => {
-    if (node.attrs.aiChanged) {
-      tr = tr.setNodeMarkup(offset, undefined, { ...node.attrs, aiChanged: false })
+  view.state.doc.descendants((node, pos) => {
+    if (node.attrs?.aiChanged) {
+      tr = tr.setNodeMarkup(pos, undefined, { ...node.attrs, aiChanged: false })
       touched = true
     }
   })

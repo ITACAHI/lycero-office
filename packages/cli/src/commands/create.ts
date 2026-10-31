@@ -21,6 +21,7 @@ import {
   blankWorkbook,
   cellEditsFromTable,
   csvTable,
+  jsonTable,
   writeWorkbook,
   type CsvTableOptions,
   type TableInput,
@@ -356,7 +357,7 @@ function readTables(
       { reason: 'invalid_json' },
     )
   }
-  if (Array.isArray(parsed)) return [{ name: sheetName, rows: parsed as TableInput['rows'] }]
+  if (Array.isArray(parsed)) return [jsonTable(sheetName, parsed as TableInput['rows'])]
   const sheets = (parsed as { sheets?: unknown })?.sheets
   if (!Array.isArray(sheets) || sheets.length === 0) {
     throw new CliError(
@@ -371,7 +372,7 @@ function readTables(
     if (typeof t.name !== 'string' || !Array.isArray(t.rows)) {
       throw new CliError(EXIT.usage, `${source}: sheets[${i}] needs "name" and "rows"`)
     }
-    return { name: t.name, rows: t.rows }
+    return jsonTable(t.name, t.rows)
   })
 }
 

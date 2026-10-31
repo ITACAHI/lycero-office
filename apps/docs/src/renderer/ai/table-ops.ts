@@ -603,6 +603,21 @@ export function tableOpDefs(h: TableOpHelpers): OpDef[] {
         env.tr.setNodeMarkup(start + cellPos, undefined, { ...cell.attrs, ...patch })
       }
     }
+    if (op.range === undefined && op.borders === null) {
+      const noneBorder = { style: 'none' as const }
+      const currentTable = env.tr.doc.nodeAt(pos)!
+      env.tr.setNodeMarkup(pos, undefined, {
+        ...currentTable.attrs,
+        borders: {
+          top: noneBorder,
+          left: noneBorder,
+          bottom: noneBorder,
+          right: noneBorder,
+          insideH: noneBorder,
+          insideV: noneBorder,
+        },
+      })
+    }
     if (op.width !== undefined) {
       const px = Math.max(1, Math.round(parseTableLength(op.width)! / 15))
       const widths = columnWidthsPx(table, map) ?? derivedWidthsPx(table, map)
@@ -647,7 +662,32 @@ export function tableOpDefs(h: TableOpHelpers): OpDef[] {
       patch.tblLook = { ...current, ...(op.look as Partial<TableLook>) }
       patch.tblLookEdited = true
     }
-    env.tr.setNodeMarkup(pos, undefined, { ...table.attrs, ...patch })
+    if (op.borders !== undefined) {
+      const map = TableMap.get(table)
+      const rect = rectOf(undefined, map, op.op)
+      const cells = cellsInRect(map, rect)
+      const start = pos + 1
+      for (const cellPos of cells) {
+        const cell = table.nodeAt(cellPos)!
+        env.tr.setNodeMarkup(start + cellPos, undefined, {
+          ...cell.attrs,
+          borders: mergeBorders(cell.attrs.borders as CellBorders | null, op.borders, h),
+        })
+      }
+      if (op.borders === null) {
+        const noneBorder = { style: 'none' as const }
+        patch.borders = {
+          top: noneBorder,
+          left: noneBorder,
+          bottom: noneBorder,
+          right: noneBorder,
+          insideH: noneBorder,
+          insideV: noneBorder,
+        }
+      }
+    }
+    const latestTable = env.tr.doc.nodeAt(pos)!
+    env.tr.setNodeMarkup(pos, undefined, { ...latestTable.attrs, ...patch })
     h.markChanged(env.tr, pos, env.ctx)
     return tableResult(op.op, 1)
   }
@@ -779,8 +819,8 @@ export function tableOpDefs(h: TableOpHelpers): OpDef[] {
     {
       name: 'setTableStyle',
       signature:
-        '{ op: "setTableStyle", target, styleId?: string|null, look?: { firstRow?, lastRow?, firstColumn?, lastColumn?, bandedRows?, bandedColumns?: boolean } }  // styleId must be a table style defined in this document (docs read lists them as tableStyles); null removes the style; look toggles Word\'s Table Style Options',
-      keys: ['styleId', 'look'],
+        '{ op: "setTableStyle", target, styleId?: string|null, look?: { firstRow?, lastRow?, firstColumn?, lastColumn?, bandedRows?, bandedColumns?: boolean }, borders?: object|null }  // styleId must be a table style defined in this document (docs read lists them as tableStyles); null removes the style; look toggles Word\'s Table Style Options; borders: null makes the table borderless',
+      keys: ['styleId', 'look', 'borders'],
       target: 'required',
       validate(op, where) {
         const shape = h.validateShape(op, this, where)
@@ -798,7 +838,11 @@ export function tableOpDefs(h: TableOpHelpers): OpDef[] {
             if (typeof v !== 'boolean') return `${where}: look.${k} must be a boolean`
           }
         }
-        if (op.styleId === undefined && op.look === undefined) {
+        if (op.borders !== undefined) {
+          const b = checkBorders(op.borders, where, h)
+          if (b) return b
+        }
+        if (op.styleId === undefined && op.look === undefined && op.borders === undefined) {
           return `${where}: give styleId and/or look`
         }
         return null

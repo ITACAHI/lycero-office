@@ -104,9 +104,8 @@ export function isAvailable(): SecureStoreAvailability {
  * Never writes plaintext to disk.
  */
 export function encryptString(plain: string): Buffer {
-  if (isElectron()) {
-    return encryptViaSafeStorage(plain)
-  }
+  // Always use AES-256-GCM with scrypt machine-derived key so ~/.lycero/auth.json
+  // can be decrypted by both the Electron main process AND the Node CLI (`lycero-office image`).
   return encryptViaDerivedKey(plain)
 }
 
@@ -136,15 +135,15 @@ export function decryptString(blob: Buffer): string {
   }
 
   if (version === VERSION_DERIVED) {
-    // Distinguish safeStorage blob from our own AES-GCM blob by size.
-    // safeStorage encrypted output is typically < 200 bytes (JSON → encrypted).
-    // Our AES-GCM format is always >= 30 bytes (version+IV+min_ct+tag).
     const MIN_DERIVED_KEY_BLOB = 1 + IV_BYTES + 1 + TAG_BYTES
     if (blob.length >= MIN_DERIVED_KEY_BLOB) {
-      // Looks like our own AES-GCM format — decrypt with derived key
-      return decryptViaDerivedKey(blob)
+      try {
+        return decryptViaDerivedKey(blob)
+      } catch {
+        // Might be a safeStorage blob whose length happens to be >= 30 bytes
+        return decryptViaSafeStorage(blob)
+      }
     }
-    // Too small for our format — try safeStorage path (Electron main only)
     return decryptViaSafeStorage(blob)
   }
 

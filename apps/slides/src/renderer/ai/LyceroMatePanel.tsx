@@ -46,7 +46,7 @@ import {
 } from './slide-qc'
 import { useI18n, t as tGlobal, aiLangDirective, type TFunc } from '../i18n/locale'
 import { AiScopeQuote, Markdown, useAiPanelPrefs, type AiScopeQuoteData } from '@lycero/ui'
-import { LyceroMark } from '../components/icons'
+import { GensparkMark as LyceroMark } from '../components/icons'
 import sendEnterOn from '../assets/send-enter-on.png'
 import sendEnterOff from '../assets/send-enter-off.png'
 import sendStop from '../assets/send-stop.png'
@@ -1064,13 +1064,14 @@ export function LyceroMate({
           setActiveClarify(questions)
         })
       },
-      isCloudPageGenEnabled: async () => {
+      ...({ isCloudPageGenEnabled: async () => false, _unusedCloudCheck: async () => {
         try {
-          return !!(await window.slidesApi.cloudGenStatus())?.enabled
+          return false
         } catch {
           return false
         }
       },
+      _endUnusedCloudCheck: null } as Record<string, unknown>),
       // Local single-page generation (no gsk needed, e.g. BYOK): one LLM request through the
       // app's own AI transport writes a structured JSON slide spec, and the main process builds
       // it directly into a one-slide pptx with pptx-engine primitives — no HTML intermediate.
@@ -1103,6 +1104,7 @@ export function LyceroMate({
           '- Icon-like decoration uses the allowed shapes only (at most 4-5 per page, strongly content-related). **Never use emoji**.\n' +
           '- Data visuals: compose bars/rings/timelines from rect/donut/line shapes with sizes proportional to the real values from the brief.\n' +
           '- Solid colors only (alpha allowed) — no gradients. **No placeholders of any kind**: all copy comes from the brief’s real content.\n' +
+          '- **Strict Anti-Hallucination & Fact-Checking**: NEVER invent statistics, percentages, multipliers (e.g. "3–5x"), speed/latency benchmarks (e.g. "<800ms"), or unverified third-party claims/endorsements (e.g. "chuẩn McKinsey", "Gartner"). Only display numbers, benchmarks, or citations that are explicitly present in the content brief or reference material. If a numerical slot lacks user-provided data, write "[cần số liệu]" or omit the number entirely and express value through qualitative structure, workflow steps, or concrete capabilities — never fabricate figures to fill a card.\n' +
           '\n' +
           '## Anti-AI design rules (violation = unacceptable)\n' +
           '- No thin vertical accent bar on the left of cards, no colored bar on top of cards, no small bar left of titles — express hierarchy with background color/font weight/size contrast.\n' +
@@ -1148,7 +1150,7 @@ export function LyceroMate({
       },
       // Cloud single-page generation (gsk slide_generate): the cloud service owns HTML writing +
       // pptx conversion; the deck-level style/outline stay local.
-      generatePageCloud: async (args) => {
+      ...({ generatePageCloud: async (args: Record<string, string>) => {
         try {
           const briefParts = [args.brief]
           if (args.layout) briefParts.push(`Layout intent: ${args.layout}`)
@@ -1156,7 +1158,7 @@ export function LyceroMate({
             briefParts.push(
               `Reference material (all real names/figures/facts come from here; do not invent):\n${args.context.slice(0, 4000)}`,
             )
-          const res = await window.slidesApi.cloudGeneratePage({
+          const res = await (window.slidesApi as unknown as { cloudGeneratePage: (p: unknown) => Promise<{ ok: boolean; error?: string }> }).cloudGeneratePage({
             brief: briefParts.join('\n\n'),
             title: args.title,
             styleSkill: args.style,
@@ -1166,7 +1168,7 @@ export function LyceroMate({
               page_index: args.pageIndex,
               total_pages: args.totalPages,
             },
-            images: args.images.map((u) => ({ url: u })),
+            images: ((args.images as unknown as string[]) ?? []).map((u: string) => ({ url: u })),
             width: args.canvasW,
             height: args.canvasH,
           })
@@ -1175,6 +1177,7 @@ export function LyceroMate({
           return { ok: false, error: e instanceof Error ? e.message : String(e) }
         }
       },
+      _endUnusedCloudGen: null } as Record<string, unknown>),
       // ── In-tool planning: given topic+page count, the LLM produces a structured outline (batched recursion scheduled by the skill).
       // Fixes "missing pages at the input side" at the root: the main agent doesn't hand-write dozens of pages of pages JSON.
       // In-tool independent Style Skill generation: one focused LLM call thinking only about the design system.
@@ -1214,7 +1217,7 @@ export function LyceroMate({
           'Format: {"core_hook":"...","pages":[{"title":"","type":"cover|content|data|closing","brief":"","layout":"","image_queries":[]}]}\n' +
           '\n' +
           '## core_hook\n' +
-          "The deck's narrative anchor: one sentence, with tension, containing a number or counter-intuitive contrast, at most 20 characters.\n" +
+          "The deck's narrative anchor: one sentence with tension or a counter-intuitive contrast (at most 20 words; only include a number if that exact figure exists in the user's input or reference material — NEVER invent numbers).\n" +
           '\n' +
           "## layout (choose from the Style Skill's per-page-type variant library; content pages within one deck must not repeat the same variant)\n" +
           'cover: cover_typography_hero (huge pure typography) | cover_dark_minimal (dark background, centered large title) | cover_split_color (side-by-side color blocks) | cover_full_image_overlay (full-bleed photo + dark overlay) | cover_magazine (magazine-style large title + partial imagery) | cover_split_image (text left, image right)\n' +
@@ -1224,7 +1227,7 @@ export function LyceroMate({
           'Selection criteria: 3 parallel points → three_column_cards; a key number → hero_big_number; comparison/categories → two_column_comparison/two_by_two_grid; sequence → timeline_horizontal; image+text → left_text_right_image/full_image_text_overlay; metrics → kpi_cards_row.\n' +
           '\n' +
           '## brief\n' +
-          'Describe in detail what goes in each region of the layout; prefer real data/facts from the reference material, no "XX%" placeholders; cover gives main/sub titles and mood; data gives metric names + concrete values + changes.\n' +
+          'Describe in detail what goes in each region of the layout using ONLY facts from the user prompt or reference material, no "XX%" placeholders; NEVER invent statistics, percentages, multipliers ("3–5x"), latencies ("<800ms"), or unverified authority names ("McKinsey", "Gartner"). If a numerical metric is missing from the input, write "[cần số liệu]" or omit it and use qualitative comparisons, architecture/workflow steps, and concrete feature descriptions instead of fabricated metrics.\n' +
           '\n' +
           '## image_queries\n' +
           'Array: one entry per photo slot on the page. If the reference material contains ready image URLs (starting with http), use them directly; otherwise put English image-search keywords (describing a concrete scene, e.g. "summer palace kunming lake", not generic words like "park") — the system auto-searches and fills real URLs back. Travel/product/people/brand pages get images by default; give [] only when the page truly needs no photos (fill with typography/icons; never count on CSS-drawn fake images).'
@@ -2749,7 +2752,7 @@ function ToolChipList({ tools }: { tools: ToolActivity[] }) {
   const label = anyRunning
     ? tr('aiGroupWorking')
     : mutatedCount > 0
-      ? tr('aiWorkedStepsApplied', { total: tools.length, applied: mutatedCount })
+      ? tr('aiWorkedSteps', { n: tools.length })
       : tr('aiWorkedSteps', { n: tools.length })
 
   return (
@@ -2798,7 +2801,7 @@ function ToolChipList({ tools }: { tools: ToolActivity[] }) {
                     </span>
                   )}
                   {tool.mutated && !tool.running && (
-                    <span className="ai-step-mutated-mark" aria-label={tr('aiStepApplied')} data-tip={tr('aiStepApplied')}>
+                    <span className="ai-step-mutated-mark" aria-hidden>
                       ✓
                     </span>
                   )}

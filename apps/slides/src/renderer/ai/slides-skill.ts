@@ -478,7 +478,7 @@ const TOOLS: AgentToolDef[] = [
         core_hook: {
           type: 'string',
           description:
-            "The deck's narrative anchor (one sentence, with tension, ideally containing a number or counter-intuitive contrast)",
+            "The deck's narrative anchor (one sentence with tension or a counter-intuitive contrast; only include a number if verified in the user prompt or search results — never invent statistics)",
         },
         style: {
           type: 'string',
@@ -1192,9 +1192,9 @@ const fail = (summary: string, output: string) => ({
 // data-dense briefs must declare a dataSource, 'search' is only accepted after a
 // real web_search in this conversation, and 'sample' figures must be disclosed.
 
-/** Specific figures: percentages, money, magnitude units, decimals — not bare years/counts */
+/** Specific figures: percentages, money, magnitude units, multipliers, latency/time benchmarks, decimals — not bare years/counts */
 const SPECIFIC_FIGURE_RE =
-  /\d[\d,.]*\s*(?:%|％|亿|萬|万|兆|billion|million|\bbn\b|\bmn\b)|[¥￥$€£]\s*\d|\d+\.\d+/g
+  /\d[\d,.]*\s*(?:%|％|亿|萬|万|兆|billion|million|\bbn\b|\bmn\b|tỷ|triệu|nghìn|ngàn)|[¥￥$€£₫]\s*\d|\d[\d,.]*\s*(?:VNĐ|VND|USD)\b|(?:<\s*|\b\d+\s*[-–~]\s*)?\d+(?:\.\d+)?\s*(?:x|X|ms|s|giây|lần)\b|\d+\.\d+/g
 
 function countSpecificFigures(text: string): number {
   return text.match(SPECIFIC_FIGURE_RE)?.length ?? 0

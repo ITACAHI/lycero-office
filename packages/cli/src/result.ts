@@ -153,7 +153,7 @@ export function formatHuman(r: CommandResult): string {
 }
 
 export function formatHumanError(err: CliError): string {
-  const lines = [`genoffice: ${err.message}`]
+  const lines = [`lycero-office: ${err.message}`]
   if (err.suggestion) lines.push(`  hint: ${err.suggestion}`)
   if (err.detail) {
     const { batch, ...rest } = err.detail

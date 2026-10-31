@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 
-import { csvToXlsxBuffer } from '../src/gateway/csv-import'
+import { csvToXlsxBuffer, sheetCsvToXlsxBuffer } from '../src/gateway/csv-import'
 import {
   applyCellEditsToXlsx,
   assertOnlyTouchedEntriesChanged,
@@ -84,6 +84,16 @@ describe('xlsx-gateway csv import round trip', () => {
     expect(cells['A2']?.value).toBe('=SUM(A1:A2)')
     expect(cells['A2']?.formula).toBeUndefined()
     expect(cells['B2']?.value).toBe('plain')
+  })
+
+  it('stores live <f> formulas in sheetCsvToXlsxBuffer for template and AI grids', async () => {
+    const csv = 'item,qty,price,total\nA,2,100,"=B2*C2"\nTỔNG,,,=SUM(D2:D2)'
+    const buffer = await sheetCsvToXlsxBuffer(csv, 'Dự toán')
+    const cells = await sheetCells(buffer)
+    expect(cells['D2']?.formula).toBe('=B2*C2')
+    expect(cells['D3']?.formula).toBe('=SUM(D2:D2)')
+    expect(await sheetXml(buffer)).toContain('<f>B2*C2</f>')
+    expect(await sheetXml(buffer)).toContain('<f>SUM(D2:D2)</f>')
   })
 
   it('writes future markers through the gateway save path with quoted sheet names', async () => {

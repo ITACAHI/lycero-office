@@ -50,7 +50,7 @@ export type PivotLayoutErrorCode =
 
 const MESSAGES: Record<PivotLayoutErrorCode, string> = {
   sourceNeedsRows: 'The pivot source needs a header row plus data rows.',
-  sourceRowLimit: 'The pivot source is limited to 10,000 data rows.',
+  sourceRowLimit: 'The pivot source is limited to 200,000 data rows (vượt giới hạn 200.000 dòng nguồn).',
   sourceColLimit: 'The pivot source is limited to 200 columns.',
   headerBlank: 'Every source header cell must be non-blank.',
   headerDuplicate: 'Source header names must be unique.',
@@ -58,10 +58,10 @@ const MESSAGES: Record<PivotLayoutErrorCode, string> = {
   calcFieldNameClash: 'The calculated field "{name}" cannot share a name with a source header.',
   calcFieldNameDuplicate: 'Calculated field names must be unique.',
   valueFilterFieldMissing: 'The value filter references value field {index}, which does not exist.',
-  tooManyRowItems: 'The pivot has more than 10,000 row items.',
+  tooManyRowItems: 'The pivot has more than 50,000 row items (vượt giới hạn 50.000 mục hàng).',
   tooManyColItems: 'The pivot has more than 1,000 column items.',
   tooManyColLines: 'The pivot has more than 1,000 column lines.',
-  tooManyRowLines: 'The pivot has more than 20,000 row lines.',
+  tooManyRowLines: 'The pivot has more than 100,000 row lines.',
   needsValues: 'The pivot needs one values entry.',
   pageItemMissing: 'Report filter item "{item}" is not a member of field "{label}".',
   baseFieldMissing: 'The "show values as" mode of a value field needs a base field.',
@@ -158,7 +158,7 @@ export interface ResolvedShowAsBase {
 
 export { AGG_CAPTIONS } from './pivot-value-modes'
 
-export const PIVOT_SOURCE_ROW_LIMIT = 10_001
+export const PIVOT_SOURCE_ROW_LIMIT = 200_001
 export const PIVOT_SOURCE_COL_LIMIT = 200
 
 /**
@@ -272,9 +272,13 @@ export function buildPivotLayout(
   // then narrows the rows the rest of the report sees, as in Excel.
   const pageLevelItems: string[][] = pageFieldIndices.map((fieldIdx) => {
     const items: string[] = []
+    const seen = new Set<string>()
     for (const row of allDataRows) {
       const label = String(row[fieldIdx] ?? '')
-      if (!items.includes(label)) items.push(label)
+      if (!seen.has(label)) {
+        seen.add(label)
+        items.push(label)
+      }
     }
     return items
   })
@@ -295,14 +299,14 @@ export function buildPivotLayout(
   for (const row of allDataRows) {
     rowFieldIndices.forEach((fieldIdx, level) => {
       const { label: key, sort } = dimGroupValue(fieldIdx, row)
-      if (!levelItems[level]!.includes(key)) {
+      if (!levelSortKeys[level]!.has(key)) {
         levelItems[level]!.push(key)
         levelSortKeys[level]!.set(key, sort)
       }
     })
     columnFieldIndices.forEach((fieldIdx, level) => {
       const { label: key, sort } = dimGroupValue(fieldIdx, row)
-      if (!colLevelItems[level]!.includes(key)) {
+      if (!colLevelSortKeys[level]!.has(key)) {
         colLevelItems[level]!.push(key)
         colLevelSortKeys[level]!.set(key, sort)
       }
@@ -331,7 +335,7 @@ export function buildPivotLayout(
     sortGroupedLevel(colLevelItems[level]!, fieldIdx, colLevelSortKeys[level]!),
   )
   const rowItems = levelItems[0] ?? []
-  if (levelItems.some((items) => items.length > 10_000)) {
+  if (levelItems.some((items) => items.length > 50_000)) {
     throw new PivotLayoutError('tooManyRowItems')
   }
   if (colLevelItems.some((items) => items.length > 1_000)) {
@@ -731,7 +735,7 @@ export function buildPivotLayout(
     })
   }
   emitLevel([], [], 0)
-  if (rowLines.length > 20_000) throw new PivotLayoutError('tooManyRowLines')
+  if (rowLines.length > 100_000) throw new PivotLayoutError('tooManyRowLines')
   matrix.push([
     ...rowFieldsArray.map((_, i) => (i === 0 ? labels.grandTotal : '')),
     ...valueCells([]),

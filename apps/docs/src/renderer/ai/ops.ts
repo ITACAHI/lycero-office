@@ -105,8 +105,8 @@ export interface OpContext {
   styles?: AiStyleAccess
 }
 
-/** the changed-block highlight belongs to AI edits only */
-const wantsAiMark = (ctx: OpContext): boolean => ctx.markAi ?? ctx.source !== 'ui'
+/** the changed-block highlight belongs to untracked AI edits only (tracked edits use revision marks) */
+const wantsAiMark = (ctx: OpContext): boolean => ctx.markAi ?? (ctx.source !== 'ui' && !ctx.track)
 
 export interface OpResult {
   op: string
@@ -208,6 +208,9 @@ const PARA_KEYS = [
   'spaceBefore',
   'spaceAfter',
   'pageBreakBefore',
+  'keepNext',
+  'keepWithNext',
+  'keepLines',
   'shadingFill',
   'borders',
   'tabs',
@@ -364,8 +367,10 @@ function validateParagraphFields(op: Op, where: string): string | null {
     if (op[k] !== undefined && !isNumberOrNull(op[k]))
       return `${where}: ${k} must be a number or null`
   }
-  if (op.pageBreakBefore !== undefined && typeof op.pageBreakBefore !== 'boolean') {
-    return `${where}: pageBreakBefore must be a boolean`
+  for (const k of ['pageBreakBefore', 'keepNext', 'keepWithNext', 'keepLines'] as const) {
+    if (op[k] !== undefined && typeof op[k] !== 'boolean') {
+      return `${where}: ${k} must be a boolean`
+    }
   }
   if (op.shadingFill !== undefined) {
     const error = checkHex(op.shadingFill, where, 'shadingFill')
@@ -575,6 +580,10 @@ function applyParagraphPatch(
   const scoped = scopedRange(target, sel)
   if ('spaceBefore' in patch && !('spaceBeforeAuto' in patch)) patch.spaceBeforeAuto = false
   if ('spaceAfter' in patch && !('spaceAfterAuto' in patch)) patch.spaceAfterAuto = false
+  const isBroadAiOp =
+    ctx.source !== 'ui' && !target.containsText && target.scope !== 'selection' && !target.range
+  const isNd30Doc =
+    isBroadAiOp && /CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM|Độc lập\s*-\s*Tự do/i.test(tr.doc.textContent)
   let changed = 0
   let skippedProtected = 0
   for (const b of matched) {
@@ -590,10 +599,50 @@ function applyParagraphPatch(
       }
       continue
     }
+    const inTable = b.node.type.name === 'docTable'
     for (const p of paragraphsIn(b, scoped)) {
       const attrs = { ...p.node.attrs, ...patch }
       if (Array.isArray(patch.tabStops))
         attrs.tabStops = mergeTabStopsAttr(p.node.attrs.tabStops, patch.tabStops as TabStop[])
+      if (isBroadAiOp) {
+        const pText = p.node.textContent.replace(/\s+/g, ' ').trim()
+        // Never let a broad justify op overwrite table cell alignments, Căn cứ (left), or centered titles/subtitles (1a, 1c, 1d, 1e)
+        if (patch.align === 'justify') {
+          if (inTable && p.node.attrs.align) {
+            attrs.align = p.node.attrs.align
+          } else if (/^(?:Căn cứ|Xét đề nghị|Theo đề nghị)\b/i.test(pText)) {
+            attrs.align = 'left'
+          } else if (
+            p.node.type.name === 'docHeading' && p.node.attrs.align === 'center'
+          ) {
+            attrs.align = 'center'
+          } else if (
+            /^(?:CỘNG HÒA XÃ HỘI|Độc lập\s*-\s*Tự do|Về việc\s+|V\/v\s+|Kính gửi\s*:|\((?:Căn cứ|Ban hành kèm theo))/i.test(
+              pText,
+            )
+          ) {
+            attrs.align = 'center'
+          }
+        }
+        // Keep NĐ30 spacing compact so tables and signature blocks are never pushed to Page 2 (1e, 1f)
+        if (isNd30Doc) {
+          if (inTable) {
+            attrs.lineSpacing = p.node.attrs.lineSpacing ?? 1.1
+            attrs.spaceBefore = p.node.attrs.spaceBefore ?? 20
+            attrs.spaceAfter = p.node.attrs.spaceAfter ?? 20
+          } else {
+            if (typeof attrs.lineSpacing === 'number' && attrs.lineSpacing > 1.25) {
+              attrs.lineSpacing = 1.15
+            }
+            if (typeof attrs.spaceBefore === 'number' && attrs.spaceBefore > 120) {
+              attrs.spaceBefore = 60
+            }
+            if (typeof attrs.spaceAfter === 'number' && attrs.spaceAfter > 120) {
+              attrs.spaceAfter = 60
+            }
+          }
+        }
+      }
       const dirty = Object.keys(patch).some((k) => attrs[k] !== p.node.attrs[k])
       if (!dirty) continue
       tr.setNodeMarkup(p.pos, undefined, changedAttrs(ctx, attrs))
@@ -649,6 +698,22 @@ function applyFontRange(
     else tr.removeMark(from, to, schema.marks.link)
   }
   if (Object.keys(markPatch).length === 0) return
+  const isBroadAiFontOp =
+    env.ctx.source !== 'ui' &&
+    !op.target?.containsText &&
+    op.target?.scope !== 'selection' &&
+    !op.target?.range &&
+    op.text === undefined &&
+    op.matchFontSize === undefined
+  const nodeText = isBroadAiFontOp ? node.textContent.replace(/\s+/g, ' ').trim() : ''
+  const preserveNd30Size =
+    isBroadAiFontOp &&
+    markPatch.sizeHalfPoints !== undefined &&
+    (/^-\s+(?:Như trên|Lưu\s*:)/i.test(nodeText) ||
+      /^Nơi nhận\s*:/i.test(nodeText) ||
+      /^CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM$/i.test(nodeText) ||
+      /^Độc lập\s*-\s*Tự do\s*-\s*Hạnh phúc$/i.test(nodeText) ||
+      /^\(Ký,?\s*(?:ghi rõ họ tên|đóng dấu)/i.test(nodeText))
   // merge per text node: only the given attrs change, the rest survive
   node.forEach((child, offset) => {
     if (!child.isText) return
@@ -658,6 +723,17 @@ function applyFontRange(
     const existing = child.marks.find((m) => m.type.name === 'docTextStyle')?.attrs ?? {}
     // spread keeps every non-listed attr (fontAscii/styleId/rawRPr…) alive
     const merged: Record<string, unknown> = { ...existing, ...markPatch }
+    if (preserveNd30Size && typeof existing.sizeHalfPoints === 'number') {
+      merged.sizeHalfPoints = existing.sizeHalfPoints
+    }
+    if (typeof markPatch.fontAscii === 'string' && markPatch.eastAsiaFont === undefined) {
+      if (existing.font && !isEastAsianFontName(String(existing.font))) {
+        merged.font = markPatch.fontAscii
+      }
+      if (existing.eastAsiaFont && !isEastAsianFontName(String(existing.eastAsiaFont))) {
+        merged.eastAsiaFont = markPatch.fontAscii
+      }
+    }
     const empty = Object.values(merged).every((v) => v === null)
     if (empty) tr.removeMark(childFrom, childTo, schema.marks.docTextStyle)
     else tr.addMark(childFrom, childTo, schema.marks.docTextStyle.create(merged))
@@ -666,7 +742,9 @@ function applyFontRange(
 
 function runSetFont(op: Op, env: RunEnv): OpResult {
   const { tr, ctx, sel } = env
-  const matched = matchTarget(tr.doc, targetOf(op), sel)
+  const target = targetOf(op)
+  const matched = matchTarget(tr.doc, target, sel)
+  const scoped = scopedRange(target, sel)
   const boolKeys = present(op, Object.keys(BOOL_MARK_TYPES))
   const markPatch = buildTextMarkPatch(op)
   let changed = 0
@@ -677,10 +755,21 @@ function runSetFont(op: Op, env: RunEnv): OpResult {
       continue
     }
     const before = b.node
-    const contentFrom = b.pos + 1
-    const from = b.clip?.from ?? contentFrom
-    const to = b.clip?.to ?? contentFrom + b.node.content.size
-    if (from < to) applyFontRange(env, op, boolKeys, markPatch, from, to, b.node, contentFrom)
+    for (const p of paragraphsIn(b, scoped)) {
+      const contentFrom = p.pos + 1
+      const contentTo = contentFrom + p.node.content.size
+      const from =
+        b.clip?.from ??
+        (scoped && !b.node.isTextblock && scoped.from !== scoped.to
+          ? Math.max(contentFrom, scoped.from)
+          : contentFrom)
+      const to =
+        b.clip?.to ??
+        (scoped && !b.node.isTextblock && scoped.from !== scoped.to
+          ? Math.min(contentTo, scoped.to)
+          : contentTo)
+      if (from < to) applyFontRange(env, op, boolKeys, markPatch, from, to, p.node, contentFrom)
+    }
     const after = tr.doc.nodeAt(b.pos)
     if (after && !after.eq(before)) {
       changed++
@@ -695,6 +784,8 @@ function runSetParagraphFormat(op: Op, env: RunEnv): OpResult {
   for (const k of present(op, PARA_KEYS)) {
     if (k === 'shadingFill') patch.shadingFill = normalizeHex(op.shadingFill, op.op, 'shadingFill')
     else if (k === 'pageBreakBefore') patch.pageBreakBefore = op.pageBreakBefore === true
+    else if (k === 'keepNext' || k === 'keepWithNext') patch.keepNext = op[k] === true
+    else if (k === 'keepLines') patch.keepLines = op.keepLines === true
     else if (k === 'tabs') patch.tabStops = tabSpecsToStops(op.tabs as TabSpec[] | null)
     else patch[k] = op[k] ?? null
   }

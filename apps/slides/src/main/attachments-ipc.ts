@@ -12,7 +12,8 @@
  */
 import { app, dialog, ipcMain } from 'electron'
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
-import { basename, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
+import { analyzeMediaTool, localMediaRoots } from '@lycero/ai-search'
 import { showOpenDialogWithMemory } from '@lycero/electron-utils'
 import { parseFileToText } from '@lycero/file-parse'
 import type {
@@ -192,6 +193,40 @@ export function registerAttachmentIpc(): void {
       const ext = name.split('.').pop()?.toLowerCase() ?? ''
       if (!ATTACHMENT_EXTS.has(ext)) return { ok: false, error: tm('errUnsupportedExt', { ext }) }
       if (ATTACHMENT_IMAGE_EXTS.has(ext)) {
+        try {
+          const stat = statSync(filePath)
+          const stamp = `${stat.mtimeMs}:${stat.size}`
+          const cached = attachmentTextCache.get(filePath)
+          let text = cached && cached.stamp === stamp ? cached.text : ''
+          if (!text) {
+            const analyzed = await analyzeMediaTool(
+              join(app.getPath('userData'), 'ai-settings.json'),
+              {
+                mediaUrls: [filePath],
+                requirements:
+                  'Trích xuất chính xác toàn bộ văn bản (giữ nguyên tiếng Việt có dấu, số liệu, bảng biểu) và mô tả chi tiết nội dung hình ảnh này.',
+              },
+              { mediaRoots: localMediaRoots(dirname(filePath)) },
+            )
+            if (analyzed.text?.trim()) {
+              text = analyzed.text.trim()
+              attachmentTextCache.set(filePath, { stamp, text })
+            }
+          }
+          if (text) {
+            const start = Math.max(0, Math.floor(offset) || 0)
+            const size = Math.min(Math.max(1, Math.floor(maxChars) || 1), 48_000)
+            return {
+              ok: true,
+              name,
+              totalChars: text.length,
+              offset: start,
+              text: text.slice(start, start + size),
+            }
+          }
+        } catch {
+          // fall back to errImageNoText
+        }
         return { ok: false, error: tm('errImageNoText') }
       }
       try {

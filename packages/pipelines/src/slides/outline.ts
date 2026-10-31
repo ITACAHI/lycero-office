@@ -96,7 +96,7 @@ export function parseOutline(
     issues.push({
       level: 'error',
       message:
-        '"core_hook" is missing: one sentence with tension, a number or a counter-intuitive contrast',
+        '"core_hook" is missing: one sentence with tension or a counter-intuitive contrast (use numbers only if verified in source material)',
     })
   const topic = typeof root.topic === 'string' ? root.topic.trim() : undefined
   checkDeck(pages, issues)

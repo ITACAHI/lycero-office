@@ -23,9 +23,14 @@ import {
 export const DEFAULT_LYCERO_GATEWAY_URL = 'https://lycero.com'
 export const DEFAULT_CHAT_GATEWAY_URL = `${DEFAULT_LYCERO_GATEWAY_URL}/api/v1/office/ai/chat`
 
+export type AiChatMessageContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } }
+
 export interface AiChatMessage {
   role: 'system' | 'user' | 'assistant'
-  content: string
+  content: string | AiChatMessageContentPart[]
+  images?: Array<{ mime: string; base64: string; url?: string }>
 }
 
 export interface AiChatStreamPayload {

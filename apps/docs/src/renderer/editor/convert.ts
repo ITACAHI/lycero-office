@@ -1405,6 +1405,7 @@ export function tableStructureSignature(table: PmNode): string {
     cellMarEdited: table.attrs?.cellMarEdited ?? false,
     tblStyle: table.attrs?.tblStyleId ?? null,
     tblAlign: table.attrs?.tblAlign ?? null,
+    borders: table.attrs?.borders ?? null,
     tblFloat: table.attrs?.tblFloat ?? null,
     tblFloatXTwips: table.attrs?.tblFloatXTwips ?? null,
     tblFloatYTwips: table.attrs?.tblFloatYTwips ?? null,
@@ -1652,6 +1653,17 @@ export function pmTableToModel(table: PmNode): TableModel {
   } else if (colWidthsPct?.length !== maximumColumns) {
     colWidthsPct = Array.from({ length: maximumColumns }, () => 100 / maximumColumns)
   }
+  const isBorderlessTbl =
+    (table.attrs?.borders as { top?: { style?: string } } | null | undefined)?.top?.style === 'none'
+  if (
+    maximumColumns === 6 &&
+    !isBorderlessTbl &&
+    colWidthsPct?.length === 6 &&
+    (colWidthsPct.every((p) => Math.abs(p - 100 / 6) < 1) ||
+      (Math.abs(colWidthsPct[0]! - 6) < 1.5 && Math.abs(colWidthsPct[1]! - 44) < 3))
+  ) {
+    colWidthsTwips = [560, 3900, 900, 700, 1400, 1600]
+  }
   const tblStyleAttr = table.attrs?.tblStyleId as string | null | undefined
   const isNew = table.attrs?.docxIndex == null
   const tablePropsEdited = (name: string): boolean => isNew || table.attrs?.[name] === true
@@ -1697,6 +1709,7 @@ export function pmTableToModel(table: PmNode): TableModel {
     rows,
     ...(colWidthsPct ? { colWidthsPct } : {}),
     ...(colWidthsTwips ? { colWidthsTwips } : {}),
+    ...(table.attrs?.borders ? { borders: table.attrs.borders as TableModel['borders'] } : {}),
     ...(table.attrs?.cellSpacingTwips
       ? { cellSpacingTwips: Number(table.attrs.cellSpacingTwips) }
       : {}),

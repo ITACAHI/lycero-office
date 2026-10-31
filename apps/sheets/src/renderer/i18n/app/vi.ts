@@ -397,16 +397,18 @@ export const vi = {
   appPivotOnAddedSheet:
     'Chưa hỗ trợ tạo PivotTable trên trang tính mới thêm trong phiên này — hãy lưu trước.',
   appPivotSourceNeedsRows: 'Nguồn PivotTable cần một hàng tiêu đề cùng các hàng dữ liệu.',
-  appPivotSourceRowLimit: 'Nguồn PivotTable được giới hạn tối đa 10.000 hàng dữ liệu.',
+  appPivotSourceRowLimit:
+    'Nguồn PivotTable vượt giới hạn tối đa 200.000 hàng dữ liệu — vui lòng thu hẹp vùng nguồn hoặc lọc bớt dữ liệu.',
   appPivotSourceColLimit: 'Nguồn PivotTable được giới hạn tối đa 200 cột.',
   appPivotHeaderBlank: 'Tất cả các ô tiêu đề nguồn không được để trống.',
   appPivotHeaderDuplicate: 'Tên tiêu đề nguồn phải là duy nhất.',
   appPivotFieldNotHeader: 'Trường "{label}" không phải là tiêu đề nguồn.',
-  appPivotTooManyRowItems: 'PivotTable có hơn 10.000 mục hàng.',
+  appPivotTooManyRowItems:
+    'PivotTable vượt giới hạn tối đa 50.000 mục hàng phân biệt — vui lòng nhóm dữ liệu hoặc thêm bộ lọc.',
   appPivotTooManyColItems: 'PivotTable có hơn 1.000 mục cột.',
   appPivotTooManyColLines: 'PivotTable có hơn 1.000 dòng cột.',
   appPivotNeedsValues: 'PivotTable cần một mục giá trị.',
-  appPivotTooManyRowLines: 'PivotTable có hơn 20.000 dòng hàng.',
+  appPivotTooManyRowLines: 'PivotTable vượt giới hạn tối đa 100.000 dòng hiển thị.',
   appPivotOverlapSource:
     'Đầu ra PivotTable sẽ chồng chéo với vùng nguồn — hãy chọn một ô đích khác.',
   appPivotOverlapExisting:

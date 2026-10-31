@@ -72,16 +72,32 @@ export function createFilesSkill(getAttachments: () => readonly AttachmentMeta[]
           summary: t('aiToolReadAttachment'),
         }
       }
-      // Images skip text extraction: already provided as multimodal images with
-      // the user message on send
+      const offset = Math.max(0, Number(call.input.offset) || 0)
       if (ATTACHMENT_IMAGE_EXTS.has(att.ext)) {
+        try {
+          const imgRes = await window.desktopApi.readAttachment(att.path, offset, READ_CHUNK_CHARS)
+          if (imgRes.ok && imgRes.text?.trim()) {
+            const end = (imgRes.offset ?? 0) + imgRes.text.length
+            const header = `File ${att.name}, total characters ${imgRes.totalChars}, this chunk ${imgRes.offset}-${end}${
+              end < (imgRes.totalChars ?? 0)
+                ? ' (not finished; continue with offset=' + end + ')'
+                : ' (end of file)'
+            }`
+            return {
+              output: `${header}\n---\n${imgRes.text}`,
+              mutated: false,
+              summary: t('aiToolImageAttachment', { name: att.name }),
+            }
+          }
+        } catch {
+          // fall through to multimodal hint
+        }
         return {
           output: `${att.name} is an image attachment, already sent as an image with the user message — just look at the image in the message; no text to read.`,
           mutated: false,
           summary: t('aiToolImageAttachment', { name: att.name }),
         }
       }
-      const offset = Math.max(0, Number(call.input.offset) || 0)
       const result = await window.desktopApi.readAttachment(att.path, offset, READ_CHUNK_CHARS)
       if (!result.ok) {
         return {

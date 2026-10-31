@@ -24,6 +24,8 @@ export interface StyleRunProps {
   font?: string | null
   /** East Asian face (w:eastAsia) */
   eastAsiaFont?: string | null
+  /** Complex script face (w:cs) */
+  csFont?: string | null
 }
 
 /** Paragraph properties of a style definition; same patch semantics as StyleRunProps. */
@@ -314,6 +316,10 @@ function patchRun(children: Children, rp: StyleRunProps): void {
     fonts['w:eastAsia'] = rp.eastAsiaFont === null ? null : escapeXmlAttr(rp.eastAsiaFont)
     fonts['w:eastAsiaTheme'] = null
   }
+  if (rp.csFont !== undefined) {
+    fonts['w:cs'] = rp.csFont === null ? null : escapeXmlAttr(rp.csFont)
+    fonts['w:cstheme'] = null
+  }
   if (Object.keys(fonts).length > 0) children.attrs('w:rFonts', fonts)
 }
 
@@ -436,7 +442,7 @@ export function upsertStyleXml(xml: string, up: StyleUpsert): string {
 }
 
 /** Patch only the requested default font slots, preserving all other defaults. */
-export type DefaultFonts = Pick<StyleRunProps, 'font' | 'eastAsiaFont'>
+export type DefaultFonts = Pick<StyleRunProps, 'font' | 'eastAsiaFont' | 'csFont'>
 export function mergeDefaultFontsXml(xml: string, fonts: DefaultFonts): string {
   const declaration = xml.slice(0, xml.indexOf('<w:styles'))
   const root = xml.slice(xml.indexOf('<w:styles'))

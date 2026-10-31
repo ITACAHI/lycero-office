@@ -11,11 +11,12 @@ import {
   isNumericCell,
   parseCsv,
 } from '@lycero/xlsx-gateway/gateway/csv-import'
-import { columnLabel, parseAddress } from '@lycero/xlsx-gateway/domain/cell-address'
+import { columnLabel, parseAddress, parseRange } from '@lycero/xlsx-gateway/domain/cell-address'
 import {
   assembleWithJsZip,
   createBufferEntrySource,
   planCellEditsToXlsx,
+  readBasicWorkbook,
   toA1Address,
   type CellEdit,
   type SheetFormulaValues,
@@ -1101,6 +1102,21 @@ export function csvTable(bytes: Uint8Array, name: string, opts: CsvTableOptions 
   return Object.keys(formats).length ? { name, rows, formats } : { name, rows }
 }
 
+/** JSON rows → table; ISO date strings become Excel date serials with date formatting like csvTable. */
+export function jsonTable(name: string, rawRows: Scalar[][]): TableInput {
+  const formats: Record<string, string> = {}
+  const rows = rawRows.map((r, rowIndex) =>
+    r.map((v, columnIndex) => {
+      if (typeof v !== 'string' || v.startsWith('=')) return v
+      const date = isoDateSerial(v)
+      if (!date) return v
+      formats[`${rowIndex}:${columnIndex}`] = date.format
+      return date.serial
+    }),
+  )
+  return Object.keys(formats).length ? { name, rows, formats } : { name, rows }
+}
+
 export function cellEditsFromTable(
   sheet: string,
   rows: Scalar[][],
@@ -1248,14 +1264,47 @@ export async function writeWorkbook(
     )
   }
   await atomicWriteFile(outputPath, first.buffer)
-  const formulaCells = edits.filter((e) => e.cell.formula)
+  const writtenFormulaCells = edits.filter((e) => e.cell.formula)
   const base = {
     cells: edits.length,
-    formulas: formulaCells.length,
+    formulas: writtenFormulaCells.length,
     ...(notes.length ? { notes } : {}),
   }
-  if (formulaCells.length === 0) return { ...base, cachedValues: true }
+  const writtenKeys = new Set(
+    writtenFormulaCells.map((c) => `${c.sheetName} ${c.row} ${c.column}`),
+  )
+  const allFormulaCells: CellEdit[] = [...writtenFormulaCells]
+  let snapshotBySheet = new Map<string, Record<string, { value: Scalar; formula?: string }>>()
+  if (edits.length > 0 || structuralOps.length > 0 || writtenFormulaCells.length > 0) {
+    try {
+      const parsed = await readBasicWorkbook(first.buffer)
+      const originalName = (written: string) =>
+        Object.entries(renames).find(([, after]) => after === written)?.[0] ?? written
+      for (const sheet of parsed.snapshot.sheets) {
+        snapshotBySheet.set(sheet.name, sheet.cells)
+        const origSheet = originalName(sheet.name)
+        for (const [addr, cell] of Object.entries(sheet.cells)) {
+          if (!cell.formula) continue
+          const coords = parseAddress(addr)
+          const key = `${origSheet} ${coords.row} ${coords.column}`
+          if (!writtenKeys.has(key)) {
+            allFormulaCells.push({
+              sheetName: origSheet,
+              row: coords.row,
+              column: coords.column,
+              writeValue: true,
+              cell: { value: cell.value, formula: cell.formula },
+            })
+          }
+        }
+      }
+    } catch {
+      snapshotBySheet = new Map()
+    }
+  }
+  if (allFormulaCells.length === 0) return { ...base, cachedValues: true }
   if (!xlsxSidecarPath()) {
+    if (writtenFormulaCells.length === 0) return { ...base, cachedValues: true }
     return {
       ...base,
       cachedValues: false,
@@ -1263,15 +1312,23 @@ export async function writeWorkbook(
     }
   }
   try {
-    const { values, uncached, unparsed } = await evaluateFormulas(outputPath, formulaCells, renames)
+    const { values, uncached, unparsed } = await evaluateFormulas(
+      outputPath,
+      allFormulaCells,
+      renames,
+      writtenKeys,
+      snapshotBySheet,
+    )
     if (values.length) {
       const second = await save(values)
       await atomicWriteFile(outputPath, second.buffer)
-      if (uncached.length === 0 && unparsed.length === 0) return { ...base, cachedValues: true }
+      if (writtenFormulaCells.length === 0 || (uncached.length === 0 && unparsed.length === 0)) {
+        return { ...base, cachedValues: true }
+      }
       const skipped = uncached.length + unparsed.length
       return {
         ...base,
-        cachedValues: skipped < formulaCells.length,
+        cachedValues: skipped < writtenFormulaCells.length,
         ...(uncached.length ? { uncached } : {}),
         ...(unparsed.length ? { unparsed } : {}),
         ...(uncached.length
@@ -1286,6 +1343,7 @@ export async function writeWorkbook(
           : {}),
       }
     }
+    if (writtenFormulaCells.length === 0) return { ...base, cachedValues: true }
     return {
       ...base,
       cachedValues: false,
@@ -1293,6 +1351,7 @@ export async function writeWorkbook(
         'the engine returned no results for the written formulas; the file recalculates on open',
     }
   } catch (err) {
+    if (writtenFormulaCells.length === 0) return { ...base, cachedValues: true }
     const message = err instanceof Error ? err.message : String(err)
     return {
       ...base,
@@ -1318,11 +1377,15 @@ async function evaluateFormulas(
   path: string,
   formulaCells: readonly CellEdit[],
   renames: Record<string, string>,
+  writtenKeys: ReadonlySet<string>,
+  snapshotBySheet: ReadonlyMap<string, Record<string, { value: Scalar; formula?: string }>>,
 ): Promise<{ values: SheetFormulaValues[]; uncached: string[]; unparsed: string[] }> {
   const bySheet = new Map<string, CellEdit[]>()
   for (const e of formulaCells) bySheet.set(e.sheetName, [...(bySheet.get(e.sheetName) ?? []), e])
   // edits carry the file's original sheet names; the written file has the renamed ones
-  const wanted = new Set(formulaCells.map((c) => `${c.sheetName} ${c.row} ${c.column}`))
+  const formulaMap = new Map(
+    formulaCells.map((c) => [`${c.sheetName} ${c.row} ${c.column}`, c.cell.formula ?? '']),
+  )
   const originalName = (written: string) =>
     Object.entries(renames).find(([, after]) => after === written)?.[0] ?? written
   return withSidecar(async (client) => {
@@ -1330,19 +1393,46 @@ async function evaluateFormulas(
     const uncached: string[] = []
     const unparsed: string[] = []
     for (const [sheet, cells] of bySheet) {
-      const evaluated = await recalcRange(client, path, renames[sheet] ?? sheet, boundingBox(cells))
+      const writtenSheet = renames[sheet] ?? sheet
+      const evaluated = await recalcRange(client, path, writtenSheet, boundingBox(cells))
+      const sheetCells = snapshotBySheet.get(writtenSheet)
+      if (sheetCells) {
+        for (const cell of evaluated) {
+          if (
+            !cell.isError &&
+            cell.formatted !== UNKNOWN_FUNCTION_RESULT &&
+            cell.formatted !== UNPARSED_RESULT
+          ) {
+            const addr = toA1Address(cell.row, cell.column)
+            const val = (cell.number ?? (cell.formatted === '' ? null : cell.formatted)) as Scalar
+            sheetCells[addr] = { ...sheetCells[addr], value: val }
+          }
+        }
+      }
       const values = evaluated
-        .filter((cell) => wanted.has(`${originalName(cell.sheet)} ${cell.row} ${cell.column}`))
+        .filter((cell) => formulaMap.has(`${originalName(cell.sheet)} ${cell.row} ${cell.column}`))
         .map((cell) => {
+          const cellKey = `${originalName(cell.sheet)} ${cell.row} ${cell.column}`
+          const isWritten = writtenKeys.has(cellKey)
+          const rawFormula = formulaMap.get(cellKey) ?? ''
+          const fallbackVal = tryEvaluateFallbackFormula(
+            rawFormula,
+            writtenSheet,
+            snapshotBySheet,
+            cell.formatted,
+          )
+          if (fallbackVal !== undefined) {
+            return { row: cell.row, column: cell.column, value: fallbackVal }
+          }
           // Both leave the cell without a cached value — the file is correct
           // and Excel recomputes on open — but they have different causes and
           // the caller reports them apart.
           if (cell.formatted === UNKNOWN_FUNCTION_RESULT) {
-            uncached.push(`${sheet}!${toA1Address(cell.row, cell.column)}`)
+            if (isWritten) uncached.push(`${sheet}!${toA1Address(cell.row, cell.column)}`)
             return { row: cell.row, column: cell.column, value: null }
           }
           if (cell.formatted === UNPARSED_RESULT) {
-            unparsed.push(`${sheet}!${toA1Address(cell.row, cell.column)}`)
+            if (isWritten) unparsed.push(`${sheet}!${toA1Address(cell.row, cell.column)}`)
             return { row: cell.row, column: cell.column, value: null }
           }
           if (cell.isError) {
@@ -1359,6 +1449,307 @@ async function evaluateFormulas(
     }
     return { values: out, uncached, unparsed }
   })
+}
+
+function splitFormulaArgs(inner: string): string[] {
+  const args: string[] = []
+  let depth = 0
+  let inQuotes = false
+  let start = 0
+  for (let i = 0; i < inner.length; i += 1) {
+    const ch = inner[i]
+    if (ch === '"') {
+      if (inQuotes && inner[i + 1] === '"') {
+        i += 1
+        continue
+      }
+      inQuotes = !inQuotes
+    } else if (!inQuotes) {
+      if (ch === '(') depth += 1
+      else if (ch === ')') depth = Math.max(0, depth - 1)
+      else if (ch === ',' && depth === 0) {
+        args.push(inner.slice(start, i).trim())
+        start = i + 1
+      }
+    }
+  }
+  const tail = inner.slice(start).trim()
+  if (tail.length > 0) args.push(tail)
+  return args
+}
+
+function resolveSheetAndRef(
+  expr: string,
+  defaultSheet: string,
+): { sheet: string; ref: string } {
+  const trimmed = expr.trim()
+  const bang = trimmed.indexOf('!')
+  if (bang < 0) return { sheet: defaultSheet, ref: trimmed.replace(/\$/g, '') }
+  const rawSheet = trimmed.slice(0, bang).trim().replace(/^'|'$/g, '').replace(/''/g, "'")
+  return { sheet: rawSheet, ref: trimmed.slice(bang + 1).trim().replace(/\$/g, '') }
+}
+
+function toNumberOrDate(v: Scalar): number | null {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null
+  if (typeof v === 'string') {
+    const d = isoDateSerial(v)
+    if (d) return d.serial
+    const trimmed = v.trim()
+    if (isNumericCell(trimmed)) return Number(trimmed)
+  }
+  return null
+}
+
+function tryEvaluateFallbackFormula(
+  formula: string,
+  currentSheet: string,
+  snapshotBySheet: ReadonlyMap<string, Record<string, { value: Scalar; formula?: string }>>,
+  sidecarFormatted: string,
+): Scalar | undefined {
+  const clean = formula.trim().replace(/^=/, '').trim()
+  const m = /^(SUMPRODUCT|SUMIFS|COUNTIFS|AVERAGEIFS)\s*\(([\s\S]*)\)$/i.exec(clean)
+  if (!m) return undefined
+  const fn = m[1]!.toUpperCase()
+  const args = splitFormulaArgs(m[2]!)
+  try {
+    if (fn === 'SUMPRODUCT') {
+      return evalSumproduct(args, currentSheet, snapshotBySheet)
+    }
+    return evalIfs(fn as 'SUMIFS' | 'COUNTIFS' | 'AVERAGEIFS', args, currentSheet, snapshotBySheet, sidecarFormatted)
+  } catch {
+    return undefined
+  }
+}
+
+function readRangeValues(
+  expr: string,
+  currentSheet: string,
+  snapshotBySheet: ReadonlyMap<string, Record<string, { value: Scalar; formula?: string }>>,
+): Scalar[] | null {
+  const { sheet, ref } = resolveSheetAndRef(expr, currentSheet)
+  const cells = snapshotBySheet.get(sheet)
+  if (!cells) return null
+  const bounds = parseRange(ref)
+  const out: Scalar[] = []
+  for (let r = bounds.startRow; r <= bounds.endRow; r += 1) {
+    for (let c = bounds.startColumn; c <= bounds.endColumn; c += 1) {
+      out.push(cells[toA1Address(r, c)]?.value ?? null)
+    }
+  }
+  return out
+}
+
+function evalSumproductTerm(
+  expr: string,
+  currentSheet: string,
+  snapshotBySheet: ReadonlyMap<string, Record<string, { value: Scalar; formula?: string }>>,
+): number[] | null {
+  let s = expr.trim()
+  let negate = 1
+  while (s.startsWith('-')) {
+    negate *= -1
+    s = s.slice(1).trim()
+  }
+  if (s.startsWith('(') && s.endsWith(')')) {
+    let depth = 0
+    let wrapped = true
+    let inQuotes = false
+    for (let i = 0; i < s.length - 1; i += 1) {
+      if (s[i] === '"') inQuotes = !inQuotes
+      else if (!inQuotes) {
+        if (s[i] === '(') depth += 1
+        else if (s[i] === ')') {
+          depth -= 1
+          if (depth === 0) {
+            wrapped = false
+            break
+          }
+        }
+      }
+    }
+    if (wrapped) {
+      const inner = evalSumproductExpr(s.slice(1, -1), currentSheet, snapshotBySheet)
+      return inner ? inner.map((v) => v * negate) : null
+    }
+  }
+  // Check comparison inside term: Range=Val, Range>=Val, etc.
+  const cmpMatch = /^([^<>=!]+)(<=|>=|<>|<|>|=)([\s\S]+)$/.exec(s)
+  if (cmpMatch) {
+    const leftVals = readRangeValues(cmpMatch[1]!, currentSheet, snapshotBySheet)
+    if (!leftVals) return null
+    const op = cmpMatch[2]!
+    const rhsRaw = cmpMatch[3]!.trim()
+    const rhsScalar = parseCriteriaValue(rhsRaw, currentSheet, snapshotBySheet)
+    return leftVals.map((v) => (compareExcelScalars(v, op, rhsScalar) ? 1 * negate : 0))
+  }
+  const rangeVals = readRangeValues(s, currentSheet, snapshotBySheet)
+  if (!rangeVals) return null
+  return rangeVals.map((v) => {
+    const n = typeof v === 'number' && Number.isFinite(v) ? v : isNumericCell(String(v ?? '').trim()) ? Number(String(v).trim()) : 0
+    return n * negate
+  })
+}
+
+function evalSumproductExpr(
+  expr: string,
+  currentSheet: string,
+  snapshotBySheet: ReadonlyMap<string, Record<string, { value: Scalar; formula?: string }>>,
+): number[] | null {
+  // Split top-level * and +
+  const factors: string[] = []
+  let depth = 0
+  let inQuotes = false
+  let start = 0
+  for (let i = 0; i < expr.length; i += 1) {
+    const ch = expr[i]
+    if (ch === '"') inQuotes = !inQuotes
+    else if (!inQuotes) {
+      if (ch === '(') depth += 1
+      else if (ch === ')') depth = Math.max(0, depth - 1)
+      else if (ch === '*' && depth === 0) {
+        factors.push(expr.slice(start, i))
+        start = i + 1
+      }
+    }
+  }
+  if (factors.length > 0) {
+    factors.push(expr.slice(start))
+    const arrays = factors.map((f) => evalSumproductTerm(f, currentSheet, snapshotBySheet))
+    if (arrays.some((a) => !a)) return null
+    const len = arrays[0]!.length
+    if (arrays.some((a) => a!.length !== len)) return null
+    return Array.from({ length: len }, (_, idx) =>
+      arrays.reduce((acc, arr) => acc * arr![idx]!, 1),
+    )
+  }
+  return evalSumproductTerm(expr, currentSheet, snapshotBySheet)
+}
+
+function evalSumproduct(
+  args: string[],
+  currentSheet: string,
+  snapshotBySheet: ReadonlyMap<string, Record<string, { value: Scalar; formula?: string }>>,
+): number | undefined {
+  if (args.length === 0) return undefined
+  const arrays = args.map((a) => evalSumproductExpr(a, currentSheet, snapshotBySheet))
+  if (arrays.some((a) => !a)) return undefined
+  const len = arrays[0]!.length
+  if (len === 0 || arrays.some((a) => a!.length !== len)) return undefined
+  let sum = 0
+  for (let i = 0; i < len; i += 1) {
+    let prod = 1
+    for (const arr of arrays) prod *= arr![i]!
+    sum += prod
+  }
+  return sum
+}
+
+function parseCriteriaValue(
+  raw: string,
+  currentSheet: string,
+  snapshotBySheet: ReadonlyMap<string, Record<string, { value: Scalar; formula?: string }>>,
+): Scalar {
+  const trimmed = raw.trim()
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    return trimmed.slice(1, -1).replace(/""/g, '"')
+  }
+  if (isNumericCell(trimmed)) return Number(trimmed)
+  if (/^(true|false)$/i.test(trimmed)) return trimmed.toLowerCase() === 'true'
+  // Cell reference or string concatenation like ">="&F1
+  if (trimmed.includes('&')) {
+    const parts = trimmed.split('&').map((p) => String(parseCriteriaValue(p, currentSheet, snapshotBySheet) ?? ''))
+    return parts.join('')
+  }
+  const { sheet, ref } = resolveSheetAndRef(trimmed, currentSheet)
+  const cell = snapshotBySheet.get(sheet)?.[ref]
+  return cell?.value ?? trimmed
+}
+
+function compareExcelScalars(cellVal: Scalar, op: string, target: Scalar): boolean {
+  const targetNum = toNumberOrDate(target)
+  const cellNum = toNumberOrDate(cellVal)
+  if (targetNum !== null && cellNum !== null) {
+    if (op === '=') return cellNum === targetNum
+    if (op === '<>') return cellNum !== targetNum
+    if (op === '<') return cellNum < targetNum
+    if (op === '<=') return cellNum <= targetNum
+    if (op === '>') return cellNum > targetNum
+    if (op === '>=') return cellNum >= targetNum
+  }
+  const leftStr = String(cellVal ?? '').trim().toLowerCase()
+  const rightStr = String(target ?? '').trim().toLowerCase()
+  if (op === '=') return leftStr === rightStr
+  if (op === '<>') return leftStr !== rightStr
+  if (op === '<') return leftStr < rightStr
+  if (op === '<=') return leftStr <= rightStr
+  if (op === '>') return leftStr > rightStr
+  if (op === '>=') return leftStr >= rightStr
+  return false
+}
+
+function evalIfs(
+  fn: 'SUMIFS' | 'COUNTIFS' | 'AVERAGEIFS',
+  args: string[],
+  currentSheet: string,
+  snapshotBySheet: ReadonlyMap<string, Record<string, { value: Scalar; formula?: string }>>,
+  sidecarFormatted: string,
+): number | undefined {
+  const hasTargetRange = fn === 'SUMIFS' || fn === 'AVERAGEIFS'
+  const minArgs = hasTargetRange ? 3 : 2
+  if (args.length < minArgs || (args.length - (hasTargetRange ? 1 : 0)) % 2 !== 0) {
+    return undefined
+  }
+  const targetValues = hasTargetRange
+    ? readRangeValues(args[0]!, currentSheet, snapshotBySheet)
+    : null
+  if (hasTargetRange && !targetValues) return undefined
+  const pairsStart = hasTargetRange ? 1 : 0
+  const pairs: { values: Scalar[]; op: string; target: Scalar }[] = []
+  let hasIsoDateCriteriaOrCell = false
+  for (let i = pairsStart; i < args.length; i += 2) {
+    const critVals = readRangeValues(args[i]!, currentSheet, snapshotBySheet)
+    if (!critVals) return undefined
+    if (critVals.some((v) => typeof v === 'string' && isoDateSerial(v) !== undefined)) {
+      hasIsoDateCriteriaOrCell = true
+    }
+    const rawCrit = String(parseCriteriaValue(args[i + 1]!, currentSheet, snapshotBySheet) ?? '')
+    const m = /^(<=|>=|<>|<|>|=)?([\s\S]*)$/.exec(rawCrit)
+    const op = m?.[1] || '='
+    const rhsText = (m?.[2] ?? '').trim()
+    if (isoDateSerial(rhsText) !== undefined) {
+      hasIsoDateCriteriaOrCell = true
+    }
+    const target: Scalar =
+      isoDateSerial(rhsText)?.serial ?? (isNumericCell(rhsText) ? Number(rhsText) : rhsText)
+    pairs.push({ values: critVals, op, target })
+  }
+  // Only override the sidecar when ISO dates are involved or the sidecar failed
+  if (!hasIsoDateCriteriaOrCell && sidecarFormatted !== UNKNOWN_FUNCTION_RESULT && sidecarFormatted !== UNPARSED_RESULT) {
+    return undefined
+  }
+  const len = pairs[0]!.values.length
+  if ( (targetValues && targetValues.length !== len) || pairs.some((p) => p.values.length !== len)) {
+    return undefined
+  }
+  let sum = 0
+  let count = 0
+  for (let idx = 0; idx < len; idx += 1) {
+    const matches = pairs.every((p) => compareExcelScalars(p.values[idx] ?? null, p.op, p.target))
+    if (!matches) continue
+    if (fn === 'COUNTIFS') {
+      count += 1
+    } else {
+      const v = targetValues![idx] ?? null
+      const num = typeof v === 'number' && Number.isFinite(v) ? v : isNumericCell(String(v ?? '').trim()) ? Number(String(v).trim()) : null
+      if (num !== null) {
+        sum += num
+        count += 1
+      }
+    }
+  }
+  if (fn === 'COUNTIFS') return count
+  if (fn === 'AVERAGEIFS') return count > 0 ? sum / count : undefined
+  return sum
 }
 
 interface Bounds {

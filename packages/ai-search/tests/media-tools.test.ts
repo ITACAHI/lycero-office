@@ -112,4 +112,28 @@ describe('analyzeMediaTool media budget (Genspark route)', () => {
     })
     expect(gskAnalyze).not.toHaveBeenCalled()
   })
+
+  it('converts local file paths into base64 data URLs before calling gskAnalyzeMedia', async () => {
+    const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs')
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+    const dir = mkdtempSync(join(tmpdir(), 'lycero-analyze-local-'))
+    const localPng = join(dir, 'sample.png')
+    writeFileSync(localPng, Buffer.from([137, 80, 78, 71]))
+    try {
+      gskAnalyze.mockResolvedValueOnce('Extracted text')
+      const r = await analyzeMediaTool(
+        SETTINGS,
+        { mediaUrls: [localPng], requirements: 'read text' },
+        { mediaRoots: [dir] },
+      )
+      expect(r).toEqual({ text: 'Extracted text' })
+      expect(gskAnalyze).toHaveBeenCalledWith({
+        mediaUrls: [`data:image/png;base64,${Buffer.from([137, 80, 78, 71]).toString('base64')}`],
+        requirements: 'read text',
+      })
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
 })

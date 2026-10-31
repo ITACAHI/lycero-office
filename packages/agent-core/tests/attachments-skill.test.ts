@@ -73,4 +73,18 @@ describe('attachments skill', () => {
     })
     expect(missing.isError).toBe(true)
   })
+
+  it('uses readImage when provided to extract text from an image attachment', async () => {
+    const read = vi.fn()
+    const readImage = vi.fn(async () => ({
+      text: 'Tờ trình Trường THPT Nguyễn Du',
+      totalChars: 30,
+      offset: 0,
+    }))
+    const skill = createAttachmentsSkill({ list: () => [PHOTO], read, readImage })
+    const res = await skill.executeTool({ id: 'img1', name: 'read_attachment', input: { index: 0 } })
+    expect(readImage).toHaveBeenCalledWith('/tmp/photo.png', 0, 24_000)
+    expect(read).not.toHaveBeenCalled()
+    expect(res.output).toContain('Tờ trình Trường THPT Nguyễn Du')
+  })
 })

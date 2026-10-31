@@ -43,6 +43,8 @@ export interface AttachmentsSkillDeps {
   list(): readonly AttachmentInfo[]
   /** one slice of the parsed text; rejects with the user-facing reason */
   read(path: string, offset: number, maxChars: number): Promise<AttachmentPage>
+  /** optional fallback OCR/vision reader when read_attachment is invoked on an image attachment */
+  readImage?(path: string, offset: number, maxChars: number): Promise<AttachmentPage>
   /** list absolute paths and cite links too (home: the CLI tools take paths, answers cite files) */
   pathsInContext?: boolean
   /** tool-row labels shown in the panel */
@@ -113,14 +115,34 @@ export function createAttachmentsSkill(deps: AttachmentsSkillDeps): AgentSkill {
           summary: labels.invalid ?? 'read attachment',
         }
       }
+      const offset = Math.max(0, Number(call.input.offset) || 0)
       if (ATTACHMENT_IMAGE_EXTS.has(att.ext)) {
+        if (deps.readImage) {
+          try {
+            const page = await deps.readImage(att.path, offset, ATTACHMENT_READ_CHUNK_CHARS)
+            if (page?.text?.trim()) {
+              const end = page.offset + page.text.length
+              const header = `File ${att.name}, total characters ${page.totalChars}, this slice ${page.offset}-${end}${
+                end < page.totalChars
+                  ? ' (not finished, continue with offset=' + end + ')'
+                  : ' (end of file)'
+              }`
+              return {
+                output: `${header}\n---\n${page.text}`,
+                mutated: false,
+                summary: labels.image?.(att.name) ?? att.name,
+              }
+            }
+          } catch {
+            // fall through to multimodal hint
+          }
+        }
         return {
           output: `${att.name} is an image attachment already sent as an image with the user message; just look at the image in the message, no text to read.`,
           mutated: false,
           summary: labels.image?.(att.name) ?? att.name,
         }
       }
-      const offset = Math.max(0, Number(call.input.offset) || 0)
       let page: AttachmentPage
       try {
         page = await deps.read(att.path, offset, ATTACHMENT_READ_CHUNK_CHARS)

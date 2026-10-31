@@ -1434,6 +1434,7 @@ export function AiPanel({
           '- Icon-like decoration uses the allowed shapes only (at most 4-5 per page, strongly content-related). **Never use emoji**.\n' +
           '- Data visuals: compose bars/rings/timelines from rect/donut/line shapes with sizes proportional to the real values from the brief.\n' +
           '- Solid colors only (alpha allowed) — no gradients. **No placeholders of any kind**: all copy comes from the brief’s real content.\n' +
+          '- **Strict Anti-Hallucination & Fact-Checking**: NEVER invent statistics, percentages, multipliers (e.g. "3–5x"), speed/latency benchmarks (e.g. "<800ms"), or unverified third-party claims/endorsements (e.g. "chuẩn McKinsey", "Gartner"). Only display numbers, benchmarks, or citations that are explicitly present in the content brief or reference material. If a numerical slot lacks user-provided data, write "[cần số liệu]" or omit the number entirely and express value through qualitative structure, workflow steps, or concrete capabilities — never fabricate figures to fill a card.\n' +
           '\n' +
           '## Anti-AI design rules (violation = unacceptable)\n' +
           '- No thin vertical accent bar on the left of cards, no colored bar on top of cards, no small bar left of titles — express hierarchy with background color/font weight/size contrast.\n' +
@@ -1519,17 +1520,17 @@ export function AiPanel({
           'Format: {"core_hook":"...","pages":[{"title":"","type":"cover|content|data|closing","brief":"","layout":"","image_queries":[]}]}\n' +
           '\n' +
           '## core_hook\n' +
-          "The deck's narrative anchor: one sentence, with tension, containing a number or counter-intuitive contrast, at most 20 characters.\n" +
+          "The deck's narrative anchor: one sentence with tension or a counter-intuitive contrast (at most 20 words; only include a number if that exact figure exists in the user's input or reference material — NEVER invent numbers).\n" +
           '\n' +
           "## layout (choose from the Style Skill's per-page-type variant library; content pages within one deck must not repeat the same variant)\n" +
           'cover: cover_typography_hero (huge pure typography) | cover_dark_minimal (dark background, centered large title) | cover_split_color (side-by-side color blocks) | cover_full_image_overlay (full-bleed photo + dark overlay) | cover_magazine (magazine-style large title + partial imagery) | cover_split_image (text left, image right)\n' +
           'content: left_text_right_image | three_column_cards | hero_big_number | two_column_comparison | timeline_horizontal | full_image_text_overlay\n' +
           'data: kpi_cards_row | chart_with_insight | two_by_two_grid\n' +
           'closing: closing_cta | closing_thank_you\n' +
-          'Selection criteria: 3 parallel points → three_column_cards; a key number → hero_big_number; comparison/categories → two_column_comparison/two_by_two_grid; sequence → timeline_horizontal; image+text → left_text_right_image/full_image_text_overlay; metrics → kpi_cards_row.\n' +
+          'Selection criteria: 3 parallel points → three_column_cards; comparison/categories → two_column_comparison/two_by_two_grid; sequence → timeline_horizontal; image+text → left_text_right_image/full_image_text_overlay; ONLY pick hero_big_number, kpi_cards_row, or chart_with_insight when verified numerical data actually exists in the user prompt or reference material.\n' +
           '\n' +
           '## brief\n' +
-          'Describe in detail what goes in each region of the layout; prefer real data/facts from the reference material, no "XX%" placeholders; cover gives main/sub titles and mood; data gives metric names + concrete values + changes.\n' +
+          'Describe in detail what goes in each region of the layout using ONLY facts from the user prompt or reference material, no "XX%" placeholders; NEVER invent statistics, percentages, multipliers ("3–5x"), latencies ("<800ms"), or unverified authority names ("McKinsey", "Gartner"). If a numerical metric is missing from the input, write "[cần số liệu]" or omit it and use qualitative comparisons, architecture/workflow steps, and concrete feature descriptions instead of fabricated metrics.\n' +
           '\n' +
           '## image_queries\n' +
           'Array: one entry per photo slot on the page. If the reference material contains ready image URLs (starting with http), use them directly; otherwise put English image-search keywords (describing a concrete scene, e.g. "summer palace kunming lake", not generic words like "park") — the system auto-searches and fills real URLs back. Travel/product/people/brand pages get images by default; give [] only when the page truly needs no photos (fill with typography/icons; never count on CSS-drawn fake images).'

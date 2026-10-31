@@ -221,6 +221,7 @@ import { mergeAttachedWorkbooks } from './merge-workbooks'
 import { createSearchSkill } from './ai/search-skill'
 import { createImageSkill } from './ai/image-skill'
 import { ATTACHMENT_IMAGE_EXTS } from '../shared/desktop-api'
+import type { WorkBundle } from '@lycero/ai-auth'
 import type {
   AttachmentAddResult,
   AttachmentMeta,
@@ -1506,15 +1507,25 @@ export function App({
 
   const bundlesRef = useRef<WorkBundle[]>([])
   useEffect(() => {
+    const aiOffice = (
+      window as unknown as {
+        aiOffice?: {
+          bundles?: {
+            getEnabled: () => Promise<WorkBundle[]>
+            onEnabledChanged: (cb: () => void) => () => void
+          }
+        }
+      }
+    ).aiOffice
     const loadBundles = () =>
-      window.aiOffice?.bundles
+      aiOffice?.bundles
         ?.getEnabled()
         .then((bundles: WorkBundle[]) => {
           bundlesRef.current = bundles ?? []
         })
         .catch(() => {})
     loadBundles()
-    const unsub = window.aiOffice?.bundles?.onEnabledChanged(() => {
+    const unsub = aiOffice?.bundles?.onEnabledChanged(() => {
       void loadBundles()
     })
     return unsub

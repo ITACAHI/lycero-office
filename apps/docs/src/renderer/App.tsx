@@ -6779,11 +6779,18 @@ export function App() {
         if (ctx.sections.length <= 1 || index === ctx.sections.length - 1) {
           setSection(resolved.settings)
           setSectionDirty(true)
+          fileCtxRef.current.section = resolved.settings
+          fileCtxRef.current.sectionDirty = true
           if (resolved.titlePg !== undefined) {
             setTitlePg(resolved.titlePg)
             setTitlePgDirty(true)
+            fileCtxRef.current.titlePg = resolved.titlePg
+            fileCtxRef.current.titlePgDirty = true
           }
-          if (resolved.pgNum) setPgNumEdit(resolved.pgNum)
+          if (resolved.pgNum) {
+            setPgNumEdit(resolved.pgNum)
+            fileCtxRef.current.pgNumEdit = resolved.pgNum
+          }
         } else {
           setSectionsDirty((d) => (d.includes(index) ? d : [...d, index]))
           if (resolved.pgNum) setPgNumDirtySections((d) => (d.includes(index) ? d : [...d, index]))
@@ -7575,6 +7582,8 @@ export function App() {
               pageSetupAccess={aiPageSetupAccess}
               docExtras={aiDocExtras}
               notesAccess={aiNotesAccess}
+              trackChanges={trackChanges}
+              onTrackChanges={setTrackChanges}
             />
           </div>
         )}

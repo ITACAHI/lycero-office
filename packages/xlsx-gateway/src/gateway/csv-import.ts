@@ -255,20 +255,32 @@ function columnLabel(column: number): string {
   return label
 }
 
-export function buildWorksheetXml(rows: readonly (readonly string[])[]): string {
+function isFormulaCell(value: string): boolean {
+  return /^=[A-Za-z0-9_(]/.test(value.trim())
+}
+
+export function buildWorksheetXml(
+  rows: readonly (readonly string[])[],
+  options?: { parseFormulas?: boolean },
+): string {
   const lines: string[] = []
   let maxColumns = 1
+  const parseFormulas = options?.parseFormulas === true
   rows.forEach((row, rowIndex) => {
     const cells: string[] = []
     row.forEach((value, columnIndex) => {
       if (value === '') return
       maxColumns = Math.max(maxColumns, columnIndex + 1)
       const reference = `${columnLabel(columnIndex)}${rowIndex + 1}`
-      cells.push(
-        isNumericCell(value)
-          ? `<c r="${reference}"><v>${Number(value)}</v></c>`
-          : `<c r="${reference}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(encodeXlsxEscapes(value))}</t></is></c>`,
-      )
+      if (parseFormulas && isFormulaCell(value)) {
+        cells.push(`<c r="${reference}"><f>${escapeXml(value.trim().slice(1))}</f></c>`)
+      } else {
+        cells.push(
+          isNumericCell(value)
+            ? `<c r="${reference}"><v>${Number(value)}</v></c>`
+            : `<c r="${reference}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(encodeXlsxEscapes(value))}</t></is></c>`,
+        )
+      }
     })
     if (cells.length > 0) lines.push(`<row r="${rowIndex + 1}">${cells.join('')}</row>`)
   })
@@ -343,8 +355,12 @@ function bodyRowsAgreeOnWidth(rows: readonly (readonly string[])[]): boolean {
  * neither), and sniffing would then split the wrong columns — and an
  * all-empty grid becomes a valid blank workbook instead of an import error.
  */
-export async function sheetCsvToXlsxBuffer(csvText: string, sheetName = 'Sheet1'): Promise<Buffer> {
-  return xlsxBufferFromRows(parseCsv(csvText, ','), sheetName)
+export async function sheetCsvToXlsxBuffer(
+  csvText: string,
+  sheetName = 'Sheet1',
+  options: { parseFormulas?: boolean } = { parseFormulas: true },
+): Promise<Buffer> {
+  return xlsxBufferFromRows(parseCsv(csvText, ','), sheetName, options)
 }
 
 /** minimal empty workbook: the backing file for a "new blank spreadsheet" tab */
@@ -355,6 +371,7 @@ export async function blankXlsxBuffer(sheetName = 'Sheet1'): Promise<Buffer> {
 async function xlsxBufferFromRows(
   rows: readonly (readonly string[])[],
   sheetName: string,
+  options?: { parseFormulas?: boolean },
 ): Promise<Buffer> {
   validateSheetName(sheetName)
   const zip = new JSZip()
@@ -394,6 +411,6 @@ async function xlsxBufferFromRows(
   )
   zip.file('xl/theme/theme1.xml', DEFAULT_THEME_XML)
   zip.file('xl/styles.xml', MINIMAL_STYLESHEET_XML)
-  zip.file('xl/worksheets/sheet1.xml', buildWorksheetXml(rows))
+  zip.file('xl/worksheets/sheet1.xml', buildWorksheetXml(rows, options))
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
 }

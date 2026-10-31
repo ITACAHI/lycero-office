@@ -4673,7 +4673,7 @@ textarea:focus {
   padding: 1px 6px;
   background: var(--color-bg-subtle);
   color: var(--color-text-secondary);
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: var(--gs-font-mono, 'Be Vietnam Pro', 'Segoe UI', 'Cascadia Mono', Consolas, sans-serif);
   font-size: 14px;
 }
 
@@ -4981,8 +4981,7 @@ textarea:focus {
   background: var(--color-bg-subtle);
   border: none;
   border-radius: 12px;
-  font-family:
-    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-family: var(--gs-font-mono, 'Be Vietnam Pro', 'Segoe UI', 'Cascadia Mono', Consolas, sans-serif);
   font-size: 14px;
   color: var(--color-text-primary);
   max-height: 300px;

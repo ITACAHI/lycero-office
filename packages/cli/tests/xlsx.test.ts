@@ -653,6 +653,64 @@ describe('formula cache policy', () => {
       expect(read.code).toBe(0)
     },
   )
+
+  it.skipIf(!sidecar)(
+    'caches SUMPRODUCT, ISO-date SUMIFS, and refreshes dependent formula caches on set_cell',
+    async () => {
+      const dir = tempDir()
+      const table = join(dir, 'sales.json')
+      writeFileSync(
+        table,
+        JSON.stringify([
+          ['date', 'qty', 'price', 'total'],
+          ['2026-02-15', 2, 10, '=B2*C2'],
+          ['2026-03-05', 3, 20, '=B3*C3'],
+          ['2026-03-20', 4, 30, '=B4*C4'],
+          [
+            'Summary',
+            '=SUMPRODUCT(B2:B4,C2:C4)',
+            '=SUMPRODUCT((B2:B4>=3)*(C2:C4))',
+            '=SUMIFS(D2:D4,A2:A4,">=2026-03-01",A2:A4,"<=2026-03-31")',
+          ],
+        ]),
+      )
+      const out = join(dir, 'sales.xlsx')
+      const created = await run([
+        'create',
+        '--type',
+        'xlsx',
+        '--from',
+        table,
+        '--out',
+        out,
+        '--json',
+      ])
+      expect(created.code).toBe(0)
+      expect(created.json().warnings).toBeUndefined()
+      const sheetBefore = await part(out, 'xl/worksheets/sheet1.xml')
+      // B5 = 2*10 + 3*20 + 4*30 = 200; C5 = 20 + 30 = 50; D5 = 60 + 120 = 180
+      expect(sheetBefore).toMatch(/<c r="B5"[^>]*><f>SUMPRODUCT\(B2:B4,C2:C4\)<\/f><v>200<\/v><\/c>/)
+      expect(sheetBefore).toMatch(
+        /<c r="C5"[^>]*><f>SUMPRODUCT\(\(B2:B4&gt;=3\)\*\(C2:C4\)\)<\/f><v>50<\/v><\/c>/,
+      )
+      expect(sheetBefore).toMatch(
+        /<c r="D5"[^>]*><f>SUMIFS\(D2:D4,A2:A4,"&gt;=2026-03-01",A2:A4,"&lt;=2026-03-31"\)<\/f><v>180<\/v><\/c>/,
+      )
+
+      // Now update B3 from 3 to 5 via set_cell and verify dependent formulas (D3, B5, D5) refresh <v>
+      const opsFile = join(dir, 'ops.json')
+      writeFileSync(opsFile, JSON.stringify([{ op: 'set_cell', address: 'B3', value: 5 }]))
+      const applied = await run(['sheet', 'apply', out, '--ops', opsFile, '--json'])
+      expect(applied.code).toBe(0)
+      const sheetAfter = await part(out, 'xl/worksheets/sheet1.xml')
+      // D3 = 5*20 = 100; B5 = 20 + 100 + 120 = 240; D5 = 100 + 120 = 220
+      expect(sheetAfter).toMatch(/<c r="D3"[^>]*><f>B3\*C3<\/f><v>100<\/v><\/c>/)
+      expect(sheetAfter).toMatch(/<c r="B5"[^>]*><f>SUMPRODUCT\(B2:B4,C2:C4\)<\/f><v>240<\/v><\/c>/)
+      expect(sheetAfter).toMatch(
+        /<c r="D5"[^>]*><f>SUMIFS\(D2:D4,A2:A4,"&gt;=2026-03-01",A2:A4,"&lt;=2026-03-31"\)<\/f><v>220<\/v><\/c>/,
+      )
+    },
+  )
 })
 
 describe('package validity', () => {

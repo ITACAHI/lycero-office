@@ -6,7 +6,7 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { setGskProxyUrl } from '@lycero/ai-search'
-import { genofficeUserDataDir } from './gui'
+import { genofficeUserDataDir, genofficeUserDataDirs } from './gui'
 import { packagedResourcesDir } from './resources'
 
 /**
@@ -17,7 +17,12 @@ import { packagedResourcesDir } from './resources'
  * has to locate without Electron.
  */
 export function aiSettingsPath(env: NodeJS.ProcessEnv): string {
-  return env.LYCERO_AI_SETTINGS || join(genofficeUserDataDir(env), 'ai-settings.json')
+  if (env.LYCERO_AI_SETTINGS) return env.LYCERO_AI_SETTINGS
+  for (const dir of genofficeUserDataDirs(env)) {
+    const candidate = join(dir, 'ai-settings.json')
+    if (existsSync(candidate)) return candidate
+  }
+  return join(genofficeUserDataDir(env), 'ai-settings.json')
 }
 
 /** First http(s) proxy in the usual environment variables, as the app's main process reads them. */

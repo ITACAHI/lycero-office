@@ -13,6 +13,7 @@ import {
   layoutOpLabel,
   matchableCellText,
   MAX_EXPANDED_CELL_OPS,
+  MAX_RANGE_OP_CELLS,
   parseWorkbookCommandBatch,
   structuralOpLabel,
   type BorderPatch,
@@ -126,13 +127,10 @@ export class InMemoryWorkbookAdapter implements WorkbookAdapter {
 
     for (const operation of expandToPrimitiveOps(batch.operations, readCell)) {
       if (operation.op === 'fill_range') {
-        // Demo workbooks clone every cell per revision, so fills stay at the
-        // per-cell preview scale; imported files get the range-level executor
-        // with the 200k cap instead.
         const target = parseRange(operation.target)
         if (rangeCellCount(target) > MAX_EXPANDED_CELL_OPS) {
           throw new WorkbookConflictError(
-            `fill_range on an in-memory workbook is limited to ${MAX_EXPANDED_CELL_OPS} cells per operation (imported xlsx files allow up to 200,000).`,
+            `fill_range on an in-memory workbook is limited to ${MAX_EXPANDED_CELL_OPS} cells per operation (imported .xlsx files allow up to 200,000 cells).`,
           )
         }
         const source = parseRange(operation.source)
@@ -166,12 +164,10 @@ export class InMemoryWorkbookAdapter implements WorkbookAdapter {
         continue
       }
       if (operation.op === 'copy_range') {
-        // Same per-cell scale as fill_range: demo workbooks clone every cell
-        // per revision, so big-block copies belong to imported files.
         const target = copyTargetBounds(operation)
         if (rangeCellCount(target) > MAX_EXPANDED_CELL_OPS) {
           throw new WorkbookConflictError(
-            `copy_range on an in-memory workbook is limited to ${MAX_EXPANDED_CELL_OPS} cells per operation (imported xlsx files allow up to 200,000).`,
+            `copy_range on an in-memory workbook is limited to ${MAX_EXPANDED_CELL_OPS} cells per operation (imported .xlsx files allow up to 200,000 cells).`,
           )
         }
         const source = parseRange(operation.source)

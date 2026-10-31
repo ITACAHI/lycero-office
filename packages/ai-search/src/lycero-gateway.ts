@@ -41,38 +41,76 @@ export function lyceroChildEnv(base: NodeJS.ProcessEnv = process.env): NodeJS.Pr
 
 // ── HTTP helpers ─────────────────────────────────────────────────────
 
+const TRANSIENT_GATEWAY_STATUSES = new Set([502, 503, 504, 522, 524])
+
 async function gatewayFetch<T>(
   path: string,
   options: RequestInit = {},
   timeoutMs = 15000,
 ): Promise<T> {
   const key = getLyceroApiKey()
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
-  try {
-    const resp = await fetch(`${GATEWAY_API_BASE}${path}`, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...(key ? { Authorization: `Bearer ${key}` } : {}),
-        ...options.headers,
-      },
-      signal: controller.signal,
-    })
-    clearTimeout(timer)
-    const json = await resp.json()
-    const rec = asRecord(json)
-    if (!resp.ok) {
-      const msg = typeof rec.error === 'string' ? rec.error : (typeof rec.message === 'string' ? rec.message : `HTTP ${resp.status}`)
-      throw new Error(msg)
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    try {
+      const resp = await fetch(`${GATEWAY_API_BASE}${path}`, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          ...(key ? { Authorization: `Bearer ${key}` } : {}),
+          ...options.headers,
+        },
+        signal: controller.signal,
+      })
+      clearTimeout(timer)
+      const rawText = await resp.text()
+      if (TRANSIENT_GATEWAY_STATUSES.has(resp.status) && attempt === 0) {
+        continue
+      }
+      const isHtml = /^\s*<(!doctype|html)\b/i.test(rawText)
+      let json: unknown = null
+      if (!isHtml && rawText.trim().length > 0) {
+        try {
+          json = JSON.parse(rawText)
+        } catch {
+          json = null
+        }
+      }
+      const rec = asRecord(json)
+      if (!resp.ok) {
+        if (isHtml || TRANSIENT_GATEWAY_STATUSES.has(resp.status)) {
+          throw new Error(
+            `Lycero Gateway timeout/unavailable (HTTP ${resp.status}) — please retry in a moment or configure a BYOK provider in Settings.`,
+          )
+        }
+        const msg =
+          typeof rec.error === "string"
+            ? rec.error
+            : typeof rec.message === "string"
+              ? rec.message
+              : `HTTP ${resp.status}`
+        throw new Error(msg)
+      }
+      if (isHtml || json === null) {
+        throw new Error(
+          `Lycero Gateway returned an invalid non-JSON response (HTTP ${resp.status}) — please retry in a moment.`,
+        )
+      }
+      if (rec.status && rec.status !== "ok") {
+        throw new Error(typeof rec.message === "string" ? rec.message : String(rec.status))
+      }
+      return json as T
+    } catch (err) {
+      clearTimeout(timer)
+      if (err instanceof Error && err.name === "AbortError") {
+        throw new Error(
+          `Lycero Gateway timed out after ${Math.round(timeoutMs / 1000)}s — please retry in a moment or configure a BYOK provider in Settings.`,
+        )
+      }
+      throw err
     }
-    if (rec.status && rec.status !== "ok") {
-      throw new Error(typeof rec.message === 'string' ? rec.message : String(rec.status))
-    }
-    return json as T
-  } finally {
-    clearTimeout(timer)
   }
+  throw new Error("Lycero Gateway request failed after retry.")
 }
 
 // ── Search ───────────────────────────────────────────────────────────

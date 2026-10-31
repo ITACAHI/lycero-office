@@ -263,6 +263,32 @@ export function saveSession(session: LyceroSession): void {
       // is the correct sentinel for "can we use OS keychain".
       writeFileSync(filePath, jsonStr, 'utf-8')
     }
+    // Sync token to ~/.lycero-office/auth.json so CLI commands (`lycero-office image`,
+    // `lycero-office search`, `lycero-office media`) running outside Electron safeStorage
+    // can authenticate without throwing `app_unavailable`.
+    if (session.token) {
+      try {
+        const cliDir = gskAuthDir()
+        if (!existsSync(cliDir)) mkdirSync(cliDir, { recursive: true })
+        writeFileSync(
+          gskAuthPath(),
+          JSON.stringify(
+            {
+              api_key: session.token,
+              access_token: session.token,
+              user: session.user,
+              license: session.license,
+              updated_at: new Date().toISOString(),
+            },
+            null,
+            2,
+          ),
+          { encoding: 'utf-8', mode: 0o600 },
+        )
+      } catch {
+        /* ignore CLI mirror write error */
+      }
+    }
     resetGskAuthCache()
     resetLyceroAuthCache()
   } catch (err) {
@@ -299,6 +325,29 @@ export function getSession(): LyceroSession | null {
       clearSession()
       return null
     }
+    if (session.token && !existsSync(gskAuthPath())) {
+      try {
+        const cliDir = gskAuthDir()
+        if (!existsSync(cliDir)) mkdirSync(cliDir, { recursive: true })
+        writeFileSync(
+          gskAuthPath(),
+          JSON.stringify(
+            {
+              api_key: session.token,
+              access_token: session.token,
+              user: session.user,
+              license: session.license,
+              updated_at: new Date().toISOString(),
+            },
+            null,
+            2,
+          ),
+          { encoding: 'utf-8', mode: 0o600 },
+        )
+      } catch {
+        /* ignore */
+      }
+    }
     return session
   } catch {
     return null
@@ -330,6 +379,12 @@ export function clearSession(): void {
   try {
     const hubAuthFile = join(os.homedir(), '.lycero', 'auth.json')
     if (existsSync(hubAuthFile)) unlinkSync(hubAuthFile)
+  } catch {
+    /* ignore */
+  }
+  try {
+    const cliAuthFile = gskAuthPath()
+    if (existsSync(cliAuthFile)) unlinkSync(cliAuthFile)
   } catch {
     /* ignore */
   }

@@ -1398,11 +1398,13 @@ function validateFillRange(operation: FillRangeOperation): void {
   const source = parseRange(operation.source)
   const target = parseRange(operation.target)
   if (rangeCellCount(source) > MAX_FILL_SOURCE_CELLS) {
-    throw new Error(`fill_range source covers more than ${MAX_FILL_SOURCE_CELLS} cells.`)
+    throw new Error(
+      `fill_range source covers more than ${MAX_FILL_SOURCE_CELLS} cells (vùng nguồn fill-down tối đa ${MAX_FILL_SOURCE_CELLS.toLocaleString('vi-VN')} ô/lần; vui lòng chọn vùng mẫu nhỏ hơn hoặc dùng copy_range cho tới 200.000 ô).`,
+    )
   }
   if (rangeCellCount(target) > MAX_RANGE_OP_CELLS) {
     throw new Error(
-      `fill_range target covers more than ${MAX_RANGE_OP_CELLS.toLocaleString('en-US')} cells — fill it in several ranges.`,
+      `fill_range target covers more than ${MAX_RANGE_OP_CELLS.toLocaleString('en-US')} cells — fill it in several ranges (vùng đích vượt giới hạn ${MAX_RANGE_OP_CELLS.toLocaleString('vi-VN')} ô/lần; vui lòng chia thành các dải nhỏ hơn).`,
     )
   }
   const sourceRows = source.endRow - source.startRow + 1
@@ -1728,7 +1730,9 @@ export function expandToPrimitiveOps(
   const countCell = (): void => {
     cellOps += 1
     if (cellOps > MAX_EXPANDED_CELL_OPS) {
-      throw new Error(`The batch expands to more than ${MAX_EXPANDED_CELL_OPS} cell edits.`)
+      throw new Error(
+        `The batch expands to more than ${MAX_EXPANDED_CELL_OPS} cell edits (vượt giới hạn ${MAX_EXPANDED_CELL_OPS.toLocaleString('vi-VN')} ô mở rộng/lần; hãy dùng fill_range hoặc copy_range để điền nhanh tới 200.000 ô).`,
+      )
     }
   }
   // move_range desugars into copy_range + clear_range of the source; the

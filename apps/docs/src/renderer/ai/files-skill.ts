@@ -9,17 +9,19 @@ import { t } from '../i18n/locale'
 
 /** the shared attachments skill over the Docs attachment IPC (parsing happens in the main process) */
 export function createFilesSkill(getAttachments: () => AttachmentMeta[]): AgentSkill {
+  const readViaIpc = async (path: string, offset: number, maxChars: number) => {
+    const result = await window.desktop.readAttachment(path, offset, maxChars)
+    if (!result.ok) throw new Error(result.error ?? 'read failed')
+    return {
+      text: result.text ?? '',
+      totalChars: result.totalChars ?? 0,
+      offset: result.offset ?? 0,
+    }
+  }
   return createAttachmentsSkill({
     list: getAttachments,
-    read: async (path, offset, maxChars) => {
-      const result = await window.desktop.readAttachment(path, offset, maxChars)
-      if (!result.ok) throw new Error(result.error ?? 'read failed')
-      return {
-        text: result.text ?? '',
-        totalChars: result.totalChars ?? 0,
-        offset: result.offset ?? 0,
-      }
-    },
+    read: readViaIpc,
+    readImage: readViaIpc,
     labels: {
       read: (name) => t('aiSumReadAttachmentName', { name }),
       image: (name) => t('aiSumImageAttachment', { name }),

@@ -76,15 +76,33 @@ export function createFilesSkill(
           summary: t('aiSumReadAttachment'),
         }
       }
-      // No text extraction for images: they are already provided as multimodal images with the user message
+      const offset = Math.max(0, Number(call.input.offset) || 0)
       if (ATTACHMENT_IMAGE_EXTS.has(att.ext)) {
+        try {
+          const imgRes = await window.desktop.readAttachment(att.path, offset, READ_CHUNK_CHARS)
+          if (imgRes.ok && imgRes.text?.trim()) {
+            onTextRead?.(att.path)
+            const end = (imgRes.offset ?? 0) + imgRes.text.length
+            const header = `File ${att.name}, total characters ${imgRes.totalChars}, this chunk covers ${imgRes.offset}-${end}${
+              end < (imgRes.totalChars ?? 0)
+                ? ' (not finished; continue with offset=' + end + ')'
+                : ' (end of file)'
+            }`
+            return {
+              output: `${header}\n---\n${imgRes.text}\n\n(To place this image on a slide, use insert_web_image or replace_image with url=attachment://${att.name})`,
+              mutated: false,
+              summary: t('aiSumImageAttachment', { name: att.name }),
+            }
+          }
+        } catch {
+          // fall through to multimodal hint
+        }
         return {
           output: `${att.name} is an image attachment already sent as an image with the user message; just view the image in the message, no text reading needed. To place it on a slide, use insert_web_image (or replace_image) with url=attachment://${att.name} — the original file is embedded as-is.`,
           mutated: false,
           summary: t('aiSumImageAttachment', { name: att.name }),
         }
       }
-      const offset = Math.max(0, Number(call.input.offset) || 0)
       const result = await window.desktop.readAttachment(att.path, offset, READ_CHUNK_CHARS)
       if (!result.ok) {
         return {
