@@ -2462,8 +2462,9 @@ export function generateTableModelXml(model: TableModel, originalTableXml?: stri
   const isSixColBudgetTable =
     columnCount === 6 &&
     !isBorderlessTable &&
-    ((model.colWidthsTwips?.length === 6 &&
-      model.colWidthsTwips.every((w) => Math.abs(w - 1560) <= 15)) ||
+    (!originalTableXml ||
+      (model.colWidthsTwips?.length === 6 &&
+        model.colWidthsTwips.every((w) => Math.abs(w - 1560) <= 15)) ||
       (percentages.length === 6 &&
         (percentages.every((p) => Math.abs(p - 100 / 6) < 1) ||
           (Math.abs(percentages[0]! - 6) < 1.5 && Math.abs(percentages[1]! - 44) < 3))))

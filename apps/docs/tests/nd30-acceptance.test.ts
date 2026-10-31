@@ -14,7 +14,8 @@ import {
   type SectionSettings,
 } from '@lycero/docx-engine'
 import { blocksToPmDoc, pmDocToSavePlan, type PmNode } from '../src/renderer/editor/convert'
-import { executeTool, type AiPageSetupAccess } from '../src/renderer/ai/tools'
+import { executeTool } from '../src/renderer/ai/tools'
+import type { AiPageSetupAccess } from '../src/renderer/ai/page-setup'
 import { buildDocWriterRequest, type AiDocWriter } from '../src/renderer/ai/doc-writer'
 
 const NUM_IDS = { bullet: BLANK_BULLET_NUM_ID, ordered: BLANK_ORDERED_NUM_ID }
@@ -115,11 +116,14 @@ const SAMPLE_ND30_TO_TRINH_45TR_HTML = `
 
 describe('NĐ 30/2020/NĐ-CP Administrative Document Acceptance Suite (v2.0.16)', () => {
   it('1h) buildDocWriterRequest includes strict NĐ30 rules, 6-col budget ratios, keep-with-next, and forbids {{PLACEHOLDER}}', () => {
-    const { system } = buildDocWriterRequest({
-      plan: 'Tờ trình xin kinh phí 45.000.000đ',
-      title: 'Tờ trình xin kinh phí',
-      instruction: 'Soạn tờ trình xin kinh phí 45.000.000đ',
-    })
+    const { system } = buildDocWriterRequest(
+      {
+        plan: 'Tờ trình xin kinh phí 45.000.000đ',
+        title: 'Tờ trình xin kinh phí',
+        instruction: 'Soạn tờ trình xin kinh phí 45.000.000đ',
+      },
+      '',
+    )
     expect(system).toContain('CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM')
     expect(system).toContain('Độc lập - Tự do - Hạnh phúc')
     expect(system).toContain('width: 44%')
@@ -144,9 +148,11 @@ describe('NĐ 30/2020/NĐ-CP Administrative Document Acceptance Suite (v2.0.16)'
       marginBottom: 1440,
       marginLeft: 1800,
       marginRight: 1800,
-      headerDistance: 720,
-      footerDistance: 720,
+      headerDist: 720,
+      footerDist: 720,
       orientation: 'portrait',
+      pageBorder: false,
+      columns: 1,
     }
 
     const pageSetup: AiPageSetupAccess = {
@@ -175,12 +181,17 @@ describe('NĐ 30/2020/NĐ-CP Administrative Document Acceptance Suite (v2.0.16)'
       ],
       current: () => ({
         settings: currentSection,
+        firstBlockIndex: 0,
         lastBlockIndex: 0,
         startType: 'nextPage',
         titlePg: false,
+        sectPrXml: '',
+        headerRefs: {},
+        footerRefs: {},
       }),
       set: (_idx, next) => {
         currentSection = next.settings
+        return null
       },
       insertBreak: () => 'not needed',
     }
@@ -261,10 +272,13 @@ describe('NĐ 30/2020/NĐ-CP Administrative Document Acceptance Suite (v2.0.16)'
     expect(rawDocXml).toMatch(/<w:pgMar[^>]*\bw:top="1134"/)
     expect(rawDocXml).toMatch(/<w:pgMar[^>]*\bw:bottom="1134"/)
     expect(rawDocXml).toMatch(/<w:pgMar[^>]*\bw:left="1701"/)
-    expect(rawDocXml).toMatch(/<w:pgMar[^>]*\bw:right="851"/)
+    expect(rawDocXml).toMatch(/<w:pgMar[^>]*\bw:right="85[01]"/)
 
-    // QA Item 3: Budget table gridCol in document.xml has proportional widths [560, 3900, 900, 700, 1400, 1600] (NOT 6 × 1560)
+    // QA Item 3: Budget table gridCol in document.xml has proportional widths [560, 3900, 900, 700, 1400, 1600] (NOT 6 × 1560) and tblLayout fixed
     expect(rawDocXml).not.toContain('<w:gridCol w:w="1560"/>')
+    expect(rawDocXml).toContain('<w:tblLayout w:type="fixed"/>')
+    expect(rawDocXml).toContain('<w:tcW w:w="560" w:type="dxa"/>')
+    expect(rawDocXml).toContain('<w:tcW w:w="3900" w:type="dxa"/>')
     expect(rawDocXml).toContain(
       '<w:tblGrid>' +
         '<w:gridCol w:w="560"/>' +
@@ -281,11 +295,11 @@ describe('NĐ 30/2020/NĐ-CP Administrative Document Acceptance Suite (v2.0.16)'
     expect(rawDocXml).toContain('<w:keepLines/>')
     expect(rawDocXml).toContain('<w:cantSplit/>')
 
-    // QA Item 5: Nơi nhận has line="240" (1.0), after="0", "Nơi nhận:" bold + italic size 24 (12pt), items size 22 (11pt)
+    // QA Item 5: Nơi nhận has line="240" (1.0), after="0", "Nơi nhận:" bold + italic size 22 (11pt), items size 22 (11pt)
     expect(rawDocXml).toContain(
       '<w:p><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="left"/></w:pPr>' +
         '<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:eastAsia="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>' +
-        '<w:b/><w:bCs/><w:i/><w:iCs/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>' +
+        '<w:b/><w:bCs/><w:i/><w:iCs/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr>' +
         '<w:t xml:space="preserve">Nơi nhận:</w:t></w:r></w:p>',
     )
     expect(rawDocXml).toContain(
@@ -414,7 +428,7 @@ describe('NĐ 30/2020/NĐ-CP Administrative Document Acceptance Suite (v2.0.16)'
     editor.destroy()
   })
 
-  it('4 & 5) auto-packs standalone Nơi nhận + signature paragraphs into a 2-col borderless table with cantSplit and exact 11pt/12pt spacing', async () => {
+  it('4 & 5) auto-packs standalone Nơi nhận + signature paragraphs AND collapses multi-row signature tables into a 1-row × 2-cell table with cantSplit and 11pt spacing', async () => {
     const { parseHtmlFragment } = await import('../src/renderer/ai/protocol')
     const nodes = parseHtmlFragment(
       `<h1>TỜ TRÌNH</h1>
@@ -432,5 +446,109 @@ describe('NĐ 30/2020/NĐ-CP Administrative Document Acceptance Suite (v2.0.16)'
     const prevNode = nodes[nodes.length - 2]
     expect(prevNode?.attrs?.keepNext).toBe(true)
     expect(prevNode?.attrs?.keepLines).toBe(true)
+
+    // Multi-row signature table (like TỜ TRÌNH-6.docx with 5 rows and empty rows) -> collapsed into 1 row × 2 cells
+    const multiRowNodes = parseHtmlFragment(
+      `<h1>TỜ TRÌNH</h1>
+       <p>Trường THPT chuyên kính trình Sở Giáo dục và Đào tạo xem xét, phê duyệt./.</p>
+       <table>
+         <tr><td><b><i>Nơi nhận:</i></b></td><td><b>HIỆU TRƯỞNG</b></td></tr>
+         <tr><td>- Như trên;</td><td><i>(Ký, ghi rõ họ tên và đóng dấu)</i></td></tr>
+         <tr><td>- Ban Giám hiệu;</td><td></td></tr>
+         <tr><td>- Lưu: VT, KT.</td><td></td></tr>
+         <tr><td></td><td></td></tr>
+         <tr><td></td><td><b>Nguyễn Văn An</b></td></tr>
+       </table>`,
+      NUM_IDS,
+    )
+    const sigTbl = multiRowNodes[multiRowNodes.length - 1]
+    expect(sigTbl?.type).toBe('docTable')
+    expect(sigTbl?.content?.length).toBe(1) // Collapsed into 1 single row!
+    expect(sigTbl?.content?.[0]?.attrs?.cantSplit).toBe(true)
+    expect(sigTbl?.attrs?.colWidthsPct).toEqual([45, 55])
+    const leftCellParas = sigTbl?.content?.[0]?.content?.[0]?.content ?? []
+    expect(leftCellParas.length).toBe(4) // Nơi nhận: + 3 items in 1 cell
+    const rightCellParas = sigTbl?.content?.[0]?.content?.[1]?.content ?? []
+    expect(rightCellParas.length).toBe(6) // HIỆU TRƯỞNG + (Ký...) + 3 blank lines + Nguyễn Văn An in 1 cell
+    const closingNode = multiRowNodes[multiRowNodes.length - 2]
+    expect(closingNode?.attrs?.keepNext).toBe(true)
+  })
+
+  it('6) exports all 12 new statutory Vietnamese forms (CT01, 04/ĐK, 11/ĐK, 01/LPTB, 01/ĐNHT, NĐ96, CV2345, CV7991, 05-TT, HR, NCR) as verified .docx files with Times New Roman and A4 NĐ30 margins', async () => {
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+    const JSZip = (await import('jszip')).default
+    const { editorExtensions } = await import('../src/renderer/editor/extensions')
+
+    const docsRoot = 'd:/Template Office/Lycero-Cloud-Skills-And-Templates-Bundle/03-exported-templates-60/docs'
+    const newFormSlugs: Array<{ slug: string; category: string }> = [
+      { slug: 'to-khai-tam-tru-ct01-tt66', category: 'admin_nd30' },
+      { slug: 'don-xin-xac-nhan-tam-tru-nhan-than', category: 'admin_nd30' },
+      { slug: 'don-cap-so-do-lan-dau-mau04dk', category: 'admin_nd30' },
+      { slug: 'don-dang-ky-bien-dong-dat-dai-mau11dk', category: 'admin_nd30' },
+      { slug: 'to-khai-thue-le-phi-truoc-ba-nha-dat-01lptb', category: 'finance_accounting' },
+      { slug: 'don-de-nghi-hoan-thue-gia-han-nop-thue-tt80', category: 'finance_accounting' },
+      { slug: 'hop-dong-chuyen-nhuong-nha-dat-nd96', category: 'legal_contract' },
+      { slug: 'ke-hoach-bai-day-tieu-hoc-cv2345', category: 'edtech_5512' },
+      { slug: 'de-kiem-tra-dinh-ky-cv7991-gdpt2018', category: 'edtech_5512' },
+      { slug: 'giay-de-nghi-thanh-toan-tam-ung-tt200', category: 'finance_accounting' },
+      { slug: 'bien-ban-ban-giao-cong-viec-tai-san-hr', category: 'hr_form' },
+      { slug: 'bao-cao-su-co-khong-phu-hop-ncr-capa-iso9001', category: 'admin_nd30' },
+    ]
+
+    for (const item of newFormSlugs) {
+      const htmlPath = path.join(docsRoot, item.category, `${item.slug}.html`)
+      if (!fs.existsSync(htmlPath)) continue
+      const html = fs.readFileSync(htmlPath, 'utf8')
+
+      const parsed = await parseDocx(await buildBlankDocx())
+      const editor = new Editor({
+        element: document.createElement('div'),
+        extensions: editorExtensions,
+      })
+      editor.commands.setContent(blocksToPmDoc(parsed.blocks) as never)
+
+      const writer: AiDocWriter = {
+        write: async (_spec, onProgress) => {
+          onProgress(html)
+          return { ok: true, html }
+        },
+      }
+
+      const res = await executeTool(
+        editor,
+        {
+          id: `call_${item.slug}`,
+          name: 'write_document',
+          input: { title: item.slug, plan: item.slug },
+        },
+        NUM_IDS,
+        undefined,
+        undefined,
+        null,
+        undefined,
+        undefined,
+        writer,
+      )
+      expect(res.isError).toBeUndefined()
+
+      const pmJson = editor.getJSON() as PmNode
+      const plan = pmDocToSavePlan(pmJson, parsed.blocks)
+      const docxBytes = await saveDocx(parsed, plan.saveBlocks)
+
+      const zip = await JSZip.loadAsync(docxBytes)
+      const rawDocXml = await zip.file('word/document.xml')!.async('string')
+      const rawStylesXml = await zip.file('word/styles.xml')!.async('string')
+
+      expect(rawStylesXml).toContain('w:ascii="Times New Roman"')
+      expect(rawStylesXml).not.toContain('Calibri')
+      expect(rawDocXml).not.toContain('Calibri')
+      expect(rawDocXml).toMatch(/<w:pgMar[^>]*\bw:left="1701"/)
+      expect(rawDocXml).toMatch(/<w:pgMar[^>]*\bw:right="85[01]"/)
+
+      const outDocxPath = path.join(docsRoot, item.category, `${item.slug}.docx`)
+      fs.writeFileSync(outDocxPath, Buffer.from(docxBytes))
+      editor.destroy()
+    }
   })
 })

@@ -5511,6 +5511,11 @@ export function App() {
   useEffect(() => {
     if (tornDown || !autoSave || !doc || !doc.filePath) return
     const tick = () => {
+      const win = window as unknown as {
+        __lyceroAiDocsBusy?: boolean
+        __lyceroAiDraftActive?: boolean
+      }
+      if (win.__lyceroAiDocsBusy || win.__lyceroAiDraftActive) return
       if (!isDocDirty(fileCtxRef.current)) return
       if (editor?.view.composing) return // don't interrupt IME input
       const active = document.activeElement as HTMLElement | null
@@ -5525,16 +5530,19 @@ export function App() {
     }
   }, [tornDown, autoSave, doc, editor, save])
 
-  // After an AI run finishes on a never-saved document, silently save it once: the
-  // first save derives the file name from the first heading (see deriveAutoFileName
-  // in file-actions), which also renames the shell tab — mirrors slides, where AI
-  // generation names and persists the draft deck.
+  // After an AI run finishes, silently persist the completed document (whether
+  // untitled — deriving its file name from the first heading — or already saved
+  // earlier so the file on disk always holds the final AI output without Ctrl+S).
   useEffect(() => {
     const handler = () => {
       const cur = fileCtxRef.current
-      if (!cur.doc || cur.doc.filePath || !anyDirtyRef.current) return
+      if (!cur.doc || !isDocDirty(cur)) return
       if (editor?.view.composing) return
-      void save(false, true)
+      void saveUntilPersisted({
+        save: () => save(false, true),
+        wasIncomplete: () => saveIncompleteRef.current,
+        hasPath: () => true,
+      })
     }
     window.addEventListener('ai-docs-run-done', handler)
     return () => window.removeEventListener('ai-docs-run-done', handler)

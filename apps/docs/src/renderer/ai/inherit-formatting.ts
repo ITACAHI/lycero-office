@@ -67,6 +67,7 @@ const INHERITED_TEXT_STYLE_ATTRS = [
   'font',
   'eaSlotEmpty',
   'fontAscii',
+  'eastAsiaFont',
   'csFont',
   'highlight',
   'shading',

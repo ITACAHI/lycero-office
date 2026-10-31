@@ -1750,8 +1750,9 @@ export async function saveDocx(
     documentXml.slice(bodyContentEnd)
 
   const isNd30Doc =
-    newDocumentXml.includes('CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM') ||
-    newDocumentXml.includes('Độc lập - Tự do - Hạnh phúc')
+    /CỘNG HÒA XÃ HỘI|Độc lập\s*-\s*Tự do|TỜ TRÌNH|QUYẾT ĐỊNH|Kính gửi\s*:|Nơi nhận\s*:/i.test(
+      newDocumentXml,
+    )
   if (isNd30Doc) {
     if (/<w:pgMar[^>]*w:left="1440"/.test(newDocumentXml)) {
       newDocumentXml = newDocumentXml.replace(
@@ -1764,18 +1765,22 @@ export async function saveDocx(
             marginTop: 1134,
             marginBottom: 1134,
             marginLeft: 1701,
-            marginRight: 851,
+            marginRight: 850,
+            pageBorder: false,
+            columns: 1,
           }),
       )
     }
-    if (!options.defaultFonts) {
-      const file = zip.file(stylesPath)
-      const baseStylesXml =
-        stylesXmlOut ??
-        (file
-          ? await file.async('string')
-          : '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n' +
-            '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"></w:styles>')
+  }
+  if (!options.defaultFonts && (isNd30Doc || newDocumentXml.includes('Times New Roman'))) {
+    const file = zip.file(stylesPath)
+    const baseStylesXml =
+      stylesXmlOut ??
+      (file
+        ? await file.async('string')
+        : '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n' +
+          '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"></w:styles>')
+    if (isNd30Doc || /w:ascii="Calibri"/.test(baseStylesXml)) {
       stylesXmlOut = mergeDefaultFontsXml(baseStylesXml, {
         font: 'Times New Roman',
         eastAsiaFont: 'Times New Roman',

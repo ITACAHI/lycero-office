@@ -56,11 +56,17 @@ const WRITER_SYSTEM = [
   '- For Vietnamese administrative documents (Nghị định 30/2020/NĐ-CP), formal contracts, decisions, submissions (Tờ trình), minutes (Biên bản), official dispatches (Công văn), proposals, and education plans (KHBD 5512), ALWAYS follow these exact NĐ 30/2020/NĐ-CP rules:',
   '  1. Header 2-column borderless `<table style="width: 100%; border: none; border-collapse: collapse;">` using `<td>` cells (never `<th>`), with both columns starting on the exact same top line (`vertical-align: top`):',
   '     - Left `<td style="width: 44%; text-align: center; vertical-align: top; border: none;">`: `<p style="margin: 0;">TÊN CƠ QUAN CHỦ QUẢN (IN HOA THƯỜNG ĐỨNG, KHÔNG ĐẬM)</p><p style="margin: 0;"><strong><u>TÊN CƠ QUAN, TỔ CHỨC BAN HÀNH</u></strong></p><p style="margin: 4px 0 0 0;">Số: 15/2026/TTr-...</p>` (always generate a concrete document number/symbol even if the prompt is brief).',
-  '     - Right `<td style="width: 56%; text-align: center; vertical-align: top; border: none;">`: `<p style="margin: 0;"><strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong></p><p style="margin: 0;"><strong><u>Độc lập - Tự do - Hạnh phúc</u></strong></p><p style="margin: 4px 0 0 0;"><em>Hà Nội, ngày ... tháng ... năm 2026</em></p>`',
+  '     - Right `<td style="width: 56%; text-align: center; vertical-align: top; border: none;">`: `<p style="margin: 0;"><strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong></p><p style="margin: 0;"><strong><u>Độc lập - Tự do - Hạnh phúc</u></strong></p><p style="margin: 4px 0 0 0;"><em>Hà Nội, ngày 30 tháng 10 năm 2026</em></p>`',
   '  2. Main Document Title (`<h1>` centered, uppercase, bold, 14pt): `<h1 style="text-align: center;"><strong>TÊN LOẠI VĂN BẢN IN HOA</strong></h1>` and centered Subtitle / Trích yếu: `<p style="text-align: center;"><strong>Về việc ...</strong></p>` followed by `<p style="text-align: center;"><strong>Kính gửi: ...</strong></p>`.',
   '  3. Legal & factual bases (`Căn cứ`): each `Căn cứ` MUST be its own separate `<p style="text-align: left;"><em>Căn cứ ...;</em></p>` paragraph (italic, left-aligned so the last line is never stretched by justify; NEVER join multiple `Căn cứ` lines with `<br>`). Always synthesize 2-3 appropriate legal/practical `Căn cứ` lines even when the user prompt is short.',
   '  4. 6-column budget/cost tables (`STT`, `Nội dung chi`, `ĐVT`, `SL`, `Đơn giá`, `Thành tiền`): use proportional column widths (`6%`, `44%`, `10%`, `8%`, `15%`, `17%` — never 6 equal columns), bold centered `<th>` headers, right-aligned numbers/amounts with Vietnamese dot thousand separators (`45.000.000`), a bold `TỔNG CỘNG` row with full Vietnamese diacritics, and `<p><em>Số tiền bằng chữ: ... đồng chẵn.</em></p>` immediately below.',
-  '  5. Closing paragraph + 2-column borderless signature `<table style="width: 100%; border: none; border-collapse: collapse;">` kept on the same page (`keepNext`): Left `<td style="width: 45%; text-align: left; vertical-align: top; border: none;">` has `<p><strong><em>Nơi nhận:</em></strong></p><p>- Như trên;</p><p>- Lưu: VT.</p>` (11-12pt); Right `<td style="width: 55%; text-align: center; vertical-align: top; border: none;">` has `<p><strong>CHỨC VỤ NGƯỜI KÝ</strong></p><p><em>(Ký, ghi rõ họ tên và đóng dấu)</em></p><p></p><p></p><p></p><p><strong>Họ và tên người ký</strong></p>` (leave 3-4 blank lines above the signer name for signature and seal).',
+  '  5. Closing paragraph + 2-column borderless signature `<table style="width: 100%; border: none; border-collapse: collapse;">` kept on the same page (`keepNext`): Left `<td style="width: 45%; text-align: left; vertical-align: top; border: none;">` has `<p><strong><em>Nơi nhận:</em></strong></p><p>- Như trên;</p><p>- Lưu: VT.</p>` (11-12pt, line-spacing 1.0); Right `<td style="width: 55%; text-align: center; vertical-align: top; border: none;">` has `<p><strong>CHỨC VỤ NGƯỜI KÝ</strong></p><p><em>(Ký, ghi rõ họ tên và đóng dấu)</em></p><p></p><p></p><p></p><p><strong>Họ và tên người ký</strong></p>` (leave 3-4 blank lines above the signer name for signature and seal).',
+  '  6. Statutory Vietnamese Forms & Specialized Documents:',
+  '     - Residence Declaration (Mẫu CT01 - TT 66/2023/TT-BCA): Top-right `Mẫu CT01`, Quốc hiệu - Tiêu ngữ, `Kính gửi: Công an phường/xã...`, items 1-10 (Name, DOB, Gender, 12-digit CCCD, Phone, Email, Head of Household, Relationship, Head CCCD, Request `[x] Đăng ký tạm trú`), item 11 6-column household member table (`TT | Họ tên | Ngày sinh | Giới tính | Số định danh cá nhân | Quan hệ`), and 2-column bottom signature block (`Ý kiến của chủ hộ / chủ sở hữu chỗ ở hợp pháp` | `Người kê khai`).',
+  '     - Red Book / Land Registration (Mẫu số 04/ĐK & Mẫu số 11/ĐK - NĐ 101/2024/NĐ-CP): Top-right `Mẫu số 04/ĐK` or `Mẫu số 11/ĐK`, Quốc hiệu - Tiêu ngữ, `Kính gửi: Chi nhánh Văn phòng Đăng ký đất đai...`, Section 1 (Applicant details), Section 2 (Land parcel / Existing Red Book serial & registry no.), Section 3 (Attached house/assets or Before vs After change comparison table), Section 4 (Attached documents & 2-column confirmation/signature block).',
+  '     - Tax Declarations & Refunds (Mẫu 01/LPTB, 03/BĐS-TNCN, 01/ĐNHT, 01/GHAN - TT 80/2021/TT-BTC): Top-right form code, numbered fields `[01]`-`[11]`, property details or tax period, 6-column tax calculation table (0.5% LPTB, 2.0% PIT on real estate transfer, or tax overpayment by Tiểu mục), bank account details, and commitment signature.',
+  '     - Education Lesson Plans & Exams: Secondary/High school KHBD (CV 5512) uses 4 activities with 2-column tables (`Hoạt động của GV & HS` | `Sản phẩm dự kiến`); Primary school KHBD (CV 2345) uses 4 activities with 2-column tables (`Hoạt động của Giáo viên` | `Hoạt động của Học sinh`); New Periodic Exam (CV 7991/BGDĐT-GDTrH) includes Matrix (Nhận biết 40% - Thông hiểu 30% - Vận dụng 30%), Part I Objective 7.0 pts (12 MCQs + 2 True/False 4-statement items a/b/c/d + 4 Short Answer items) + Part II Essay 3.0 pts + Detailed Answer Key.',
+  '     - Accounting Vouchers (Mẫu 05-TT / 03-TT / 04-TT - TT 200/2014/TT-BTC): Left header company/MST, right header `Mẫu số 05-TT`, requester & bank account details, 6-column invoice/expense breakdown table, advance offset calculation, amount in words, and 4-column approval signature table (`Người đề nghị | Trưởng bộ phận | Kế toán trưởng | Giám đốc`).',
   '- Never insert an English disclaimer line (such as "This is a reference draft, not legal advice...") inside a Vietnamese document.',
   '- Real data only: use the facts, figures, names and quotes from the reference material and the plan. NEVER output `{{PLACEHOLDER}}` variables (such as `{{SO_TO_TRINH}}`, `{{NGAY}}`) — always generate realistic administrative numbers, dates, and legal bases when the prompt omits them.',
   '- Follow the length the plan asks for; when it gives none, write what the content genuinely needs.',
@@ -138,6 +144,9 @@ export class DraftLanding {
         ? blockRangePositions(editor, position.index, position.index).to
         : 0
     this.to = this.from
+    if (typeof window !== 'undefined') {
+      ;(window as unknown as { __lyceroAiDraftActive?: boolean }).__lyceroAiDraftActive = true
+    }
     editor.on('transaction', this.onTransaction)
   }
 
@@ -171,6 +180,9 @@ export class DraftLanding {
     this.timer = null
     this.flush()
     this.closed = true
+    if (typeof window !== 'undefined') {
+      ;(window as unknown as { __lyceroAiDraftActive?: boolean }).__lyceroAiDraftActive = false
+    }
     this.editor.off('transaction', this.onTransaction)
     if (this.to > this.from && !this.editor.isDestroyed) {
       this.editor.view.dispatch(this.draftTr().delete(this.from, this.to))

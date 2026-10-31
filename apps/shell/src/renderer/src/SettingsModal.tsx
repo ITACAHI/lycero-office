@@ -2439,7 +2439,7 @@ export function SettingsModal({
   const [saveDir, setSaveDir] = useState('')
   const [analyticsOn, setAnalyticsOn] = useState(true)
   const [analyticsSaving, setAnalyticsSaving] = useState(false)
-  const [autoSaveOn, setAutoSaveOn] = useState(false)
+  const [autoSaveOn, setAutoSaveOn] = useState(true)
   const [tabSleepOn, setTabSleepOn] = useState(true)
   const [restoreSessionOn, setRestoreSessionOn] = useState(false)
   const [autoUpdateCheckOn, setAutoUpdateCheckOn] = useState(true)

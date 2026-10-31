@@ -16,7 +16,7 @@ export interface AutoSaveDefaultApi {
   onAutoSaveDefaultChanged(handler: (value: AutoSaveDefault) => void): () => void
 }
 
-export const NO_AUTO_SAVE_DEFAULT: AutoSaveDefault = { on: false, updatedAt: 0 }
+export const NO_AUTO_SAVE_DEFAULT: AutoSaveDefault = { on: true, updatedAt: 0 }
 
 /**
  * A per-window override only counts while its `base` still equals the global

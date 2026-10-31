@@ -1658,10 +1658,12 @@ export function pmTableToModel(table: PmNode): TableModel {
   if (
     maximumColumns === 6 &&
     !isBorderlessTbl &&
-    colWidthsPct?.length === 6 &&
-    (colWidthsPct.every((p) => Math.abs(p - 100 / 6) < 1) ||
-      (Math.abs(colWidthsPct[0]! - 6) < 1.5 && Math.abs(colWidthsPct[1]! - 44) < 3))
+    (table.attrs?.docxIndex == null ||
+      (colWidthsPct?.length === 6 &&
+        (colWidthsPct.every((p) => Math.abs(p - 100 / 6) < 1) ||
+          (Math.abs(colWidthsPct[0]! - 6) < 1.5 && Math.abs(colWidthsPct[1]! - 44) < 3))))
   ) {
+    colWidthsPct = [6, 44, 10, 8, 15, 17]
     colWidthsTwips = [560, 3900, 900, 700, 1400, 1600]
   }
   const tblStyleAttr = table.attrs?.tblStyleId as string | null | undefined

@@ -1126,7 +1126,7 @@ export function LyceroMate({
 
   // the frozen-range highlight ends with the run, or as soon as the editor is focused again
   useEffect(() => {
-    if (!busy) setInactiveSelectionShown(editor, false)
+    ;(window as unknown as { __lyceroAiDocsBusy?: boolean }).__lyceroAiDocsBusy = busy; if (!busy) setInactiveSelectionShown(editor, false)
   }, [busy, editor])
   useEffect(() => {
     const off = () => setInactiveSelectionShown(editor, false)

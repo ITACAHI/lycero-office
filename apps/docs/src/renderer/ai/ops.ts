@@ -661,6 +661,14 @@ function buildTextMarkPatch(op: Op): Record<string, unknown> {
     if (!v) Object.assign(patch, { font: null, fontAscii: null, eastAsiaFont: null })
     else if (isEastAsianFontName(v))
       Object.assign(patch, { font: v, eastAsiaFont: v, eaSlotEmpty: false })
+    else if (/^Times New Roman$/i.test(v))
+      Object.assign(patch, {
+        font: 'Times New Roman',
+        fontAscii: 'Times New Roman',
+        eastAsiaFont: 'Times New Roman',
+        csFont: 'Times New Roman',
+        eaSlotEmpty: false,
+      })
     else patch.fontAscii = v
   }
   if (op.color !== undefined) patch.color = normalizeHex(op.color, op.op, 'color')

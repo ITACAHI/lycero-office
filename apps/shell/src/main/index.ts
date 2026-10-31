@@ -678,7 +678,7 @@ function currentAutoSaveDefault(): AutoSaveDefault {
   const saved = readAppSettings(APP_SETTINGS_PATH())
   const updatedAt = saved.autoSaveDefaultUpdatedAt
   cachedAutoSaveDefault = {
-    on: saved.autoSaveDefault === true,
+    on: saved.autoSaveDefault !== false,
     updatedAt: typeof updatedAt === 'number' && updatedAt > 0 ? updatedAt : 0,
   }
   return cachedAutoSaveDefault

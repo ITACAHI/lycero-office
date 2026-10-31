@@ -1,7 +1,7 @@
 {
   "name": "@lycero/html",
   "productName": "Lycero Office HTML",
-  "version": "2.0.17",
+  "version": "2.0.18",
   "license": "Apache-2.0",
   "private": true,
   "description": "HTML editor module: source-of-truth HTML editing with live preview, hosted by shell tabs",

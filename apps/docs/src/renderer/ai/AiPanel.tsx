@@ -1243,7 +1243,11 @@ export function AiPanel({
 
   // the frozen-range highlight ends with the run, or as soon as the editor is focused again
   useEffect(() => {
+    ;(window as unknown as { __lyceroAiDocsBusy?: boolean }).__lyceroAiDocsBusy = busy
     if (!busy) setInactiveSelectionShown(editor, false)
+    return () => {
+      ;(window as unknown as { __lyceroAiDocsBusy?: boolean }).__lyceroAiDocsBusy = false
+    }
   }, [busy, editor])
   useEffect(() => {
     const off = () => setInactiveSelectionShown(editor, false)

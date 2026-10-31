@@ -864,7 +864,15 @@ export async function buildDocBytes(
     numbering: ctx.numberingDirty
       ? pruneUnreferencedNumbering(ctx.pendingNumbering, pmJson)
       : undefined,
-    defaultFonts: ctx.defaultFonts,
+    defaultFonts:
+      ctx.defaultFonts ??
+      (JSON.stringify(pmJson).includes('Times New Roman')
+        ? {
+            font: 'Times New Roman',
+            eastAsiaFont: 'Times New Roman',
+            csFont: 'Times New Roman',
+          }
+        : undefined),
     styleUpserts:
       Object.keys(ctx.styleUpserts).length > 0 ? Object.values(ctx.styleUpserts) : undefined,
     pageColor: ctx.pageColorDirty ? ctx.pageColor : undefined,
@@ -905,6 +913,12 @@ export async function buildDocBytes(
 export async function writeRecoveryCopy(ctx: FileActionContext): Promise<void> {
   const { doc, editor } = ctx
   if (!doc || !editor || ctx.saveInFlightRef.current || !isDocDirty(ctx)) return
+  // Never persist a half-streamed draft while AI is actively writing or executing tools
+  const win =
+    typeof window !== 'undefined'
+      ? (window as unknown as { __lyceroAiDocsBusy?: boolean; __lyceroAiDraftActive?: boolean })
+      : undefined
+  if (win?.__lyceroAiDocsBusy || win?.__lyceroAiDraftActive) return
   // an edit during a phased open marks the document dirty while the tail is
   // still streaming: a snapshot now would persist a truncated document. The
   // next tick covers it.
