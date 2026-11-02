@@ -367,15 +367,25 @@ export function LyceroMate({
   // Phase A.6: cache enabled work bundles from BundleStore (main process)
   const bundlesRef = useRef<WorkBundle[]>([])
   useEffect(() => {
+    const aiOffice = (
+      window as Window & {
+        aiOffice?: {
+          bundles?: {
+            getEnabled(): Promise<WorkBundle[]>
+            onEnabledChanged(cb: () => void): () => void
+          }
+        }
+      }
+    ).aiOffice
     const loadBundles = () =>
-      window.aiOffice?.bundles
+      aiOffice?.bundles
         ?.getEnabled()
         .then((bundles: WorkBundle[]) => {
           bundlesRef.current = bundles ?? []
         })
         .catch(() => {})
     loadBundles()
-    const unsub = window.aiOffice?.bundles?.onEnabledChanged(() => {
+    const unsub = aiOffice?.bundles?.onEnabledChanged(() => {
       void loadBundles()
     })
     return unsub

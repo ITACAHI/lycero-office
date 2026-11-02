@@ -90,6 +90,7 @@ describe('CloudCapabilitiesManager', () => {
   beforeEach(() => {
     storage = new TestStorage()
     vi.restoreAllMocks()
+    vi.unstubAllGlobals()
   })
 
   it('loads cached capabilities immediately on startup without network delay', async () => {
@@ -171,6 +172,66 @@ describe('CloudCapabilitiesManager', () => {
     // Persisted to storage
     const storedConfig = JSON.parse(storage.getItem('lycero_cloud_skills_config')!)
     expect(storedConfig['pedagogical-lesson-plan'].detail_level).toBe('extended')
+  })
+
+  it('preserves user-disabled active set across syncs and restarts (F-05)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => mockResponse,
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const manager = new CloudCapabilitiesManager({ storage })
+    await manager.syncCapabilities()
+    expect(manager.isSkillActive('pedagogical-lesson-plan')).toBe(true)
+
+    await manager.setSkillActive('pedagogical-lesson-plan', false)
+    expect(manager.getActiveSkillSlugs()).toEqual([])
+
+    // Re-sync must not re-enable user-disabled skills
+    await manager.syncCapabilities()
+    expect(manager.getActiveSkillSlugs()).toEqual([])
+
+    // Restart from cache must also preserve empty active set
+    const restarted = new CloudCapabilitiesManager({ storage })
+    await restarted.loadFromCache()
+    await restarted.syncCapabilities()
+    expect(restarted.getActiveSkillSlugs()).toEqual([])
+  })
+
+  it('seeds default configs from clientConfigSchema during offline loadFromCache (F-06)', async () => {
+    storage.setItem('lycero_cloud_capabilities_manifest', JSON.stringify(mockResponse))
+    const manager = new CloudCapabilitiesManager({ storage })
+    await manager.loadFromCache()
+
+    const config = manager.getUserSkillConfig('pedagogical-lesson-plan') as Record<string, unknown>
+    expect(config.detail_level).toBe('standard')
+    expect(config.include_rubric).toBe(true)
+    expect(config.creativity).toBe(3)
+  })
+
+  it('rejects malformed skill entries in syncCapabilities and preserves good cache (F-08)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ skills: [null] }),
+      })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const manager = new CloudCapabilitiesManager({ storage })
+    await manager.syncCapabilities()
+    expect(manager.getSkills().length).toBe(1)
+
+    const badSync = await manager.syncCapabilities()
+    expect(badSync.ok).toBe(false)
+    expect(badSync.fromCache).toBe(true)
+    expect(manager.getSkills().length).toBe(1)
+    expect(manager.getSkills()[0]?.slug).toBe('pedagogical-lesson-plan')
   })
 })
 

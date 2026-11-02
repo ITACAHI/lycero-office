@@ -74,7 +74,12 @@ function gskAuthPath(): string {
 export async function migrateLegacyAuth(): Promise<void> {
   try {
     if (existsSync(gskAuthPath())) return // already migrated or GSX user
-    const parsed = loadLyceroAuth()
+    const parsed = loadLyceroAuth() as
+      | (ReturnType<typeof loadLyceroAuth> & {
+          user?: { fullName?: string; name?: string; id?: string; email?: string; plan?: string }
+          license?: LyceroLicenseInfo
+        })
+      | null
     const token = parsed?.tokens?.accessToken
     if (!token) return
     const session: LyceroSession = {
@@ -508,7 +513,9 @@ export async function loginToLyceroHub(email: string, pass: string): Promise<Lyc
             email: session.user.email,
             name: session.user.name,
             plan: session.user.plan,
-          },
+          } as Parameters<typeof saveLyceroAuth>[0]['user'],
+          orgId: undefined,
+          archetypeId: session.archetypeId,
         })
       } catch {}
 
@@ -877,22 +884,32 @@ export async function updateLyceroProfile(patch: {
   return { ok: true }
 }
 
+let loginSuccessCallback: (() => void) | undefined
+
 function broadcastAuthChanged(
   session: LyceroSession | null,
   getMainWindow?: () => BrowserWindow | null,
 ): void {
+  if (session) {
+    loginSuccessCallback?.()
+  }
   const win = getMainWindow?.()
   if (win && !win.isDestroyed()) {
     win.webContents.send('lycero:auth:changed', session)
     win.webContents.send('ai:settings-changed')
     if (session) win.webContents.send('home:account-login-event', { phase: 'success' })
   }
-  const allContents = webContents?.getAllWebContents?.() ?? []
-  for (const wc of allContents) {
-    if (wc.isDestroyed() || wc === win?.webContents) continue
-    wc.send('lycero:auth:changed', session)
-    wc.send('ai:settings-changed')
-    if (session) wc.send('home:account-login-event', { phase: 'success' })
+  try {
+    const allContents =
+      typeof webContents?.getAllWebContents === 'function' ? webContents.getAllWebContents() : []
+    for (const wc of allContents) {
+      if (wc.isDestroyed() || wc === win?.webContents) continue
+      wc.send('lycero:auth:changed', session)
+      wc.send('ai:settings-changed')
+      if (session) wc.send('home:account-login-event', { phase: 'success' })
+    }
+  } catch {
+    // webContents may be omitted in partial unit-test mocks
   }
 }
 
@@ -1162,7 +1179,11 @@ export function startLyceroOAuthFlow(
   }, oauthState)
 }
 
-export function registerLyceroAuthIpc(getMainWindow: () => BrowserWindow | null): void {
+export function registerLyceroAuthIpc(
+  getMainWindow: () => BrowserWindow | null,
+  onLoginSuccess?: () => void,
+): void {
+  loginSuccessCallback = onLoginSuccess
   // Broadcast device verification state changes to renderer windows
   onDeviceVerificationStateChanged((state) => {
     const curr = getSession()

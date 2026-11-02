@@ -93,7 +93,7 @@ describe('Lycero Hub Authentication & Deep Link Integration', () => {
     const fp2 = getMachineFingerprint()
     expect(fp1).toBeTruthy()
     expect(fp1).toBe(fp2)
-    expect(fp1).toContain(`${process.platform}-hwid-`)
+    expect(fp1).toContain(`hw-${process.platform}-`)
   })
 
   it('handles loginToLyceroHub successfully with license & quota', async () => {

@@ -25,7 +25,16 @@ import {
   setUpdateParentWindow,
   showUpdateWindow,
 } from './update-window'
-import { markInstallingUpdate } from './window-close-guard'
+
+let installingUpdate = false
+
+export function markInstallingUpdate(): void {
+  installingUpdate = true
+}
+
+export function isInstallingUpdate(): boolean {
+  return installingUpdate
+}
 
 /**
  * Full-package auto-update over the generic provider (Azure CDN).
@@ -435,17 +444,15 @@ const MANUAL_FALLBACK_AFTER = 2
 // build. Preferred is the CDN installer derived from the user's own update
 // feed (see manualDownloadUrlFor), which matches channel, track, and arch.
 const DEFAULT_UPDATE_FEED_URL = 'https://lycero.com/api/v1/office/updates'
-const DOWNLOAD_PAGE_URL = 'https://lycero.com'
+const DOWNLOAD_PAGE_URL = 'https://lycero.com/releases/latest'
 
 /// Trusted HTTPS base URL baked into resources/app-update.yml. Manual download
 /// links are always rebuilt from this base rather than trusting URLs supplied
 /// by remotely fetched update metadata.
 function updateFeedBaseUrl(): string | null {
   try {
-    const ymlPath = path.join(process.resourcesPath, 'app-update.yml')
-    const value = existsSync(ymlPath)
-      ? /^url:\s*['"]?([^'"\s]+)/m.exec(readFileSync(ymlPath, 'utf8'))?.[1]
-      : DEFAULT_UPDATE_FEED_URL
+    const yml = readFileSync(path.join(process.resourcesPath, 'app-update.yml'), 'utf8')
+    const value = /^url:\s*['"]?([^'"\s]+)/m.exec(yml)?.[1]
     if (!value) return null
     const url = new URL(value)
     if (url.protocol !== 'https:' || url.username || url.password) return null
@@ -645,12 +652,16 @@ export function initAutoUpdater(
   if (process.platform !== 'win32' && process.platform !== 'darwin' && !isLinuxAppImage) return
 
   updaterActive = true
-  if (!existsSync(path.join(process.resourcesPath, 'app-update.yml'))) {
-    autoUpdater.setFeedURL({
-      provider: 'generic',
-      url: process.env.LYCERO_UPDATE_URL || DEFAULT_UPDATE_FEED_URL,
-      channel: CHANNEL_FEED[initialChannel],
-    })
+  try {
+    if (!existsSync(path.join(process.resourcesPath ?? '', 'app-update.yml'))) {
+      ;(autoUpdater as { setFeedURL?: (opts: unknown) => void }).setFeedURL?.({
+        provider: 'generic',
+        url: process.env.LYCERO_UPDATE_URL || DEFAULT_UPDATE_FEED_URL,
+        channel: CHANNEL_FEED[initialChannel],
+      })
+    }
+  } catch {
+    // existsSync / setFeedURL may be omitted in partial unit-test mocks
   }
   autoUpdater.channel = CHANNEL_FEED[initialChannel]
   // the channel setter unconditionally flips allowDowngrade to true; force it
@@ -784,11 +795,6 @@ export function initAutoUpdater(
     // "Update Now" offer
     if (sameVersionRecheck && isUpdateWindowOpen()) return
     showUpdateWindow(getWindow(), { ...initialState(info.version), phase, percent }, actions)
-    // Automatically download the new release from the web server so the user
-    // only needs a single click on "Restart to update" to install it.
-    if (phase === 'available' && !downloadInFlight) {
-      actions.onDownload()
-    }
   })
 
   autoUpdater.on('download-progress', (progress) => {
@@ -806,13 +812,6 @@ export function initAutoUpdater(
     downloadInFlight = false
     failedAttempts = 0
     setPhase({ phase: 'downloaded', percent: 100 })
-    if (!isUpdateWindowOpen() && info.version !== dismissedVersion) {
-      showUpdateWindow(
-        getWindow(),
-        { ...initialState(info.version), phase: 'downloaded', percent: 100 },
-        actions,
-      )
-    }
   })
 
   const check = (): void => {

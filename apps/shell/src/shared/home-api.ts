@@ -449,7 +449,10 @@ export interface HomeApi {
   getWorkspace?(): Promise<Workspace>
   setWorkspace(workspace: Workspace): Promise<void>
   onWorkspaceChanged?(handler: (ws: Workspace) => void): () => void
-  onAiSettingsChanged?(handler: (settings: AiSettings) => void): () => void
+  createPedagogicalTemplate?(id: string): Promise<string | null>
+  fetchCloudTemplates?(): Promise<
+    Array<{ id: string; title: string; category: string; format: 'docx' | 'xlsx' | 'pptx' }>
+  >
   getHubModels?(): Promise<LyceroHubModelsResult | null>
   getLyceroSession?(): Promise<unknown>
   bundles: import('./bundle-api').BundleApi
@@ -545,7 +548,7 @@ export interface HomeApi {
   /** persist AI settings; every renderer gets ai:settings-changed and re-reads */
   setAiSettings(settings: AiSettings): Promise<void>
   /** ai-settings.json was rewritten by any renderer (composer model chip, another window) */
-  onAiSettingsChanged(handler: () => void): () => void
+  onAiSettingsChanged(handler: (settings?: AiSettings) => void): () => void
   /** provider catalog with each fixed endpoint's default base URL (empty for genspark/custom) */
   getAiProviders(): AiCatalogEntry[]
   /** live Codex model catalog discovered through the current or overridden app-server */

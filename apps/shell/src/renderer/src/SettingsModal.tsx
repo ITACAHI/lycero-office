@@ -1092,6 +1092,7 @@ type TestResult = { ok: boolean; error?: string }
 
 /** Jev routes first (OpenRouter is the default), then the other decision-model servers */
 const DECISION_ENDPOINTS: { value: DecisionEndpoint; label: string }[] = [
+  { value: 'lycero', label: 'Lycero Gateway (Jev)' },
   { value: 'openrouter', label: 'Jev (OpenRouter)' },
   { value: 'direct', label: 'Jev (TypeSafe API)' },
   { value: 'perplexity', label: 'Perplexity (v1 27B)' },

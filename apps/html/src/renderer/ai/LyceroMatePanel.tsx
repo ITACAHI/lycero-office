@@ -55,6 +55,7 @@ import { createSearchSkill } from './search-skill'
 import { pastedBase64Image } from './base64-paste'
 import { createElectronTransport } from './transport'
 import { DOC_NAV_SCHEME, parseDocNavHref } from './doc-nav'
+import { buildProjection } from './redact'
 import { EditQueueCard } from './EditQueueCard'
 import {
   buildQueueInstruction,
@@ -656,15 +657,25 @@ export function LyceroMate({
   // Phase A.6: cache enabled work bundles from BundleStore (main process)
   const bundlesRef = useRef<WorkBundle[]>([])
   useEffect(() => {
+    const aiOffice = (
+      window as Window & {
+        aiOffice?: {
+          bundles?: {
+            getEnabled(): Promise<WorkBundle[]>
+            onEnabledChanged(cb: () => void): () => void
+          }
+        }
+      }
+    ).aiOffice
     const loadBundles = () =>
-      window.aiOffice?.bundles
+      aiOffice?.bundles
         ?.getEnabled()
         .then((bundles: WorkBundle[]) => {
           bundlesRef.current = bundles ?? []
         })
         .catch(() => {})
     loadBundles()
-    const unsub = window.aiOffice?.bundles?.onEnabledChanged(() => {
+    const unsub = aiOffice?.bundles?.onEnabledChanged(() => {
       void loadBundles()
     })
     return unsub
@@ -981,7 +992,8 @@ export function LyceroMate({
   /** one run for the whole queue; every item is consumed up front, failures go through retry */
   const sendQueue = (): void => {
     const access = depsRef.current.access
-    const entries = liveItems(resolveQueue(access.getText(), access.getMap(), editQueue))
+    const map = access.getMap()
+    const entries = liveItems(resolveQueue(buildProjection(access.getText(), map), map, editQueue))
     if (entries.length === 0) {
       onQueueClear()
       return
@@ -1661,9 +1673,7 @@ function ToolChipList({ tools }: { tools: ToolActivity[] }) {
   const open = userOpen ?? anyRunning
   const label = anyRunning
     ? tr('aiGroupWorking')
-    : mutatedCount > 0
-      ? tr('aiWorkedStepsApplied', { total: tools.length, applied: mutatedCount })
-      : tr('aiWorkedSteps', { n: tools.length })
+    : tr('aiWorkedSteps', { n: tools.length })
 
   return (
     <div className="ai-work-group">
@@ -1707,7 +1717,7 @@ function ToolChipList({ tools }: { tools: ToolActivity[] }) {
                     </span>
                   )}
                   {tool.mutated && !tool.running && (
-                    <span className="ai-step-mutated-mark" aria-label={tr('aiStepApplied')} data-tip={tr('aiStepApplied')}>
+                    <span className="ai-step-mutated-mark">
                       ✓
                     </span>
                   )}

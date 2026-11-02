@@ -230,8 +230,13 @@ export function registerIntegrationsIpc(deps: IntegrationsDeps): void {
       const token = lyceroAccessToken() ?? undefined
       try {
         return installRecommendedSkill(name, recDir, userDataDir)
-      } catch {
-        return await installCloudSkill(name, userDataDir, token)
+      } catch (localErr) {
+        if (!token) throw localErr
+        try {
+          return await installCloudSkill(name, userDataDir, token)
+        } catch {
+          throw localErr
+        }
       }
     },
   )

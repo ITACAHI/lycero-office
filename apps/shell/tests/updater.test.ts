@@ -477,7 +477,7 @@ describe('manual download fallback', () => {
       const actions = await failTwiceIntoManual(macFiles)
       actions.onOpenDownload()
       expect(openExternal).toHaveBeenCalledWith(
-        'https://cdn.example.com/mac/Lycero Office-0.2.0-arm64.dmg',
+        'https://cdn.example.com/mac/Lycero%20Office-0.2.0-arm64.dmg',
       )
     } finally {
       restoreArch()
@@ -491,7 +491,7 @@ describe('manual download fallback', () => {
     try {
       const actions = await failTwiceIntoManual(macFiles)
       actions.onOpenDownload()
-      expect(openExternal).toHaveBeenCalledWith('https://cdn.example.com/mac/Lycero Office-0.2.0.dmg')
+      expect(openExternal).toHaveBeenCalledWith('https://cdn.example.com/mac/Lycero%20Office-0.2.0.dmg')
     } finally {
       restoreArch()
     }
@@ -565,7 +565,7 @@ describe('manual download fallback', () => {
       ])
       actions.onOpenDownload()
       expect(openExternal).toHaveBeenCalledWith(
-        'https://cdn.example.com/mac/Lycero Office-0.2.0-arm64.dmg',
+        'https://cdn.example.com/mac/Lycero%20Office-0.2.0-arm64.dmg',
       )
     } finally {
       restoreArch()

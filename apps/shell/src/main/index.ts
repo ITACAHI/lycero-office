@@ -129,10 +129,17 @@ import {
   updateLyceroProfile,
 } from './lycero-auth-bridge'
 import { getDeviceVerificationState } from './deviceIdentityService'
-import { isExpiredJwt, loadLyceroAuth, findArchetype, fetchHubQuota } from '@lycero/ai-auth/main'
+import {
+  isExpiredJwt,
+  loadLyceroAuth,
+  hasLyceroAuth,
+  findArchetype,
+  fetchHubQuota,
+} from '@lycero/ai-auth/main'
 import { BundleStore } from './bundle-store'
 import { BUNDLE_IPC_CHANNELS } from '../shared/bundle-api'
 import { recordBundleEvent, getUsageCounts } from './bundle-telemetry'
+import { createPedagogicalTemplate, fetchCloudTemplates } from './templates'
 import { makeUserCliRunner, registerUserSkillsIpc } from './user-cli'
 import {
   ANALYTICS_ENABLED_KEY,
@@ -313,6 +320,7 @@ import {
 } from '../../../html/src/main/html-main'
 import type {
   AccountLoginEvent,
+  AccountStatus,
   AutoSaveDefault,
   AuthorNameSetting,
   FolderListing,
@@ -4776,9 +4784,18 @@ function statEntries(paths: string[]): RecentEntry[] {
 }
 
 function registerHomeIpc(): void {
-  registerLyceroAuthIpc(() => shellWindow)
+  registerLyceroAuthIpc(() => shellWindow, () => analytics.track('login_success'))
   void migrateLegacyAuth()
   registerBundleIpc()
+  ipcMain.handle('templates:create-pedagogical', async (_event, id: unknown) => {
+    if (typeof id !== 'string' || !id.trim()) return null
+    const res = await createPedagogicalTemplate(id.trim(), defaultSaveDir(), (payload) => {
+      void createAiDocument({ type: 'docx', title: payload.title, content: payload.html })
+    })
+    if (res.filePath) openDocumentPath(res.filePath)
+    return res
+  })
+  ipcMain.handle('templates:fetch-cloud', () => fetchCloudTemplates())
   // signed-in means Lycero Office's own device-code login; the shared gsk CLI key
   // is only a silent fallback, deliberately not shown here to nudge users onto our key
   const resolveCurrentAccountStatus = async (forceServerSync = false): Promise<AccountStatus> => {

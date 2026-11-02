@@ -75,16 +75,10 @@ function electronQuitTracker(): QuitTracker {
   }
 }
 
+import { isInstallingUpdate, markInstallingUpdate } from './updater'
+export { isInstallingUpdate, markInstallingUpdate }
+
 let shared: QuitTracker | undefined
-let installingUpdate = false
-
-export function markInstallingUpdate(): void {
-  installingUpdate = true
-}
-
-export function isInstallingUpdate(): boolean {
-  return installingUpdate
-}
 
 export function shellQuitTracker(): QuitTracker {
   return (shared ??= electronQuitTracker())
@@ -102,7 +96,7 @@ export function installShellCloseGuard(
   let holdingQuit = false
 
   win.on('close', (event) => {
-    if (closeConfirmed || installingUpdate) return
+    if (closeConfirmed || isInstallingUpdate()) return
     const dirtySheets = manager.dirtySheetsTabs()
     const dirtyPdf = manager.dirtyPdfTabs()
     const dirtyMarkdown = manager.dirtyMarkdownTabs()

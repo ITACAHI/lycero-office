@@ -129,6 +129,7 @@ export class CloudCapabilitiesManager {
   private skills: CloudSkillManifest[] = []
   private mcpEndpoints: CloudMcpEndpoint[] = []
   private activeSlugs = new Set<string>()
+  private hasCustomActiveSet = false
   private skillConfigs: Record<string, Record<string, unknown>> = {}
   private storage: CapabilitiesStorage
   private gatewayUrl: string
@@ -141,6 +142,19 @@ export class CloudCapabilitiesManager {
   }) {
     this.gatewayUrl = options?.gatewayUrl ?? DEFAULT_CAPABILITIES_GATEWAY_URL
     this.storage = options?.storage ?? resolveDefaultStorage()
+  }
+
+  private static isValidSkillArray(skills: unknown): skills is CloudSkillManifest[] {
+    return (
+      Array.isArray(skills) &&
+      skills.every(
+        (s) =>
+          s !== null &&
+          typeof s === 'object' &&
+          typeof (s as CloudSkillManifest).slug === 'string' &&
+          (s as CloudSkillManifest).slug.trim().length > 0,
+      )
+    )
   }
 
   public subscribe(listener: () => void): () => void {
@@ -168,17 +182,18 @@ export class CloudCapabilitiesManager {
       const rawManifest = await this.storage.getItem(CACHE_KEY_MANIFEST)
       if (rawManifest) {
         const parsed = JSON.parse(rawManifest) as CloudCapabilitiesResponse
-        if (Array.isArray(parsed.skills)) {
+        if (CloudCapabilitiesManager.isValidSkillArray(parsed?.skills)) {
           this.skills = parsed.skills
           this.mcpEndpoints = parsed.mcpEndpoints ?? []
         }
       }
 
       const rawActive = await this.storage.getItem(CACHE_KEY_ACTIVE)
-      if (rawActive) {
+      if (rawActive !== null) {
         const parsed = JSON.parse(rawActive) as string[]
         if (Array.isArray(parsed)) {
           this.activeSlugs = new Set(parsed)
+          this.hasCustomActiveSet = true
         }
       }
 
@@ -190,6 +205,7 @@ export class CloudCapabilitiesManager {
         }
       }
 
+      this.ensureDefaultConfigs()
       this.initialized = true
       this.notify()
       return this.skills.length > 0
@@ -249,7 +265,7 @@ export class CloudCapabilitiesManager {
       }
 
       const data = (await res.json()) as CloudCapabilitiesResponse
-      if (Array.isArray(data.skills)) {
+      if (CloudCapabilitiesManager.isValidSkillArray(data?.skills)) {
         this.skills = data.skills
         this.mcpEndpoints = data.mcpEndpoints ?? []
 
@@ -257,10 +273,11 @@ export class CloudCapabilitiesManager {
         await this.storage.setItem(CACHE_KEY_MANIFEST, JSON.stringify(data))
 
         // Automatically activate all synced Cloud Skills if no custom active set was configured yet
-        if (this.activeSlugs.size === 0) {
+        if (!this.hasCustomActiveSet && this.activeSlugs.size === 0) {
           for (const s of this.skills) {
             this.activeSlugs.add(s.slug)
           }
+          this.hasCustomActiveSet = true
           await this.storage.setItem(
             CACHE_KEY_ACTIVE,
             JSON.stringify(Array.from(this.activeSlugs)),
@@ -346,6 +363,7 @@ export class CloudCapabilitiesManager {
   }
 
   public async setSkillActive(slug: string, active: boolean): Promise<void> {
+    this.hasCustomActiveSet = true
     if (active) {
       this.activeSlugs.add(slug)
     } else {

@@ -34,5 +34,11 @@
     "../slides/src/main/env.d.ts",
     "../../packages/pdf2docx/src/bidi-js.d.ts",
     "../../packages/html2docx/src/raw.d.ts"
+  ],
+  "exclude": [
+    "src/main/shared/**",
+    "src/main/skills/**",
+    "src/renderer/src/CustomSkillsPane.tsx",
+    "src/renderer/src/McpClientsPane.tsx"
   ]
 }

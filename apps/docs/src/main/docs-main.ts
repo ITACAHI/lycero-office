@@ -6099,6 +6099,47 @@ export function registerDocsIpc(): void {
     win.show()
     win.focus()
   })
+
+  ipcMain.on('docs:view-menu-state', (event, state: unknown) => {
+    const s = state as { aiSidebar?: unknown; darkCanvas?: unknown } | null
+    const next = { aiSidebar: s?.aiSidebar === true, darkCanvas: s?.darkCanvas === true }
+    if (!viewMenuStateByWebContents.has(event.sender.id)) {
+      const id = event.sender.id
+      event.sender.once('destroyed', () => viewMenuStateByWebContents.delete(id))
+    }
+    viewMenuStateByWebContents.set(event.sender.id, next)
+    // patch the live menu only for the active tab; an inactive tab's state gets
+    // picked up by the buildDocsMenu run its next focus triggers
+    if (event.sender.id !== activeDocsWebContents()?.id) return
+    const menu = Menu.getApplicationMenu()
+    const ai = menu?.getMenuItemById('docs-menu-ai-sidebar')
+    if (ai) ai.checked = next.aiSidebar
+    const dark = menu?.getMenuItemById('docs-menu-dark-mode')
+    if (dark) dark.checked = next.darkCanvas
+  })
+
+  ipcMain.on('docs:close-check-result', (event, state: unknown) => {
+    const waiter = closeCheckWaiters.get(event.sender.id)
+    if (!waiter) return
+    closeCheckWaiters.delete(event.sender.id)
+    const s = state as { dirty?: unknown; autoSave?: unknown; filePath?: unknown } | boolean
+    waiter(
+      typeof s === 'boolean'
+        ? { dirty: s, autoSave: false }
+        : {
+            dirty: s?.dirty === true,
+            autoSave: s?.autoSave === true,
+            filePath: typeof s?.filePath === 'string' ? s.filePath : null,
+          },
+    )
+  })
+
+  ipcMain.on('docs:close-save-result', (event, ok: unknown) => {
+    const waiter = closeSaveWaiters.get(event.sender.id)
+    if (!waiter) return
+    closeSaveWaiters.delete(event.sender.id)
+    waiter(ok === true)
+  })
 }
 
 /** hooks injected by the shell in tab mode; standalone mode leaves these unset
@@ -6727,47 +6768,6 @@ interface DocsCloseState {
 }
 const closeCheckWaiters = new Map<number, (state: DocsCloseState) => void>()
 const closeSaveWaiters = new Map<number, (ok: boolean) => void>()
-
-ipcMain.on('docs:view-menu-state', (event, state: unknown) => {
-  const s = state as { aiSidebar?: unknown; darkCanvas?: unknown } | null
-  const next = { aiSidebar: s?.aiSidebar === true, darkCanvas: s?.darkCanvas === true }
-  if (!viewMenuStateByWebContents.has(event.sender.id)) {
-    const id = event.sender.id
-    event.sender.once('destroyed', () => viewMenuStateByWebContents.delete(id))
-  }
-  viewMenuStateByWebContents.set(event.sender.id, next)
-  // patch the live menu only for the active tab; an inactive tab's state gets
-  // picked up by the buildDocsMenu run its next focus triggers
-  if (event.sender.id !== activeDocsWebContents()?.id) return
-  const menu = Menu.getApplicationMenu()
-  const ai = menu?.getMenuItemById('docs-menu-ai-sidebar')
-  if (ai) ai.checked = next.aiSidebar
-  const dark = menu?.getMenuItemById('docs-menu-dark-mode')
-  if (dark) dark.checked = next.darkCanvas
-})
-
-ipcMain.on('docs:close-check-result', (event, state: unknown) => {
-  const waiter = closeCheckWaiters.get(event.sender.id)
-  if (!waiter) return
-  closeCheckWaiters.delete(event.sender.id)
-  const s = state as { dirty?: unknown; autoSave?: unknown; filePath?: unknown } | boolean
-  waiter(
-    typeof s === 'boolean'
-      ? { dirty: s, autoSave: false }
-      : {
-          dirty: s?.dirty === true,
-          autoSave: s?.autoSave === true,
-          filePath: typeof s?.filePath === 'string' ? s.filePath : null,
-        },
-  )
-})
-
-ipcMain.on('docs:close-save-result', (event, ok: unknown) => {
-  const waiter = closeSaveWaiters.get(event.sender.id)
-  if (!waiter) return
-  closeSaveWaiters.delete(event.sender.id)
-  waiter(ok === true)
-})
 
 /** Ask the renderer for pre-close state (dirty flag + autosave switch); no reply within 2s
  * fails CLOSED — a busy or wedged renderer may well hold unsaved changes, so the caller

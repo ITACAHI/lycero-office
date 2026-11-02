@@ -287,10 +287,10 @@ describe('integrations:list-recommended-skills / install-recommended-skill', () 
     expect(list[0]?.state).toBe('installed')
   })
 
-  it('refuses a name it does not ship, whatever the renderer sends', () => {
+  it('refuses a name it does not ship, whatever the renderer sends', async () => {
     ship('business-report')
     for (const bad of ['other', '../recommended/business-report', 42, null]) {
-      expect(() => invoke(INTEGRATIONS_CHANNELS.installRecommendedSkill, bad)).toThrow(
+      await expect(invoke(INTEGRATIONS_CHANNELS.installRecommendedSkill, bad)).rejects.toThrow(
         'unknown skill',
       )
     }

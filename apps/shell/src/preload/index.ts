@@ -17,6 +17,7 @@ import type { UpdateUiState } from '../shared/update-api'
 import { normalizeAiPanelPrefs } from '@lycero/ui/ai-panel-prefs'
 import type {
   AccountLoginEvent,
+  AccountQuota,
   AccountStatus,
   CloudProjectsSnapshot,
   DefaultAppStatus,
@@ -466,12 +467,16 @@ const homeApi: HomeApi = {
     ipcRenderer.on('app:workspace-changed', listener)
     return () => ipcRenderer.removeListener('app:workspace-changed', listener)
   },
-  onAiSettingsChanged(handler) {
-    const listener = (_event: Electron.IpcRendererEvent, s: unknown) => {
-      if (s && typeof s === 'object') handler(s as AiSettings)
-    }
-    ipcRenderer.on('ai:settings-changed', listener)
-    return () => ipcRenderer.removeListener('ai:settings-changed', listener)
+  async createPedagogicalTemplate(id: string) {
+    return (await ipcRenderer.invoke('templates:create-pedagogical', id)) as string | null
+  },
+  async fetchCloudTemplates() {
+    return (await ipcRenderer.invoke('templates:fetch-cloud')) as Array<{
+      id: string
+      title: string
+      category: string
+      format: 'docx' | 'xlsx' | 'pptx'
+    }>
   },
   async getHubModels() {
     return (await ipcRenderer.invoke('lycero:hub:fetchModels')) as any
@@ -709,7 +714,7 @@ const homeApi: HomeApi = {
   },
   // AI settings channels are registered once by the shell's aggregated docs handlers
   onAiSettingsChanged(handler) {
-    const listener = () => handler()
+    const listener = (_event: Electron.IpcRendererEvent, s?: unknown) => handler(s as never)
     ipcRenderer.on('ai:settings-changed', listener)
     return () => ipcRenderer.removeListener('ai:settings-changed', listener)
   },

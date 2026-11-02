@@ -402,7 +402,7 @@ function readPrimaryMacAddress(): string {
 
 function readScreenResolution(): string {
   try {
-    if (app.isReady()) {
+    if (typeof app?.isReady === 'function' && app.isReady()) {
       const primary = screen.getPrimaryDisplay()
       if (primary?.size?.width && primary?.size?.height) {
         return `${primary.size.width}x${primary.size.height}`
@@ -416,8 +416,8 @@ function readScreenResolution(): string {
 
 function readSystemLanguage(): string {
   try {
-    if (app.isReady()) {
-      const loc = app.getLocale()
+    if (typeof app?.isReady === 'function' && app.isReady()) {
+      const loc = typeof app?.getLocale === 'function' ? app.getLocale() : ''
       if (loc) return loc
     }
   } catch {
@@ -518,7 +518,7 @@ function loadOrCreatePersistedCache(): PersistedDeviceCache {
 export function getDeviceIdentity(): DeviceHardwareIdentity {
   if (cachedIdentity) {
     // Refresh screenResolution once app is ready if it was previously resolved before ready
-    if (app.isReady()) {
+    if (typeof app?.isReady === 'function' && app.isReady()) {
       cachedIdentity.screenResolution = readScreenResolution()
       cachedIdentity.language = readSystemLanguage()
     }
@@ -532,7 +532,9 @@ export function getDeviceIdentity(): DeviceHardwareIdentity {
   const country = resolveDefaultCountry(timezone, language)
   let appVersion = '2.0.15'
   try {
-    appVersion = app.getVersion() || appVersion
+    if (typeof app?.getVersion === 'function') {
+      appVersion = app.getVersion() || appVersion
+    }
   } catch {
     // ignore
   }
@@ -580,7 +582,10 @@ function saveVerificationState(state: DeviceVerificationState): void {
   try {
     const filePath = getVerificationStatePath()
     const jsonStr = JSON.stringify(state)
-    if (safeStorage.isEncryptionAvailable()) {
+    if (
+      typeof safeStorage?.isEncryptionAvailable === 'function' &&
+      safeStorage.isEncryptionAvailable()
+    ) {
       writeFileSync(filePath, safeStorage.encryptString(jsonStr))
     } else {
       writeFileSync(filePath, jsonStr, 'utf-8')
@@ -604,9 +609,11 @@ export function getDeviceVerificationState(): DeviceVerificationState {
     const filePath = getVerificationStatePath()
     if (existsSync(filePath)) {
       const rawBuf = readFileSync(filePath)
-      const jsonStr = safeStorage.isEncryptionAvailable()
-        ? safeStorage.decryptString(rawBuf)
-        : rawBuf.toString('utf-8')
+      const jsonStr =
+        typeof safeStorage?.isEncryptionAvailable === 'function' &&
+        safeStorage.isEncryptionAvailable()
+          ? safeStorage.decryptString(rawBuf)
+          : rawBuf.toString('utf-8')
       const parsed = JSON.parse(jsonStr) as DeviceVerificationState
       if (parsed && typeof parsed === 'object' && parsed.deviceId === hw.deviceId) {
         cachedVerificationState = {

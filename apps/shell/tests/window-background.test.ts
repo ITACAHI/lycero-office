@@ -20,8 +20,8 @@ function surfaceIn(selector: string): string | undefined {
 
 describe('shellWindowBackground', () => {
   it('picks the dark or light surface', () => {
-    expect(shellWindowBackground(true)).toBe('#1e1e1e')
-    expect(shellWindowBackground(false)).toBe('#ffffff')
+    expect(shellWindowBackground(true)).toBe('#2e2d2a')
+    expect(shellWindowBackground(false)).toBe('#f9f8f3')
   })
 
   it('matches --surface in tokens.css for both themes', () => {

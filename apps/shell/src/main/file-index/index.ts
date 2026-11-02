@@ -3,8 +3,8 @@
  * Copyright © 2026 ITAC AI Heavy Industries.
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
-export { FileIndexer, INDEXED_EXTENSIONS, isIndexableFile, type FileIndexStatus } from './indexer'
-export { FileIndexStore, type FileHit, type HitExcerpt, type IndexedMeta } from './store'
+export { FileIndexer } from './indexer'
+export { FileIndexStore } from './store'
 export {
   SearchReranker,
   DEFAULT_FILE_SEARCH_SETTINGS,

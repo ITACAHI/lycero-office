@@ -118,7 +118,7 @@ const opencodeLogo = (
   </svg>
 )
 
-const LOGOS: Record<AiProviderId, ReactNode> = {
+const LOGOS: Partial<Record<AiProviderId, ReactNode>> = {
   lycero: (
     <img
       src={lyceroSymbol}

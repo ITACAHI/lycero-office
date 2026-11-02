@@ -2791,11 +2791,11 @@ export function resetSheetsShuttingDown(): void {
   shutdownLatch.reset()
 }
 
-app.on('before-quit', markSheetsShuttingDown)
+app?.on?.('before-quit', markSheetsShuttingDown)
 for (const signal of ['SIGTERM', 'SIGINT'] as const) {
   process.on(signal, () => {
     shutdownLatch.mark()
-    app.quit()
+    app?.quit?.()
   })
 }
 

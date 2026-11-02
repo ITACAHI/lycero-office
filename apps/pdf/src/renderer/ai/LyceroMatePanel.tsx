@@ -326,15 +326,25 @@ export function LyceroMate({
   // Phase A.6: cache enabled work bundles from BundleStore (main process)
   const bundlesRef = useRef<WorkBundle[]>([])
   useEffect(() => {
+    const aiOffice = (
+      window as Window & {
+        aiOffice?: {
+          bundles?: {
+            getEnabled(): Promise<WorkBundle[]>
+            onEnabledChanged(cb: () => void): () => void
+          }
+        }
+      }
+    ).aiOffice
     const loadBundles = () =>
-      window.aiOffice?.bundles
+      aiOffice?.bundles
         ?.getEnabled()
         .then((bundles: WorkBundle[]) => {
           bundlesRef.current = bundles ?? []
         })
         .catch(() => {})
     loadBundles()
-    const unsub = window.aiOffice?.bundles?.onEnabledChanged(() => {
+    const unsub = aiOffice?.bundles?.onEnabledChanged(() => {
       void loadBundles()
     })
     return unsub
@@ -387,10 +397,12 @@ export function LyceroMate({
       deleteTextInsert: (id) => apiRef.current.deleteTextInsert(id),
       editFonts: () => apiRef.current.editFonts(),
       formEdits: () => apiRef.current.formEdits(),
+      formWidgets: (idx) => apiRef.current.formWidgets(idx),
       applyOps: (ops, opts) => apiRef.current.applyOps(ops, opts),
       metadata: () => apiRef.current.metadata(),
       pageOrder: () => apiRef.current.pageOrder(),
       pageGeom: (idx) => apiRef.current.pageGeom(idx),
+      pageBoxes: (idx) => apiRef.current.pageBoxes(idx),
       listImages: () => apiRef.current.listImages(),
       isImageClaimed: (ref) => apiRef.current.isImageClaimed(ref),
       insertImage: (idx, png, rect, layer) => apiRef.current.insertImage(idx, png, rect, layer),
