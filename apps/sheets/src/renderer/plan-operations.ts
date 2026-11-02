@@ -53,6 +53,7 @@ import {
   lazyWorkbookCellReader,
   normalizeLinkTarget,
   protectSheetGuard,
+  resolveUniverWorksheet,
 } from './univer-sync'
 import { SharedFormulaLookup, indexedFormulas, sharedFormulaText } from './shared-formula-index'
 import { CLOSURE_MAX_CELLS, type LazyWorkbookState, type UniverRuntime } from './univer-state'
@@ -117,7 +118,15 @@ export function proposeOperations(
       }
       const workbook = ctx.univerRef.current?.univerAPI.getActiveWorkbook()
       if (!workbook) return { ok: false, error: 'No workbook is open.' }
-      const reader = lazyWorkbookCellReader(workbook)
+      const addedSheetNamesInBatch = new Set<string>()
+      for (const rawOp of batch.operations) {
+        if (rawOp.op === 'add_sheet') {
+          addedSheetNamesInBatch.add(rawOp.name.trim().toLowerCase())
+        } else if (rawOp.op === 'duplicate_sheet' && rawOp.name) {
+          addedSheetNamesInBatch.add(rawOp.name.trim().toLowerCase())
+        }
+      }
+      const reader = lazyWorkbookCellReader(workbook, addedSheetNamesInBatch)
       // Built on first formula write of a streamed workbook (memoized):
       // current sheet names with file extents for the streaming-mode
       // precedent collector; the apply path pins the collected cells.
@@ -153,7 +162,8 @@ export function proposeOperations(
         if (
           'sheetId' in operation &&
           typeof operation.sheetId === 'string' &&
-          !workbook.getSheetBySheetId(operation.sheetId)
+          !resolveUniverWorksheet(workbook, operation.sheetId) &&
+          !addedSheetNamesInBatch.has(operation.sheetId.trim().toLowerCase())
         ) {
           return {
             ok: false,
@@ -755,9 +765,10 @@ export function proposeOperations(
         }
       }
       const plan = buildLazyChangePlan(batch, reader, (id) => {
-        const sheet = workbook.getSheetBySheetId(id)
-        if (!sheet) throw new Error(`Unknown sheet: ${id}`)
-        return sheet.getSheetName()
+        const sheet = resolveUniverWorksheet(workbook, id)
+        if (sheet) return sheet.getSheetName()
+        if (addedSheetNamesInBatch.has(id.trim().toLowerCase())) return id
+        throw new Error(`Unknown sheet: ${id}`)
       })
       ctx.lazyPreviewRef.current = { sessionId: state.file.sessionId, sheetId, plan }
       ctx.setPreview(plan)

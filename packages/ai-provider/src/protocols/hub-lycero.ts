@@ -69,7 +69,6 @@ type HubPayload =
   | HubStartPayload
 
 function restorePiiInValue(val: unknown, piiMap: Map<string, string>): unknown {
-  if (piiMap.size === 0) return val
   if (typeof val === 'string') return PiiTokenizer.restore(val, piiMap)
   if (Array.isArray(val)) return val.map((item) => restorePiiInValue(item, piiMap))
   if (val && typeof val === 'object') {
@@ -443,8 +442,12 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
               })
               break
             }
-            case 'finish':
+            case 'finish': {
               sawFinish = true
+              const tailDelta = unmaskDelta('', true)
+              if (tailDelta) cb.onDelta(tailDelta)
+              const tailReasoning = unmaskReasoning('', true)
+              if (tailReasoning) cb.onReasoningDelta?.(tailReasoning)
               if (payload.usage || payload.quotaRemaining !== undefined) {
                 cb.onUsage?.({
                   ...(payload.usage?.inputTokens !== undefined ? { inputTokens: payload.usage.inputTokens } : {}),
@@ -463,6 +466,7 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
               }
               cb.onStopReason?.(payload.stopReason || 'stop')
               break
+            }
             case 'error':
               onBytes()
               throw new Error(payload.message || 'Lỗi xử lý từ Cổng Trí tuệ Lycero.')

@@ -283,6 +283,9 @@ async function applyOps(
         ...detail,
         formulas: w.formulas,
         cached_values: w.cachedValues,
+        ...(w.readbackVerifiedValues
+          ? { readback_verified_values: w.readbackVerifiedValues }
+          : {}),
       },
       ...writeWarnings(w),
     },
@@ -417,6 +420,7 @@ async function applyCells(
       cells: r.cells,
       formulas: r.formulas,
       cached_values: r.cachedValues,
+      ...(r.readbackVerifiedValues ? { readback_verified_values: r.readbackVerifiedValues } : {}),
     },
     ...writeWarnings(r),
   }

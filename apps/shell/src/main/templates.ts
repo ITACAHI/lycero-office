@@ -131,311 +131,265 @@ export async function fetchCloudTemplates(gatewayUrl?: string): Promise<CloudTem
 }
 
 export function buildKhbd5512Html(): { title: string; html: string } {
-  const title = 'Kế hoạch bài dạy (KHBD) - Chuẩn 5512'
+  const title = 'Kế hoạch bài dạy (KHBD) - Chuẩn Phụ lục IV CV 5512'
   const html = `
       <table style="width: 100%; border-collapse: collapse; margin-bottom: 18px; border: none;">
         <tr>
-          <td style="width: 44%; text-align: center; vertical-align: top; border: none;">
-            <p style="margin: 0;">SỞ/PHÒNG GIÁO DỤC VÀ ĐÀO TẠO ................</p>
-            <p style="margin: 0;"><strong><u>TRƯỜNG: ............................................</u></strong></p>
-            <p style="margin: 4px 0 0 0;">Tổ chuyên môn: ....................................</p>
-            <p style="margin: 2px 0 0 0;"><em>Họ và tên giáo viên: ................................</em></p>
+          <td style="width: 50%; text-align: left; vertical-align: top; border: none;">
+            <p style="margin: 0;"><strong>Trường:</strong> [cần bổ sung: tên trường]</p>
+            <p style="margin: 4px 0 0 0;"><strong>Tổ:</strong> [cần bổ sung: tổ chuyên môn]</p>
           </td>
-          <td style="width: 56%; text-align: center; vertical-align: top; border: none;">
-            <p style="margin: 0;"><strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong></p>
-            <p style="margin: 0;"><strong><u>Độc lập - Tự do - Hạnh phúc</u></strong></p>
-            <p style="margin: 6px 0 0 0;"><em>.................., ngày ..... tháng ..... năm 2026</em></p>
+          <td style="width: 50%; text-align: right; vertical-align: top; border: none;">
+            <p style="margin: 0;"><strong>Họ và tên giáo viên:</strong></p>
+            <p style="margin: 4px 0 0 0;">[cần bổ sung: họ và tên giáo viên]</p>
           </td>
         </tr>
       </table>
 
-      <h1 style="text-align: center; font-size: 16pt; text-transform: uppercase; margin-bottom: 4px;">
-        <strong>KẾ HOẠCH BÀI DẠY (GIÁO ÁN)</strong>
+      <h1 style="text-align: center; font-size: 14pt; text-transform: uppercase; margin-bottom: 4px;">
+        <strong>TÊN BÀI DẠY: [cần bổ sung: tên bài học]</strong>
       </h1>
       <p style="text-align: center; font-size: 13pt; margin-top: 0; margin-bottom: 20px;">
-        <strong>TÊN BÀI DẠY: [TÊN BÀI HỌC]</strong><br/>
-        <em>Môn học/Hoạt động giáo dục: ......................; Lớp: ........; Thời lượng thực hiện: ..... tiết</em>
+        <strong>Môn học/Hoạt động giáo dục: [cần bổ sung: môn học]; lớp: [cần bổ sung: lớp]</strong><br/>
+        <em>Thời gian thực hiện: (02 tiết — Tổng thời lượng các hoạt động ≤ 90 phút)</em>
       </p>
 
       <h2 style="font-size: 14pt; color: #8B3A1A; border-bottom: 1.5px solid #8B3A1A; padding-bottom: 4px;">
-        I. MỤC TIÊU BÀI DẠY
+        I. MỤC TIÊU
       </h2>
       <p><strong>1. Về kiến thức:</strong></p>
       <ul>
-        <li>Học sinh trình bày và giải thích được: [Nội dung trọng tâm 1]</li>
-        <li>Học sinh phân tích và áp dụng được: [Nội dung trọng tâm 2]</li>
+        <li>Nêu và giải thích được các khái niệm, nguyên lý trọng tâm theo yêu cầu cần đạt của Chương trình GDPT 2018.</li>
+        <li>Phân tích và vận dụng được kiến thức bài học vào giải quyết bài tập và tình huống thực tiễn.</li>
       </ul>
       <p><strong>2. Về năng lực:</strong></p>
       <ul>
         <li><strong>Năng lực chung:</strong>
           <ul>
-            <li><em>Năng lực tự chủ và tự học:</em> Chủ động tìm kiếm học liệu, nghiên cứu trước nội dung bài học.</li>
-            <li><em>Năng lực giao tiếp và hợp tác:</em> Tích cực thảo luận nhóm, lắng nghe và phản biện tôn trọng ý kiến thành viên khác.</li>
-            <li><em>Năng lực giải quyết vấn đề và sáng tạo:</em> Đề xuất được giải pháp cho tình huống sư phạm đặt ra.</li>
+            <li><em>Năng lực tự chủ và tự học:</em> Chủ động đọc học liệu, hoàn thành nhiệm vụ cá nhân trên Phiếu học tập.</li>
+            <li><em>Năng lực giao tiếp và hợp tác:</em> Thảo luận nhóm đôi/nhóm 4, trình bày và nhận xét sản phẩm học tập.</li>
+            <li><em>Năng lực giải quyết vấn đề và sáng tạo:</em> Vận dụng kiến thức bài học để giải quyết tình huống thực tiễn.</li>
           </ul>
         </li>
-        <li><strong>Năng lực đặc thù bộ môn:</strong> Nhận diện, vận dụng thành thạo các phương pháp và công cụ đặc thù của môn học vào bài tập thực tế.</li>
+        <li><strong>Năng lực đặc thù:</strong> Phát triển năng lực nhận thức, tìm hiểu và vận dụng kiến thức, kĩ năng đặc thù của môn học.</li>
       </ul>
       <p><strong>3. Về phẩm chất:</strong></p>
       <ul>
-        <li><em>Chăm chỉ:</em> Kiên trì hoàn thành nhiệm vụ được phân công trong nhóm và cá nhân.</li>
-        <li><em>Trung thực:</em> Khách quan trong đánh giá chéo và báo cáo kết quả học tập.</li>
-        <li><em>Trách nhiệm:</em> Có ý thức trách nhiệm với nhóm và liên hệ thực tế đời sống.</li>
+        <li><em>Chăm chỉ:</em> Tích cực, tự giác thực hiện nhiệm vụ học tập cá nhân và nhóm.</li>
+        <li><em>Trung thực:</em> Khách quan trong tự đánh giá và đánh giá đồng đẳng.</li>
+        <li><em>Trách nhiệm:</em> Hoàn thành đúng thời hạn sản phẩm nhóm và nhiệm vụ vận dụng.</li>
       </ul>
 
       <h2 style="font-size: 14pt; color: #8B3A1A; border-bottom: 1.5px solid #8B3A1A; padding-bottom: 4px; margin-top: 24px;">
         II. THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU
       </h2>
-      <p><strong>1. Thiết bị và học liệu của giáo viên:</strong> Giáo án điện tử, bài giảng trình chiếu đa phương tiện (PPTX), video clip thực tế, Phiếu học tập số 1, 2, 3; Bảng phân nhiệm vụ nhóm.</p>
-      <p><strong>2. Thiết bị và học liệu của học sinh:</strong> Sách giáo khoa, vở ghi bài, bút màu, sản phẩm đã chuẩn bị theo dặn dò từ tiết học trước.</p>
+      <p><strong>1. Đối với giáo viên:</strong> Kế hoạch bài dạy, SGK, SGV, bài giảng điện tử, Phiếu học tập số 1, 2 và bảng tiêu chí đánh giá (Rubric).</p>
+      <p><strong>2. Đối với học sinh:</strong> Sách giáo khoa, vở ghi, dụng cụ học tập và nội dung chuẩn bị trước theo hướng dẫn.</p>
 
       <h2 style="font-size: 14pt; color: #8B3A1A; border-bottom: 1.5px solid #8B3A1A; padding-bottom: 4px; margin-top: 24px;">
-        III. TIẾN TRÌNH DẠY HỌC (CHUẨN 4 HOẠT ĐỘNG CÔNG VĂN 5512)
+        III. TIẾN TRÌNH DẠY HỌC
       </h2>
 
       <h3 style="font-size: 12.5pt; color: #2D2A26; background: #F4F2EB; padding: 6px 10px; border-left: 4px solid #8B3A1A;">
-        HOẠT ĐỘNG 1: XÁC ĐỊNH VẤN ĐỀ / MỞ ĐẦU (KHỞI ĐỘNG) (Thời lượng: 5 - 7 phút)
+        1. Hoạt động 1: Xác định vấn đề/nhiệm vụ học tập (Mở đầu) (10 phút)
       </h3>
-      <p><strong>a) Mục tiêu:</strong> Tạo hứng thú, kích hoạt kiến thức nền tảng của học sinh và tạo tâm thế bước vào bài học mới.</p>
-      <p><strong>b) Nội dung:</strong> Giáo viên chiếu tình huống thực tế / câu hỏi thách đố / trò chơi khởi động ngắn.</p>
-      <p><strong>c) Sản phẩm:</strong> Câu trả lời miệng hoặc phiếu trả lời nhanh của học sinh ghi nhận mâu thuẫn nhận thức cần giải quyết.</p>
+      <p><strong>a) Mục tiêu:</strong> Tạo hứng thú, huy động kiến thức đã biết và xác định vấn đề cần giải quyết của bài học.</p>
+      <p><strong>b) Nội dung:</strong> Học sinh quan sát tình huống mở đầu và trả lời câu hỏi gợi mở của giáo viên.</p>
+      <p><strong>c) Sản phẩm:</strong> Câu trả lời cá nhân của học sinh và vấn đề trọng tâm cần khám phá trong bài học.</p>
       <p><strong>d) Tổ chức thực hiện:</strong></p>
       <table style="width: 100%; border-collapse: collapse; margin-top: 8px; border: 1px solid #DDD9CE;">
         <thead>
           <tr style="background: #EBE7DD;">
-            <th style="border: 1px solid #DDD9CE; padding: 8px; width: 50%; text-align: center;">HOẠT ĐỘNG CỦA GIÁO VIÊN</th>
-            <th style="border: 1px solid #DDD9CE; padding: 8px; width: 50%; text-align: center;">HOẠT ĐỘNG CỦA HỌC SINH</th>
+            <th style="border: 1px solid #DDD9CE; padding: 8px; width: 50%; text-align: center;">HOẠT ĐỘNG CỦA GIÁO VIÊN VÀ HỌC SINH</th>
+            <th style="border: 1px solid #DDD9CE; padding: 8px; width: 50%; text-align: center;">SẢN PHẨM DỰ KIẾN</th>
           </tr>
         </thead>
         <tbody>
           <tr>
             <td style="border: 1px solid #DDD9CE; padding: 8px; vertical-align: top;">
-              <strong>Bước 1: Chuyển giao nhiệm vụ:</strong><br/>
-              - Giáo viên trình chiếu video/tình huống và đặt câu hỏi gợi mở.<br/>
-              - Quy định thời gian suy nghĩ: 2 phút.
+              <strong>Bước 1: Chuyển giao nhiệm vụ:</strong> GV nêu tình huống thực tế và đặt câu hỏi mở đầu.<br/>
+              <strong>Bước 2: Thực hiện nhiệm vụ:</strong> HS suy nghĩ cá nhân và trao đổi nhanh theo cặp.<br/>
+              <strong>Bước 3: Báo cáo, thảo luận:</strong> Đại diện 2 HS trình bày ý kiến, các HS khác nhận xét.<br/>
+              <strong>Bước 4: Kết luận, nhận định:</strong> GV nhận xét câu trả lời và dẫn dắt vào bài học mới.
             </td>
             <td style="border: 1px solid #DDD9CE; padding: 8px; vertical-align: top;">
-              - Học sinh quan sát, tiếp nhận nhiệm vụ được giao.
-            </td>
-          </tr>
-          <tr>
-            <td style="border: 1px solid #DDD9CE; padding: 8px; vertical-align: top;">
-              <strong>Bước 2: Thực hiện nhiệm vụ:</strong><br/>
-              - Theo dõi học sinh suy nghĩ, hỗ trợ học sinh gặp khó khăn.
-            </td>
-            <td style="border: 1px solid #DDD9CE; padding: 8px; vertical-align: top;">
-              - Cá nhân độc lập suy nghĩ và ghi nhanh từ khóa ra giấy nháp.
-            </td>
-          </tr>
-          <tr>
-            <td style="border: 1px solid #DDD9CE; padding: 8px; vertical-align: top;">
-              <strong>Bước 3: Báo cáo, thảo luận:</strong><br/>
-              - Mời đại diện 2 học sinh phát biểu câu trả lời.
-            </td>
-            <td style="border: 1px solid #DDD9CE; padding: 8px; vertical-align: top;">
-              - Trình bày câu trả lời; các học sinh khác chú ý lắng nghe, bổ sung.
-            </td>
-          </tr>
-          <tr>
-            <td style="border: 1px solid #DDD9CE; padding: 8px; vertical-align: top;">
-              <strong>Bước 4: Kết luận, nhận định:</strong><br/>
-              - Giáo viên nhận xét tinh thần khởi động và dẫn dắt vào bài học.
-            </td>
-            <td style="border: 1px solid #DDD9CE; padding: 8px; vertical-align: top;">
-              - Lắng nghe, ghi tên bài học vào vở ghi.
+              - Câu trả lời của học sinh đối với tình huống mở đầu.<br/>
+              - Xác định được nhiệm vụ học tập chính của bài học.
             </td>
           </tr>
         </tbody>
       </table>
 
       <h3 style="font-size: 12.5pt; color: #2D2A26; background: #F4F2EB; padding: 6px 10px; border-left: 4px solid #8B3A1A; margin-top: 20px;">
-        HOẠT ĐỘNG 2: HÌNH THÀNH KIẾN THỨC MỚI (KHÁM PHÁ) (Thời lượng: 20 - 25 phút)
+        2. Hoạt động 2: Hình thành kiến thức mới (Giải quyết vấn đề) (40 phút)
       </h3>
-      <p><strong>a) Mục tiêu:</strong> Học sinh tự lực chiếm lĩnh kiến thức trọng tâm của bài học thông qua hoạt động nhóm/cá nhân.</p>
-      <p><strong>b) Nội dung:</strong> Đọc tài liệu, thực hiện Phiếu học tập số 1 để xây dựng khái niệm/quy luật.</p>
-      <p><strong>c) Sản phẩm:</strong> Phiếu học tập đã điền đầy đủ và sơ đồ tư duy tóm tắt kiến thức cốt lõi.</p>
-      <p><strong>d) Tổ chức thực hiện:</strong> (Thực hiện tuần tự 4 bước: Chuyển giao nhiệm vụ -> Thực hiện nhiệm vụ -> Báo cáo, thảo luận -> Kết luận, nhận định chuẩn hóa kiến thức).</p>
+      <p><strong>a) Mục tiêu:</strong> Học sinh chiếm lĩnh được kiến thức cốt lõi của bài học thông qua hoạt động nghiên cứu học liệu và thảo luận nhóm.</p>
+      <p><strong>b) Nội dung:</strong> Học sinh nghiên cứu SGK và hoàn thành Phiếu học tập số 1 theo nhóm.</p>
+      <p><strong>c) Sản phẩm:</strong> Phiếu học tập số 1 hoàn chỉnh và kết luận kiến thức chuẩn xác ghi vào vở.</p>
+      <p><strong>d) Tổ chức thực hiện:</strong></p>
+      <p>- <strong>Bước 1 (Chuyển giao nhiệm vụ):</strong> GV chia lớp thành các nhóm 4 HS, phát Phiếu học tập số 1 và nêu rõ yêu cầu, thời gian thực hiện.<br/>
+      - <strong>Bước 2 (Thực hiện nhiệm vụ):</strong> HS đọc SGK, thảo luận nhóm để hoàn thành Phiếu học tập số 1; GV quan sát, hỗ trợ.<br/>
+      - <strong>Bước 3 (Báo cáo, thảo luận):</strong> Đại diện nhóm trình bày kết quả; các nhóm khác đặt câu hỏi phản biện, bổ sung.<br/>
+      - <strong>Bước 4 (Kết luận, nhận định):</strong> GV nhận xét, chuẩn hóa kiến thức trọng tâm để HS ghi nhận vào vở.</p>
 
       <h3 style="font-size: 12.5pt; color: #2D2A26; background: #F4F2EB; padding: 6px 10px; border-left: 4px solid #8B3A1A; margin-top: 20px;">
-        HOẠT ĐỘNG 3: LUYỆN TẬP (Thời lượng: 8 - 10 phút)
+        3. Hoạt động 3: Luyện tập (25 phút)
       </h3>
-      <p><strong>a) Mục tiêu:</strong> Củng cố, khắc sâu kiến thức vừa hình thành qua hệ thống bài tập trắc nghiệm và tự luận phân hóa.</p>
-      <p><strong>b) Nội dung:</strong> Giải quyết bài tập trong Phiếu học tập số 2 hoặc trò chơi trắc nghiệm tương tác.</p>
-      <p><strong>c) Sản phẩm:</strong> Đáp án bài tập của học sinh được đối chiếu với thang đo chuẩn.</p>
-      <p><strong>d) Tổ chức thực hiện:</strong> Học sinh thực hiện cá nhân kết hợp đánh giá chéo giữa các cặp đôi.</p>
+      <p><strong>a) Mục tiêu:</strong> Củng cố, khắc sâu kiến thức vừa hình thành thông qua hệ thống câu hỏi và bài tập thực hành.</p>
+      <p><strong>b) Nội dung:</strong> Học sinh giải hệ thống bài tập trong SGK và Phiếu học tập số 2.</p>
+      <p><strong>c) Sản phẩm:</strong> Lời giải chi tiết và đáp án các bài tập luyện tập của học sinh.</p>
+      <p><strong>d) Tổ chức thực hiện:</strong></p>
+      <p>- <strong>Bước 1 (Chuyển giao nhiệm vụ):</strong> GV giao bài tập luyện tập trên Phiếu học tập số 2 cho cá nhân/cặp đôi.<br/>
+      - <strong>Bước 2 (Thực hiện nhiệm vụ):</strong> HS độc lập giải bài tập và trao đổi kết quả với bạn cùng bàn.<br/>
+      - <strong>Bước 3 (Báo cáo, thảo luận):</strong> HS lên bảng trình bày lời giải; cả lớp đối chiếu và nhận xét.<br/>
+      - <strong>Bước 4 (Kết luận, nhận định):</strong> GV sửa lỗi sai thường gặp, chốt phương pháp giải và cho điểm đánh giá thường xuyên.</p>
 
       <h3 style="font-size: 12.5pt; color: #2D2A26; background: #F4F2EB; padding: 6px 10px; border-left: 4px solid #8B3A1A; margin-top: 20px;">
-        HOẠT ĐỘNG 4: VẬN DỤNG & MỞ RỘNG (Thời lượng: 3 - 5 phút)
+        4. Hoạt động 4: Vận dụng (15 phút)
       </h3>
-      <p><strong>a) Mục tiêu:</strong> Khuyến khích học sinh vận dụng kiến thức bài học để giải quyết vấn đề thực tiễn trong cuộc sống.</p>
-      <p><strong>b) Nội dung:</strong> Nhiệm vụ dự án nhỏ hoặc câu hỏi nghiên cứu tại nhà.</p>
-      <p><strong>c) Sản phẩm:</strong> Bài thu hoạch hoặc sản phẩm sáng tạo nộp vào tiết học tiếp theo.</p>
-      <p><strong>d) Hướng dẫn học sinh tự học:</strong> Ôn tập bài cũ, chuẩn bị bài mới [Tên bài học tiếp theo].</p>
-
-      <h2 style="font-size: 14pt; color: #8B3A1A; border-bottom: 1.5px solid #8B3A1A; padding-bottom: 4px; margin-top: 24px;">
-        IV. HỒ SƠ DẠY HỌC & PHIẾU HỌC TẬP
-      </h2>
-      <div style="border: 1px dashed #DDD9CE; padding: 12px; background: #FAF9F6; margin-top: 8px;">
-        <p style="text-align: center; margin: 0; font-weight: bold;">PHIẾU HỌC TẬP SỐ 1</p>
-        <p><strong>Nhóm:</strong> .................... - <strong>Lớp:</strong> ....................</p>
-        <p><em>Nhiệm vụ: Hãy đọc thông tin mục 1 SGK trang ..... và hoàn thành bảng so sánh dưới đây:</em></p>
-        <table style="width: 100%; border-collapse: collapse; margin-top: 8px; border: 1px solid #DDD9CE;">
-          <tr style="background: #F4F2EB;">
-            <th style="border: 1px solid #DDD9CE; padding: 6px; width: 30%;">Tiêu chí</th>
-            <th style="border: 1px solid #DDD9CE; padding: 6px; width: 35%;">Đối tượng A</th>
-            <th style="border: 1px solid #DDD9CE; padding: 6px; width: 35%;">Đối tượng B</th>
-          </tr>
-          <tr>
-            <td style="border: 1px solid #DDD9CE; padding: 6px;">Đặc điểm nhận diện</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px;">...................................</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px;">...................................</td>
-          </tr>
-          <tr>
-            <td style="border: 1px solid #DDD9CE; padding: 6px;">Vai trò ứng dụng</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px;">...................................</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px;">...................................</td>
-          </tr>
-        </table>
-      </div>
+      <p><strong>a) Mục tiêu:</strong> Vận dụng kiến thức, kĩ năng đã học để giải quyết tình huống thực tiễn gắn với đời sống.</p>
+      <p><strong>b) Nội dung:</strong> Học sinh thực hiện nhiệm vụ vận dụng kết nối kiến thức bài học với thực tế.</p>
+      <p><strong>c) Sản phẩm:</strong> Bài giải tình huống thực tiễn hoặc sản phẩm học tập hoàn chỉnh của học sinh.</p>
+      <p><strong>d) Tổ chức thực hiện:</strong></p>
+      <p>- <strong>Bước 1 (Chuyển giao nhiệm vụ):</strong> GV nêu bài toán/tình huống thực tiễn và tiêu chí đánh giá sản phẩm.<br/>
+      - <strong>Bước 2 (Thực hiện nhiệm vụ):</strong> HS lập phương án giải quyết tại lớp và hoàn thiện sản phẩm.<br/>
+      - <strong>Bước 3 (Báo cáo, thảo luận):</strong> HS chia sẻ phương án giải quyết trước lớp.<br/>
+      - <strong>Bước 4 (Kết luận, nhận định):</strong> GV nhận xét, tổng kết toàn bài học (Tổng thời gian 4 hoạt động: 10 + 40 + 25 + 15 = 90 phút cho 02 tiết).</p>
   `
   return { title, html }
 }
 
 export function buildBloomMatrixHtml(): { title: string; html: string } {
-  const title = 'Ma trận & Đề kiểm tra - Chuẩn Bloom'
+  const title = 'Ma trận, Bản đặc tả & Đề kiểm tra - Chuẩn Công văn 7991/BGDĐT-GDTrH'
   const html = `
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 18px; border: none;">
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 14px; border: none;">
         <tr>
-          <td style="width: 44%; text-align: center; vertical-align: top; border: none;">
-            <p style="margin: 0;">SỞ GIÁO DỤC VÀ ĐÀO TẠO ....................</p>
-            <p style="margin: 0;"><strong><u>TRƯỜNG THPT / THCS ............................</u></strong></p>
-            <p style="margin: 4px 0 0 0;">Tổ chuyên môn: ....................................</p>
+          <td style="width: 50%; text-align: left; vertical-align: top; border: none;">
+            <p style="margin: 0;"><strong>TRƯỜNG:</strong> [cần bổ sung: tên trường]</p>
+            <p style="margin: 4px 0 0 0;"><strong>TỔ CHUYÊN MÔN:</strong> [cần bổ sung: tổ chuyên môn]</p>
           </td>
-          <td style="width: 56%; text-align: center; vertical-align: top; border: none;">
-            <p style="margin: 0;"><strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong></p>
-            <p style="margin: 0;"><strong><u>Độc lập - Tự do - Hạnh phúc</u></strong></p>
-            <p style="margin: 6px 0 0 0;"><em>.................., ngày ..... tháng ..... năm 2026</em></p>
+          <td style="width: 50%; text-align: right; vertical-align: top; border: none;">
+            <p style="margin: 0;"><strong>ĐỀ KIỂM TRA ĐỊNH KỲ</strong></p>
+            <p style="margin: 4px 0 0 0;"><em>Chuẩn Công văn 7991/BGDĐT-GDTrH & Thông tư 22/2021/TT-BGDĐT</em></p>
           </td>
         </tr>
       </table>
 
-      <h1 style="text-align: center; font-size: 16pt; text-transform: uppercase; margin-bottom: 4px;">
-        <strong>BẢNG MA TRẬN & ĐẶC TẢ ĐỀ KIỂM TRA ĐỊNH KỲ (CHUẨN 4 MỨC ĐỘ BLOOM)</strong>
+      <h1 style="text-align: center; font-size: 15pt; text-transform: uppercase; margin-bottom: 4px;">
+        <strong>BẢNG MA TRẬN, BẢN ĐẶC TẢ & ĐỀ KIỂM TRA ĐỊNH KỲ (3 MỨC ĐỘ — 4 PHẦN)</strong>
       </h1>
       <p style="text-align: center; font-size: 12.5pt; margin-top: 0; margin-bottom: 16px;">
-        <strong>MÔN HỌC: ........................ — NĂM HỌC 2025 - 2026</strong><br/>
-        <em>Thời gian làm bài: 45 phút (Không kể thời gian phát đề)</em>
+        <strong>MÔN HỌC: [cần bổ sung: môn học] — LỚP: [cần bổ sung: lớp]</strong><br/>
+        <em>Thời gian làm bài: 90 phút (Không kể thời gian phát đề)</em>
       </p>
 
       <table style="width: 100%; border-collapse: collapse; font-size: 11pt; border: 1px solid #DDD9CE;">
         <thead>
           <tr style="background: #EBE7DD; text-align: center;">
-            <th rowspan="2" style="border: 1px solid #DDD9CE; padding: 6px; width: 5%;">STT</th>
-            <th rowspan="2" style="border: 1px solid #DDD9CE; padding: 6px; width: 25%;">Chủ đề / Đơn vị kiến thức</th>
-            <th colspan="4" style="border: 1px solid #DDD9CE; padding: 6px;">Mức độ nhận thức (Bloom)</th>
-            <th rowspan="2" style="border: 1px solid #DDD9CE; padding: 6px; width: 10%;">Tổng số câu</th>
-            <th rowspan="2" style="border: 1px solid #DDD9CE; padding: 6px; width: 10%;">Tổng điểm</th>
-            <th rowspan="2" style="border: 1px solid #DDD9CE; padding: 6px; width: 10%;">Tỉ lệ %</th>
+            <th rowspan="2" style="border: 1px solid #DDD9CE; padding: 6px; width: 6%;">TT</th>
+            <th rowspan="2" style="border: 1px solid #DDD9CE; padding: 6px; width: 28%;">Chủ đề / Nội dung & Dạng thức câu hỏi (CV 7991)</th>
+            <th colspan="3" style="border: 1px solid #DDD9CE; padding: 6px;">3 Mức độ nhận thức (Công văn 7991/BGDĐT-GDTrH)</th>
+            <th rowspan="2" style="border: 1px solid #DDD9CE; padding: 6px; width: 12%;">Tổng số câu</th>
+            <th rowspan="2" style="border: 1px solid #DDD9CE; padding: 6px; width: 12%;">Tổng điểm</th>
+            <th rowspan="2" style="border: 1px solid #DDD9CE; padding: 6px; width: 12%;">Tỉ lệ %</th>
           </tr>
           <tr style="background: #F4F2EB; text-align: center;">
             <th style="border: 1px solid #DDD9CE; padding: 6px; width: 10%;">Nhận biết (40%)</th>
             <th style="border: 1px solid #DDD9CE; padding: 6px; width: 10%;">Thông hiểu (30%)</th>
-            <th style="border: 1px solid #DDD9CE; padding: 6px; width: 10%;">Vận dụng (20%)</th>
-            <th style="border: 1px solid #DDD9CE; padding: 6px; width: 10%;">Vận dụng cao (10%)</th>
+            <th style="border: 1px solid #DDD9CE; padding: 6px; width: 10%;">Vận dụng (30%)</th>
           </tr>
         </thead>
         <tbody>
           <tr>
             <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">1</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px;"><strong>Chủ đề 1:</strong> [Tên chủ đề hoặc chương 1]</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">4 câu (TN)</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">2 câu (TN)</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">1 câu (TL)</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">0</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">7</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">3.5 đ</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">35%</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px;"><strong>Phần I:</strong> Trắc nghiệm nhiều lựa chọn (12 câu × 0,25đ)</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">8 câu (2,0đ)</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">4 câu (1,0đ)</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">0 câu (0,0đ)</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">12 câu</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">3,0 đ</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">30%</td>
           </tr>
           <tr>
             <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">2</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px;"><strong>Chủ đề 2:</strong> [Tên chủ đề hoặc chương 2]</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">4 câu (TN)</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">3 câu (TN)</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">1 câu (TL)</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">1 câu (TL)</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">9</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">4.5 đ</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">45%</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px;"><strong>Phần II:</strong> Trắc nghiệm Đúng – Sai (2 câu × 4 ý a,b,c,d = 2,0đ)</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">1,0 đ</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">0,5 đ</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">0,5 đ</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">2 câu (8 ý)</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">2,0 đ</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">20%</td>
           </tr>
           <tr>
             <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">3</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px;"><strong>Chủ đề 3:</strong> [Tên chủ đề hoặc chương 3]</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">2 câu (TN)</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">2 câu (TN)</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">0</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">0</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">4</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">2.0 đ</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px;"><strong>Phần III:</strong> Trắc nghiệm Trả lời ngắn (4 câu × 0,5đ)</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">0,0 đ</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">2 câu (1,0đ)</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">2 câu (1,0đ)</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">4 câu</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">2,0 đ</td>
             <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">20%</td>
           </tr>
+          <tr>
+            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">4</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px;"><strong>Phần IV:</strong> Tự luận (3 câu × 1,0đ)</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">1 câu (1,0đ)</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">0,5 câu (0,5đ)</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">1,5 câu (1,5đ)</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">3 câu</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">3,0 đ</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">30%</td>
+          </tr>
           <tr style="background: #FAF9F6; font-weight: bold; text-align: center;">
-            <td colspan="2" style="border: 1px solid #DDD9CE; padding: 6px;">TỔNG CỘNG</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px;">10 câu (4.0 đ)</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px;">7 câu (3.0 đ)</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px;">2 câu (2.0 đ)</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px;">1 câu (1.0 đ)</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px;">20 câu</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px;">10.0 đ</td>
+            <td colspan="2" style="border: 1px solid #DDD9CE; padding: 6px;">TỔNG CỘNG TOÀN ĐỀ</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px;">4,0 đ (40%)</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px;">3,0 đ (30%)</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px;">3,0 đ (30%)</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px;">21 câu</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px;">10,0 đ</td>
             <td style="border: 1px solid #DDD9CE; padding: 6px;">100%</td>
           </tr>
         </tbody>
       </table>
 
       <h2 style="font-size: 14pt; color: #8B3A1A; border-bottom: 1.5px solid #8B3A1A; padding-bottom: 4px; margin-top: 24px;">
-        BẢN ĐẶC TẢ MA TRẬN ĐỀ KIỂM TRA
+        BẢN ĐẶC TẢ MA TRẬN ĐỀ KIỂM TRA (3 MỨC ĐỘ: NHẬN BIẾT – THÔNG HIỂU – VẬN DỤNG)
       </h2>
       <table style="width: 100%; border-collapse: collapse; font-size: 10.5pt; border: 1px solid #DDD9CE; margin-top: 8px;">
         <thead>
           <tr style="background: #EBE7DD; text-align: center;">
-            <th style="border: 1px solid #DDD9CE; padding: 6px; width: 5%;">STT</th>
-            <th style="border: 1px solid #DDD9CE; padding: 6px; width: 25%;">Chủ đề</th>
-            <th style="border: 1px solid #DDD9CE; padding: 6px; width: 45%;">Yêu cầu cần đạt (Chuẩn KT-KN)</th>
-            <th style="border: 1px solid #DDD9CE; padding: 6px; width: 25%;">Số câu hỏi theo mức độ</th>
+            <th style="border: 1px solid #DDD9CE; padding: 6px; width: 6%;">TT</th>
+            <th style="border: 1px solid #DDD9CE; padding: 6px; width: 24%;">Chủ đề / Nội dung</th>
+            <th style="border: 1px solid #DDD9CE; padding: 6px; width: 45%;">Yêu cầu cần đạt theo 3 mức độ nhận thức</th>
+            <th style="border: 1px solid #DDD9CE; padding: 6px; width: 25%;">Số câu & Phần</th>
           </tr>
         </thead>
         <tbody>
           <tr>
             <td style="border: 1px solid #DDD9CE; padding: 6px; text-align: center;">1</td>
-            <td style="border: 1px solid #DDD9CE; padding: 6px;">Chủ đề 1</td>
+            <td style="border: 1px solid #DDD9CE; padding: 6px;">Chủ đề trọng tâm</td>
             <td style="border: 1px solid #DDD9CE; padding: 6px;">
-              - <em>Nhận biết:</em> Nêu được định nghĩa, phân biệt các thành phần cốt lõi.<br/>
-              - <em>Thông hiểu:</em> Giải thích được mối liên hệ giữa các hiện tượng.<br/>
-              - <em>Vận dụng:</em> Giải bài tập cơ bản áp dụng công thức.
+              - <em>Nhận biết:</em> Nhận diện được khái niệm, công thức, tính chất cơ bản.<br/>
+              - <em>Thông hiểu:</em> Giải thích và biến đổi được các biểu thức/tình huống chuẩn.<br/>
+              - <em>Vận dụng:</em> Giải quyết được bài toán tổng hợp và tình huống thực tiễn.
             </td>
             <td style="border: 1px solid #DDD9CE; padding: 6px; font-size: 9.5pt;">
-              - C1, C2, C3, C4 (NB)<br/>
-              - C5, C6 (TH)<br/>
-              - C17 (VD)
+              - Phần I: 12 câu (3,0đ)<br/>
+              - Phần II: 2 câu Đ/S (2,0đ)<br/>
+              - Phần III: 4 câu TLN (2,0đ)<br/>
+              - Phần IV: 3 câu TL (3,0đ)
             </td>
           </tr>
         </tbody>
       </table>
 
       <h2 style="font-size: 14pt; color: #8B3A1A; border-bottom: 1.5px solid #8B3A1A; padding-bottom: 4px; margin-top: 24px;">
-        ĐỀ THI MINH HỌA
+        ĐỀ KIỂM TRA ĐỊNH KỲ (4 PHẦN CHUẨN CÔNG VĂN 7991/BGDĐT-GDTrH)
       </h2>
-      <p><strong>PHẦN I: TRẮC NGHIỆM NHIỀU LỰA CHỌN (7.0 điểm)</strong></p>
-      <p><em>Thí sinh trả lời từ câu 1 đến câu 17. Mỗi câu trả lời đúng được điểm theo quy định.</em></p>
-      <p><strong>Câu 1 (Nhận biết):</strong> [Nội dung câu hỏi trắc nghiệm số 1]...<br/>
-        A. Lựa chọn A &nbsp;&nbsp;&nbsp;&nbsp; B. Lựa chọn B &nbsp;&nbsp;&nbsp;&nbsp; C. Lựa chọn C &nbsp;&nbsp;&nbsp;&nbsp; D. Lựa chọn D
-      </p>
-      <p><strong>Câu 2 (Nhận biết):</strong> [Nội dung câu hỏi trắc nghiệm số 2]...<br/>
-        A. Lựa chọn A &nbsp;&nbsp;&nbsp;&nbsp; B. Lựa chọn B &nbsp;&nbsp;&nbsp;&nbsp; C. Lựa chọn C &nbsp;&nbsp;&nbsp;&nbsp; D. Lựa chọn D
-      </p>
-
-      <p style="margin-top: 16px;"><strong>PHẦN II: TỰ LUẬN (3.0 điểm)</strong></p>
-      <p><strong>Câu 18 (1.5 điểm - Vận dụng):</strong> [Nội dung bài tập vận dụng kiến thức đã học vào tình huống cụ thể]...</p>
-      <p><strong>Câu 19 (1.5 điểm - Vận dụng cao):</strong> [Nội dung bài toán liên hệ thực tiễn, đòi hỏi tư duy phân tích tổng hợp sáng tạo]...</p>
+      <p><strong>PHẦN I. TRẮC NGHIỆM NHIỀU PHƯƠNG ÁN LỰA CHỌN (3,0 điểm):</strong> <em>Gồm 12 câu (từ Câu 1 đến Câu 12), mỗi câu trả lời đúng được 0,25 điểm; đáp án phân bổ đều A, B, C, D.</em></p>
+      <p><strong>PHẦN II. TRẮC NGHIỆM ĐÚNG – SAI (2,0 điểm):</strong> <em>Gồm 02 câu (Câu 13, Câu 14), mỗi câu có 4 ý a), b), c), d).</em></p>
+      <p><strong>PHẦN III. TRẮC NGHIỆM TRẢ LỜI NGẮN (2,0 điểm):</strong> <em>Gồm 04 câu (từ Câu 15 đến Câu 18), mỗi câu trả lời đúng được 0,5 điểm.</em></p>
+      <p><strong>PHẦN IV. TỰ LUẬN (3,0 điểm):</strong> <em>Gồm 03 câu (Câu 19, Câu 20, Câu 21), thí sinh trình bày lời giải chi tiết.</em></p>
   `
   return { title, html }
 }
@@ -445,15 +399,13 @@ export function buildUniversitySyllabusHtml(): { title: string; html: string } {
   const html = `
       <table style="width: 100%; border-collapse: collapse; margin-bottom: 18px; border: none;">
         <tr>
-          <td style="width: 44%; text-align: center; vertical-align: top; border: none;">
-            <p style="margin: 0;">BỘ GIÁO DỤC VÀ ĐÀO TẠO</p>
-            <p style="margin: 0;"><strong><u>TRƯỜNG ĐẠI HỌC ................................</u></strong></p>
-            <p style="margin: 4px 0 0 0;">Khoa/Viện: ........................................</p>
+          <td style="width: 50%; text-align: left; vertical-align: top; border: none;">
+            <p style="margin: 0;"><strong>TRƯỜNG ĐẠI HỌC:</strong> [cần bổ sung: tên trường]</p>
+            <p style="margin: 4px 0 0 0;"><strong>KHOA/VIỆN:</strong> [cần bổ sung: tên khoa/viện]</p>
           </td>
-          <td style="width: 56%; text-align: center; vertical-align: top; border: none;">
-            <p style="margin: 0;"><strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong></p>
-            <p style="margin: 0;"><strong><u>Độc lập - Tự do - Hạnh phúc</u></strong></p>
-            <p style="margin: 6px 0 0 0;"><em>.................., ngày ..... tháng ..... năm 2026</em></p>
+          <td style="width: 50%; text-align: right; vertical-align: top; border: none;">
+            <p style="margin: 0;"><strong>ĐỀ CƯƠNG CHI TIẾT HỌC PHẦN</strong></p>
+            <p style="margin: 4px 0 0 0;"><em>Chuẩn kiểm định chất lượng AUN-QA / OBE</em></p>
           </td>
         </tr>
       </table>
@@ -630,7 +582,7 @@ export function buildBusinessContractHtml(): { title: string; html: string } {
         <strong>HỢP ĐỒNG CUNG CẤP DỊCH VỤ VÀ PHÁT TRIỂN DỰ ÁN</strong>
       </h1>
       <p style="text-align: center; font-size: 12pt; margin-top: 0; margin-bottom: 20px;">
-        <em>(Căn cứ Bộ luật Dân sự số 91/2015/QH13 và Luật Thương mại số 36/2005/QH11)</em>
+        <em>(Căn cứ Bộ luật Dân sự và Luật Thương mại)</em>
       </p>
 
       <h2 style="font-size: 13pt; color: #8B3A1A; border-bottom: 1.5px solid #DDD9CE; padding-bottom: 4px;">
@@ -732,7 +684,7 @@ export function buildMeetingMinutesHtml(): { title: string; html: string } {
       <p><strong>2. Khó khăn, vướng mắc:</strong> Thời gian phản hồi tích hợp API bên thứ ba còn chậm; cần bổ sung thêm nhân sự tester.</p>
 
       <h2 style="font-size: 13pt; color: #8B3A1A; border-bottom: 1px solid #DDD9CE; padding-bottom: 4px; margin-top: 20px;">
-        III. KẾT LUẬN VÀ PHÂN CÔNG NHIỆM VỤ (ACTION ITEMS)
+        III. KẾT LUẬN, VẤN ĐỀ CÒN MỞ VÀ PHÂN CÔNG THỰC HIỆN
       </h2>
       <table style="width: 100%; border-collapse: collapse; margin-top: 8px;">
         <thead>
@@ -897,7 +849,7 @@ export function buildOfficialDispatchNd30Html(): { title: string; html: string }
         <em>Căn cứ Quy chế chi tiêu nội bộ và Quản lý tài chính hiện hành của Công ty Cổ phần Lycero Việt Nam;</em>
       </p>
       <p style="text-align: left; text-indent: 1.27cm; margin-bottom: 10px;">
-        <em>Căn cứ Kế hoạch đào tạo và phát triển nguồn nhân lực Quý IV năm 2026 đã được Ban Tổng Giám đốc phê duyệt;</em>
+        <em>Căn cứ Kế hoạch đào tạo và phát triển nguồn nhân lực Quý IV năm 2026 đã được Ban Tổng Giám đốc phê duyệt.</em>
       </p>
 
       <p style="text-align: justify; text-indent: 1.27cm; margin-bottom: 8px;">
@@ -971,7 +923,6 @@ export function buildOfficialDispatchNd30Html(): { title: string; html: string }
           </td>
           <td style="width: 50%; text-align: center; vertical-align: top; border: none; font-size: 13pt;">
             <p style="margin: 0;"><strong>TRƯỞNG PHÒNG HÀNH CHÍNH - QUẢN TRỊ</strong></p>
-            <p style="margin: 0; font-size: 11pt;"><em>(Ký, ghi rõ họ tên và đóng dấu)</em></p>
             <p style="margin: 0;">&nbsp;</p>
             <p style="margin: 0;">&nbsp;</p>
             <p style="margin: 0;">&nbsp;</p>
@@ -1276,7 +1227,7 @@ export function buildPedagogicalSlideDeckSpec(): DeckSpec {
             h: 110,
             paragraphs: [
               {
-                runs: [{ text: '3. Về Phẩm Chất & Thái Độ Học Thuật (Mức Vận Dụng Cao)', sizePt: 18, bold: true, color: '#8B3A1A', font }],
+                runs: [{ text: '3. Về Phẩm Chất & Thái Độ Học Thuật', sizePt: 18, bold: true, color: '#8B3A1A', font }],
                 spaceAfterPt: 6,
               },
               {
@@ -1507,9 +1458,9 @@ export function buildPedagogicalSlideDeckSpec(): DeckSpec {
             w: 230,
             h: 170,
             paragraphs: [
-              { runs: [{ text: '20%', sizePt: 40, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 6 },
+              { runs: [{ text: '30%', sizePt: 40, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 6 },
               { runs: [{ text: 'Mức Vận Dụng', sizePt: 16, bold: true, color: '#1C1B18', font }], spaceAfterPt: 4 },
-              { runs: [{ text: 'Giải bài tập tính toán và xử lý tình huống chuẩn', sizePt: 12, color: '#4A473E', font }] },
+              { runs: [{ text: 'Giải bài tập tính toán và xử lý tình huống thực tiễn', sizePt: 12, color: '#4A473E', font }] },
             ],
           },
           {
@@ -1529,9 +1480,9 @@ export function buildPedagogicalSlideDeckSpec(): DeckSpec {
             w: 230,
             h: 170,
             paragraphs: [
-              { runs: [{ text: '10%', sizePt: 40, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 6 },
-              { runs: [{ text: 'Vận Dụng Cao', sizePt: 16, bold: true, color: '#1C1B18', font }], spaceAfterPt: 4 },
-              { runs: [{ text: 'Thiết kế mô hình mới và phản biện giải pháp mở', sizePt: 12, color: '#4A473E', font }] },
+              { runs: [{ text: '10,0đ', sizePt: 40, bold: true, color: '#8B3A1A', font }], spaceAfterPt: 6 },
+              { runs: [{ text: '4 Phần CV 7991', sizePt: 16, bold: true, color: '#1C1B18', font }], spaceAfterPt: 4 },
+              { runs: [{ text: '3 mức độ: Nhận biết - Thông hiểu - Vận dụng', sizePt: 12, color: '#4A473E', font }] },
             ],
           },
           {

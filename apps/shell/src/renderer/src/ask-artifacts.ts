@@ -32,7 +32,7 @@ function baseName(path: string): string {
   return path.split(/[\\/]/).pop() ?? path
 }
 
-/** the --out value of a run_genoffice call, or the title of a create_document call */
+/** the --out value (or in-place apply/replace target) of a run_genoffice call, or the title of a create_document call */
 export function artifactTarget(call: AgentToolCall): string | null {
   if (call.name === CREATE_DOCUMENT_TOOL) {
     const title = typeof call.input.title === 'string' ? call.input.title.trim() : ''
@@ -40,12 +40,34 @@ export function artifactTarget(call: AgentToolCall): string | null {
     return `${title || 'Untitled'}.${format}`
   }
   if (call.name !== RUN_GENOFFICE_TOOL || !Array.isArray(call.input.args)) return null
-  const args = call.input.args as unknown[]
-  const at = args.indexOf('--out')
-  const out = at >= 0 ? args[at + 1] : undefined
-  if (typeof out !== 'string' || !out) return null
-  // render --out names a folder of PNGs, convert/create a file: only files are artifacts
-  return DOC_EXT.test(out) ? out : null
+  const args = (call.input.args as unknown[]).filter((a): a is string => typeof a === 'string')
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]!
+    if (arg === '--out' && typeof args[i + 1] === 'string' && args[i + 1]) {
+      return DOC_EXT.test(args[i + 1]!) ? args[i + 1]! : null
+    }
+    if (arg.startsWith('--out=')) {
+      const val = arg.slice(6)
+      return val && DOC_EXT.test(val) ? val : null
+    }
+  }
+  // In-place edit (docs/sheet/slides apply|replace <file> without --out)
+  if (
+    (args[0] === 'docs' || args[0] === 'sheet' || args[0] === 'slides') &&
+    (args[1] === 'apply' || args[1] === 'replace')
+  ) {
+    for (let i = 2; i < args.length; i++) {
+      const arg = args[i]!
+      if (arg.startsWith('--')) {
+        if (!['--dry-run', '--track', '--best-effort', '--stop-on-error', '--help', '--force', '--json'].includes(arg) && !arg.includes('=')) {
+          i++
+        }
+        continue
+      }
+      if (DOC_EXT.test(arg)) return arg
+    }
+  }
+  return null
 }
 
 /**
@@ -70,6 +92,8 @@ function isInside(dir: string, path: string): boolean {
  * Settle the artifact of `call` from the tool's result text. The CLI skill
  * prints `output_path: <abs>` on success and `summary: <reason>` on failure;
  * create_document prints `path: <abs>`.
+ * Synchronizes earlier cards targeting the same file so the chat File Card
+ * always reflects 100% the state of the final write (FX-32).
  */
 export function settleArtifact(
   artifacts: readonly Artifact[],
@@ -81,6 +105,7 @@ export function settleArtifact(
   const current = artifacts[index]!
   // create_document indents its `path:` line under "saved <name>"
   const path = /^\s*(?:output_path|path): (.+)$/m.exec(execution.output)?.[1]?.trim() ?? undefined
+  const resolvedName = path ? baseName(path) : current.name
   const next: Artifact = execution.isError
     ? {
         ...current,
@@ -89,10 +114,17 @@ export function settleArtifact(
           /^summary: (.+)$/m.exec(execution.output)?.[1]?.trim() ??
           execution.output.split('\n')[0]?.slice(0, 160),
       }
-    : { ...current, status: 'done', ...(path ? { path, name: baseName(path) } : {}) }
+    : { ...current, status: 'done', ...(path ? { path, name: resolvedName } : {}) }
   const out = [...artifacts]
   out[index] = next
-  return out
+  // FX-32: If an earlier card in the same turn targeted the exact same file (by path or baseName),
+  // supersede the earlier card so the UI shows one accurate card for the final write.
+  return out.filter((item, idx) => {
+    if (idx === index) return true
+    if (path && item.path && item.path === path) return false
+    if (item.name === resolvedName && idx < index) return false
+    return true
+  })
 }
 
 /** the prompt a Retry button sends for one failed artifact */

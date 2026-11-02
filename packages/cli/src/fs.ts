@@ -167,6 +167,20 @@ export function resolveOutput(
   if (spec === '') throw new CliError(EXIT.usage, 'missing --out <path>', undefined, MISSING)
   const abs = spec ? (isAbsolute(spec) ? spec : resolve(ctx.cwd, spec)) : opts.fallback
   if (!abs) throw new CliError(EXIT.usage, 'missing --out <path>', undefined, MISSING)
+  // FX-02: Block agent self-test files (test.docx, test.html, test-*.md) outside unit test runs
+  if (
+    !ctx.env?.VITEST &&
+    ctx.env?.NODE_ENV !== 'test' &&
+    /^test(?:[._-].*)?\.(?:docx|html?|md)$/i.test(basename(abs)) &&
+    ctx.env?.GENOFFICE_ALLOWED_ROOTS
+  ) {
+    throw new CliError(
+      EXIT.usage,
+      `refusing to create self-test file "${basename(abs)}": write the requested user document directly`,
+      undefined,
+      { reason: 'invalid_argument', suggestion: 'use the user document filename instead of test.*' },
+    )
+  }
   assertAllowed(abs, ctx.env, 'write')
   if (opts.fresh && !opts.force && existsSync(abs)) {
     throw new CliError(EXIT.file, `output exists: ${abs} (use --force to overwrite)`, undefined, {

@@ -242,12 +242,20 @@ function mapTable(node: JSONContent): TableModel {
 
 function walkBlock(ctx: WalkContext, node: JSONContent, base?: ParaFormat): void {
   switch (node.type) {
-    case 'paragraph':
-      pushTextblock(ctx, node.content, (runs) => ({ type: 'paragraph', runs, format: base }))
+    case 'paragraph': {
+      const pText = plainText(node).trim()
+      const isKeepNextPara =
+        /^(?:Điều\s+\d+|Chương\s+[IVXLCDM\d]+|Mục\s+[IVXLCDM\d]+|Phần\s+[IVXLCDM\d]+|[IVXLCDM]+\.\s+[A-ZÀ-Ỹ]|Bảng\s+\d+|Phụ lục(?:\s+\d+)?|Hoạt động\s+\d+)\b/i.test(
+          pText,
+        )
+      const fmt = isKeepNextPara ? mergeFormat(base, { keepNext: true, keepLines: true }) : base
+      pushTextblock(ctx, node.content, (runs) => ({ type: 'paragraph', runs, format: fmt }))
       break
+    }
     case 'heading': {
       const level = Math.min(Math.max(Number(node.attrs?.level) || 1, 1), 6) as number
-      pushTextblock(ctx, node.content, (runs) => ({ type: 'heading', level, runs, format: base }))
+      const fmt = mergeFormat(base, { keepNext: true, keepLines: true })
+      pushTextblock(ctx, node.content, (runs) => ({ type: 'heading', level, runs, format: fmt }))
       break
     }
     case 'bulletList':
@@ -344,6 +352,19 @@ export async function mapDocToSaveBlocks(
     pendingDiagrams: [],
   }
   for (const node of doc.content ?? []) walkBlock(ctx, node)
+
+  // Keep caption / intro paragraphs attached to the table that immediately follows them
+  for (let i = 0; i < ctx.blocks.length - 1; i++) {
+    const cur = ctx.blocks[i]!
+    const next = ctx.blocks[i + 1]!
+    if (
+      cur.kind === 'generated' &&
+      next.kind === 'xml' &&
+      next.xml.startsWith('<w:tbl>')
+    ) {
+      cur.block.format = { ...cur.block.format, keepNext: true, keepLines: true }
+    }
+  }
 
   for (const pending of ctx.pendingDiagrams) {
     const image = await ctx.renderDiagram!(pending.source, pending.language).catch(() => null)

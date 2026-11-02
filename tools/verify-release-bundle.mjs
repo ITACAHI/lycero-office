@@ -16,8 +16,10 @@
  *   7. Auto-update relaunch hooks (apps/shell/build/installer.nsh + markInstallingUpdate in updater.ts) are intact.
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { copyFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { builtinModules } from 'node:module'
+import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -250,6 +252,78 @@ if (existsSync(updaterTsPath)) {
     fail(
       '[shell] apps/shell/src/main/updater.ts must not set autoUpdater.installDirectory (paths with spaces like "Lycero Office" get wrapped in quotes by child_process.spawn and corrupt $INSTDIR in NSIS GetDParameter)',
     )
+  }
+}
+
+// 8. Standalone CLI .docx creation smoke test (FX-31):
+// Copy lycero-office.cjs into an isolated temp directory (with zero node_modules
+// ancestor lookup) and run `create --type docx` to ensure jsdom is self-contained.
+const cliBundlePath = join(ROOT, 'packages', 'cli', 'dist', 'lycero-office.cjs')
+const cliNodeModulesJsdom = join(ROOT, 'packages', 'cli', 'dist', 'node_modules', 'jsdom', 'package.json')
+if (!existsSync(cliBundlePath)) {
+  fail('[cli] Missing packages/cli/dist/lycero-office.cjs bundle')
+} else if (!existsSync(cliNodeModulesJsdom)) {
+  fail('[cli] Missing packages/cli/dist/node_modules/jsdom/package.json (run npm run build -w @lycero/cli)')
+} else {
+  const smokeDir = mkdtempSync(join(tmpdir(), 'lycero-cli-smoke-'))
+  try {
+    const isolatedCli = join(smokeDir, 'lycero-office.cjs')
+    const sampleMd = join(smokeDir, 'smoke.md')
+    const outDocx = join(smokeDir, 'smoke-out.docx')
+    copyFileSync(cliBundlePath, isolatedCli)
+    writeFileSync(
+      sampleMd,
+      '# TỜ TRÌNH KIỂM THỬ\n\nKính gửi: Ban Giám đốc\n\n| STT | Nội dung | Kinh phí |\n| --- | --- | --- |\n| 1 | Hạng mục A | 10.000.000 |\n',
+      'utf8',
+    )
+    execFileSync(
+      process.execPath,
+      [isolatedCli, 'create', '--type', 'docx', '--from', sampleMd, '--out', outDocx],
+      { cwd: smokeDir, stdio: 'pipe', timeout: 30_000 },
+    )
+    if (!existsSync(outDocx) || statSync(outDocx).size < 1000) {
+      fail('[cli] Standalone CLI smoke test failed to produce a valid .docx file')
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    fail(`[cli] Standalone CLI .docx smoke test failed (FX-31): ${msg}`)
+  } finally {
+    try {
+      rmSync(smokeDir, { recursive: true, force: true })
+    } catch {}
+  }
+}
+
+// 9. Hybrid Local Skills verification (FX-30):
+// Ensure all 206 recommended SKILL.md files exist with full offline body + [LYCERO_CLOUD_SKILL:...] marker.
+const recommendedSkillsDir = join(ROOT, 'skills', 'recommended')
+if (!existsSync(recommendedSkillsDir)) {
+  fail('[skills] Missing skills/recommended directory (FX-30)')
+} else {
+  const skillDirs = readdirSync(recommendedSkillsDir, { withFileTypes: true }).filter((d) =>
+    d.isDirectory(),
+  )
+  if (skillDirs.length < 206) {
+    fail(
+      `[skills] Expected at least 206 hybrid skills in skills/recommended, found ${skillDirs.length} (FX-30)`,
+    )
+  }
+  for (const d of skillDirs) {
+    const skillMdPath = join(recommendedSkillsDir, d.name, 'SKILL.md')
+    if (!existsSync(skillMdPath)) {
+      fail(`[skills] Missing SKILL.md in skills/recommended/${d.name}`)
+      continue
+    }
+    const content = readFileSync(skillMdPath, 'utf8')
+    const stripped = content
+      .replace(/^---[\s\S]*?---/, '')
+      .replace(/\[LYCERO_CLOUD_SKILL:[^\]]+\]/g, '')
+      .trim()
+    if (stripped.length < 200 || !content.includes('[LYCERO_CLOUD_SKILL:')) {
+      fail(
+        `[skills] skills/recommended/${d.name}/SKILL.md is stub-only or missing [LYCERO_CLOUD_SKILL:...] (${stripped.length} chars)`,
+      )
+    }
   }
 }
 

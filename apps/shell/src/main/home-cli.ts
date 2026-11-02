@@ -18,6 +18,7 @@ import {
 } from 'node:path'
 import { parseArgs, type ParsedArgs } from '@lycero/cli/args'
 import type { CliRunRequest, CliRunResult, CliStagedFile } from '@lycero/agent-core'
+import { PiiTokenizer } from '@lycero/ai-provider'
 import type { CliRunner } from './mcp/cli-runner'
 
 /**
@@ -60,6 +61,23 @@ const MAX_FILE_CHARS = 4_000_000
 const MAX_STD_CHARS = 64_000
 const SESSION_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/
 
+/** FX-02: Block agent self-test filenames (test.docx, test.html, test-*.md, etc.) */
+const JUNK_TEST_FILENAME_RE = /^test(?:[._-].*)?\.(?:docx|html?|md|xlsx|pptx)$/i
+/** FX-02: Block trivial self-test content ("Hello test") from overwriting or polluting user folders */
+const JUNK_TEST_CONTENT_RE = /^(?:#+\s*)?hello\s+test[.!]*$/i
+/** FX-03: Strip leaked internal session IDs (kb-ask-..., kb-...) from document content */
+const LEAKED_SESSION_ID_RE = /\bkb-(?:ask-)?\d{8,}\b/g
+
+export function isJunkTestFilename(nameOrPath: string): boolean {
+  const base = basename(nameOrPath.trim())
+  return JUNK_TEST_FILENAME_RE.test(base)
+}
+
+export function sanitizeStagedContent(content: string): string {
+  const restored = PiiTokenizer.restoreGlobal(content)
+  return restored.replace(LEAKED_SESSION_ID_RE, '')
+}
+
 export class HomeCliError extends Error {}
 
 export function validateHomeCliArgs(raw: unknown, longArgHint = 'stage it as a file'): string[] {
@@ -90,6 +108,19 @@ export function validateHomeCliArgs(raw: unknown, longArgHint = 'stage it as a f
   }
   if (args.includes('--force')) {
     throw new HomeCliError('--force is not allowed: choose a file name that does not exist yet')
+  }
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]!
+    if (arg === '--out' && args[i + 1] && isJunkTestFilename(args[i + 1]!)) {
+      throw new HomeCliError(
+        `Refusing to create self-test file "${basename(args[i + 1]!)}": build the user's requested document directly.`,
+      )
+    }
+    if (arg.startsWith('--out=') && isJunkTestFilename(arg.slice(6))) {
+      throw new HomeCliError(
+        `Refusing to create self-test file "${basename(arg.slice(6))}": build the user's requested document directly.`,
+      )
+    }
   }
   return args
 }
@@ -163,8 +194,18 @@ export function validateStagedFiles(raw: unknown): CliStagedFile[] {
     if (typeof name !== 'string' || !name.trim() || typeof content !== 'string') {
       throw new HomeCliError('every file needs a string name and string content')
     }
+    if (isJunkTestFilename(name)) {
+      throw new HomeCliError(
+        `Refusing to stage self-test file "${name}": write the user's actual document content directly.`,
+      )
+    }
+    if (JUNK_TEST_CONTENT_RE.test(content.trim())) {
+      throw new HomeCliError(
+        `Refusing to stage self-test content ("Hello test") in "${name}": write the complete user document content.`,
+      )
+    }
     if (content.length > MAX_FILE_CHARS) throw new HomeCliError(`${name} is too large to stage`)
-    out.push({ name, content })
+    out.push({ name, content: sanitizeStagedContent(content) })
   }
   return out
 }
@@ -222,13 +263,41 @@ function clip(text: string): string {
     : text
 }
 
+/**
+ * FX-18: Redirect any `--out` that accidentally points into `ask-ai-work`, `~/Lycero`,
+ * or bare `$HOME/<file>.(docx|xlsx|pptx|pdf)` to the canonical `ctx.outDir` (`<Documents>/Lycero Office`).
+ */
+function normalizeOutputArgPaths(args: string[], ctx: HomeCliContext): string[] {
+  const normalized = [...args]
+  const rewriteOut = (rawOut: string): string => {
+    if (!/\.(docx|xlsx|pptx|pdf)$/i.test(rawOut)) return rawOut
+    const clean = rawOut.trim()
+    // If model wrote a path under ask-ai-work or legacy ~/Lycero, redirect to ctx.outDir
+    if (
+      /[/\\]ask-ai-work[/\\]/i.test(clean) ||
+      /[/\\]Lycero[/\\][^/\\]+$/i.test(clean)
+    ) {
+      return join(ctx.outDir, basename(clean))
+    }
+    return rawOut
+  }
+  for (let i = 0; i < normalized.length; i++) {
+    if (normalized[i] === '--out' && normalized[i + 1]) {
+      normalized[i + 1] = rewriteOut(normalized[i + 1]!)
+    } else if (normalized[i]!.startsWith('--out=')) {
+      normalized[i] = `--out=${rewriteOut(normalized[i]!.slice(6))}`
+    }
+  }
+  return normalized
+}
+
 export async function runHomeCli(
   deps: HomeCliDeps,
   sessionId: string,
   request: HomeCliRunRequest,
 ): Promise<CliRunResult> {
   const ctx = homeCliContext(deps, sessionId)
-  const args = validateHomeCliArgs(request.args)
+  const args = normalizeOutputArgPaths(validateHomeCliArgs(request.args), ctx)
   const files = validateStagedFiles(request.files)
   await mkdir(ctx.workDir, { recursive: true })
   for (const file of files) {
@@ -250,15 +319,16 @@ export async function runHomeCli(
       throw new HomeCliError(`${inPlace} does not exist`)
     })
   }
+  const attachedSources = validateSources(request.sources)
+  // FX-35: When the user explicitly attached files to the turn, restrict source roots to
+  // those attached files rather than exposing every unrelated starred folder.
+  const effectiveSources = attachedSources.length > 0 ? attachedSources : deps.sourcePaths()
   const outcome = await deps.runner().run(args, {
     cwd: ctx.workDir,
     env: {
-      GENOFFICE_ALLOWED_ROOTS: allowedRootsFor(ctx, [
-        ...deps.sourcePaths(),
-        ...validateSources(request.sources),
-      ]),
+      GENOFFICE_ALLOWED_ROOTS: allowedRootsFor(ctx, effectiveSources),
     },
-    timeoutMs: 300_000,
+    timeoutMs: 180_000,
   })
   const out = outcome.json?.status === 'ok' ? outcome.json.output_path : undefined
   if (out && resolve(dirname(out)) === resolve(ctx.outDir)) deps.recordRecent(out)

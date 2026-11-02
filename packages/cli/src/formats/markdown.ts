@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { ensureDom } from '../dom'
 import { assertAllowed, type PathContext } from '../fs'
 import { imageSize } from './image-size'
+import { blankDocument, closeDocument, fillFromHtml, saveDocument } from './docx'
 
 /**
  * Markdown → Word reuses the markdown app's editor: its Tiptap markdown parser
@@ -64,9 +65,32 @@ export async function markdownToDocx(
   markdown: string,
   images?: MarkdownImageSource,
 ): Promise<Uint8Array> {
-  return withMarkdownEditor(markdown, (editor, mods) =>
-    mods.docxExport.exportDocxBytes(editor.getJSON(), async (src) => loadLocalImage(src, images)),
-  )
+  // FX-03: Strip leaked internal session IDs (kb-ask-..., kb-...) from document content
+  const cleaned = markdown.replace(/\bkb-(?:ask-)?[a-z0-9_-]*\d[a-z0-9_-]*\b/gi, '')
+  const hasLocalImages = /!\[[^\]]*\]\((?!(?:https?|data|blob):)[^)]+\)/i.test(cleaned)
+  const isVnStructuredDoc =
+    !hasLocalImages &&
+    (/CỘNG HÒA XÃ HỘI|Độc lập\s*-\s*Tự do|Nơi nhận\s*:|Kính gửi\s*:|Căn cứ\s+(?:Luật|Bộ luật|Nghị định|Thông tư|Quyết định)/i.test(
+      cleaned,
+    ) ||
+      /(?:^|\n)\s*#{1,3}\s*(?:HỢP ĐỒNG|QUYẾT ĐỊNH|TỜ TRÌNH|CÔNG VĂN|BIÊN BẢN|THÔNG BÁO|BÁO CÁO|QUY CHẾ|KẾ HOẠCH|MA TRẬN|BẢNG ĐẶC TẢ|PHIẾU ĐÁNH GIÁ|RUBRIC|ĐỀ KIỂM TRA|GIÁO ÁN)\b/im.test(
+        cleaned,
+      ))
+  return withMarkdownEditor(cleaned, async (editor, mods) => {
+    if (isVnStructuredDoc) {
+      const bodyHtml = editor.getHTML()
+      const doc = await blankDocument()
+      try {
+        fillFromHtml(doc, bodyHtml)
+        return await saveDocument(doc)
+      } finally {
+        closeDocument(doc)
+      }
+    }
+    return mods.docxExport.exportDocxBytes(editor.getJSON(), async (src) =>
+      loadLocalImage(src, images),
+    )
+  })
 }
 
 async function loadLocalImage(src: string, images?: MarkdownImageSource) {

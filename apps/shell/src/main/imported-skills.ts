@@ -456,6 +456,52 @@ function tryRm(path: string): void {
   }
 }
 
+function hasFullLocalSkillBody(filePath: string): boolean {
+  try {
+    if (!existsSync(filePath)) return false
+    const raw = readFileSync(filePath, 'utf8')
+    const fm = parseSkillFrontmatter(raw)
+    if (!fm || !fm.body) return false
+    const bodyWithoutCloudTag = fm.body.replace(/\[LYCERO_CLOUD_SKILL:[^\]]+\]/g, '').trim()
+    return bodyWithoutCloudTag.length >= 200
+  } catch {
+    return false
+  }
+}
+
+function findBundledFullSkillMd(slug: string): string | null {
+  const resPath =
+    typeof (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath === 'string'
+      ? (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath!
+      : ''
+  const candidates = [
+    ...(resPath
+      ? [
+          join(resPath, 'cli', 'skills', 'recommended', slug, 'SKILL.md'),
+          join(resPath, 'cli', 'skills', slug, 'SKILL.md'),
+          join(resPath, 'skills', 'recommended', slug, 'SKILL.md'),
+          join(resPath, 'skills', slug, 'SKILL.md'),
+        ]
+      : []),
+    resolve(process.cwd(), 'skills', slug, 'SKILL.md'),
+    resolve(process.cwd(), 'skills', 'recommended', slug, 'SKILL.md'),
+    resolve(__dirname, '../../../../skills', slug, 'SKILL.md'),
+    resolve(__dirname, '../../../../skills/recommended', slug, 'SKILL.md'),
+    resolve(__dirname, '../../../skills', slug, 'SKILL.md'),
+    resolve(__dirname, '../../../skills/recommended', slug, 'SKILL.md'),
+  ]
+  for (const c of candidates) {
+    if (hasFullLocalSkillBody(c)) {
+      try {
+        return readFileSync(c, 'utf8')
+      } catch {
+        // continue
+      }
+    }
+  }
+  return null
+}
+
 function writeCloudProxySkillMd(
   userDataDir: string,
   item: {
@@ -470,7 +516,20 @@ function writeCloudProxySkillMd(
 ): string {
   const destDir = join(skillsRoot(userDataDir), item.slug)
   const destFile = join(destDir, 'SKILL.md')
-  const version = item.version || '2.0.0'
+  if (hasFullLocalSkillBody(destFile)) {
+    return destFile
+  }
+  const bundled = findBundledFullSkillMd(item.slug)
+  if (bundled) {
+    try {
+      mkdirSync(destDir, { recursive: true })
+      writeFileSync(destFile, bundled, 'utf8')
+      return destFile
+    } catch {
+      /* ignore write errors on read-only disks */
+    }
+  }
+  const version = item.version || '3.3.0'
   const displayTitle = (item.title || item.name || item.slug).replace(/\r?\n/g, ' ').trim()
   const desc = item.description.replace(/\r?\n/g, ' ').trim()
   const category = (item.category || 'other').replace(/\r?\n/g, ' ').trim()
@@ -487,6 +546,19 @@ function writeCloudProxySkillMd(
     'metadata:',
     `  version: ${version}`,
     '---',
+    '',
+    `# ${displayTitle}`,
+    '',
+    desc,
+    '',
+    '## Quy tắc Thực thi & Pháp chế Bắt buộc (2025–2026)',
+    '1. Không bịa: SĐT, email, địa chỉ, số CCCD, số GCN, số hợp đồng/hóa đơn/văn bản, nhà cung cấp, định mức, người phụ trách, căn cứ nội bộ, ý kiến hay nhiệm vụ không có trong đề. Thiếu thông tin thì để "[cần bổ sung: ...]".',
+    '2. Câu trả lời trong chat chỉ được nêu số liệu và tính năng đã đọc lại từ file sau khi lưu (read-back). Thao tác lỗi (sheet apply/docs apply báo error) thì phải nói rõ là chưa làm được. Không dán HTML thô, LaTeX thô hay lời gọi công cụ vào chat.',
+    '3. Địa giới 2 cấp từ 01/07/2025: không dùng quận/huyện/thị xã/TP thuộc tỉnh. Tòa án: TAND khu vực (Nghị quyết 81/2025/UBTVQH15). Thuế: Thuế cơ sở N tỉnh/TP.',
+    '4. Thể thức: Times New Roman 13–14pt; lề trên/dưới 20–25mm, trái 30–35mm, phải 15–20mm; 100% nhãn tiếng Việt; số có dấu chấm phân cách nghìn; ngày dd/mm/yyyy.',
+    '5. Lưu file duy nhất tại thư mục tài liệu "/home/box/Lycero Office/" (hoặc <Documents>/Lycero Office/), không tạo bản trùng. Không ghi file thử (test.html, test.docx, "Hello test") vào thư mục hay tên file của người dùng.',
+    '6. Không đưa ID phiên (kb-...) hay timestamp nội bộ vào nội dung văn bản.',
+    '7. Cập nhật pháp lý 2025–2026: Kế toán theo Thông tư 99/2025/TT-BTC (hiệu lực 01/01/2026); Thuế TNCN giảm trừ 15,5 triệu/tháng và 6,2 triệu/tháng (Nghị quyết 110/2025/UBTVQH15), biểu 5 bậc (Luật Thuế TNCN số 109/2025/QH15); Bảo vệ dữ liệu cá nhân theo Luật số 91/2025/QH15 + Nghị định 356/2025/NĐ-CP; Hóa đơn điện tử theo Nghị định 123/2020/NĐ-CP sửa đổi bởi Nghị định 70/2025/NĐ-CP; BHXH theo Luật số 41/2024/QH15 và Việc làm theo Luật số 74/2025/QH15; Thuế TNDN theo Luật số 67/2025/QH15; Ma trận đề kiểm tra theo Công văn 7991/BGDĐT-GDTrH (3 mức độ Nhận biết – Thông hiểu – Vận dụng, 4 phần); Giáo án CV 5512 đúng Phụ lục IV (không gắn Quốc hiệu - Tiêu ngữ).',
     '',
     `[LYCERO_CLOUD_SKILL:${item.slug}]`,
     '',
@@ -510,7 +582,7 @@ export async function syncAllCloudSkillsToUserData(
 ): Promise<FoundSkill[]> {
   for (const item of DEFAULT_CLOUD_SKILL_CATALOG) {
     const installedAt = join(skillsRoot(userDataDir), item.slug, 'SKILL.md')
-    if (!existsSync(installedAt)) {
+    if (!hasFullLocalSkillBody(installedAt)) {
       writeCloudProxySkillMd(userDataDir, {
         slug: item.slug,
         name: item.name,
@@ -600,8 +672,8 @@ export async function fetchCloudRecommendedSkills(
     for (const item of combined.values()) {
       if (!item.slug || !item.name || !item.description) continue
       const installedAt = join(skillsRoot(userDataDir), item.slug, 'SKILL.md')
-      const version = item.version || '2.0.0'
-      if (!existsSync(installedAt) || skillVersion(installedAt) !== version) {
+      const version = item.version || '3.3.0'
+      if (!hasFullLocalSkillBody(installedAt)) {
         writeCloudProxySkillMd(userDataDir, item)
       }
       const state: RecommendedSkill['state'] = existsSync(installedAt) ? 'installed' : 'missing'

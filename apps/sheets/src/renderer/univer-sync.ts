@@ -8122,19 +8122,45 @@ export function lazyCellReader(worksheet: UniverWorksheet): (address: string) =>
   }
 }
 
+/// Resolves a Univer worksheet by exact sheetId, exact sheet name, or
+/// case-insensitive sheet name so AI ops that pass a sheet name (including
+/// newly created sheets) resolve cleanly alongside internal sheetIds.
+export function resolveUniverWorksheet(
+  workbook: ActiveWorkbook | null | undefined,
+  idOrName: string,
+): UniverWorksheet | null {
+  if (!workbook) return null
+  const byId = workbook.getSheetBySheetId(idOrName)
+  if (byId) return byId
+  const byName = workbook.getSheetByName(idOrName)
+  if (byName) return byName
+  const lower = idOrName.trim().toLowerCase()
+  for (const sheet of workbook.getSheets()) {
+    if (sheet.getSheetName().trim().toLowerCase() === lower) return sheet
+  }
+  return null
+}
+
 /// Sheet-aware variant: operations carry their own sheetId, which may differ
 /// from the active sheet — resolve (and cache) the target worksheet per read.
 export function lazyWorkbookCellReader(
   workbook: ActiveWorkbook,
+  pendingSheetNames?: ReadonlySet<string>,
 ): (address: string, sheetId: string) => CellState {
   const readers = new Map<string, (address: string) => CellState>()
   return (address, sheetId) => {
     let reader = readers.get(sheetId)
     if (!reader) {
-      const worksheet = workbook.getSheetBySheetId(sheetId)
-      if (!worksheet) throw new Error(`Unknown sheet: ${sheetId}`)
+      const worksheet = resolveUniverWorksheet(workbook, sheetId)
+      if (!worksheet) {
+        if (pendingSheetNames?.has(sheetId.trim().toLowerCase())) {
+          return { value: null, rawValue: null }
+        }
+        throw new Error(`Unknown sheet: ${sheetId}`)
+      }
       reader = lazyCellReader(worksheet)
       readers.set(sheetId, reader)
+      readers.set(worksheet.getSheetId(), reader)
     }
     return reader(address)
   }

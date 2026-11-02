@@ -688,9 +688,13 @@ export function ExcelShell({
   const onCommandRef = useRef(onCommand)
   const onIsCellEditingRef = useRef(onIsCellEditing)
   const openingWorkbookRef = useRef(openingWorkbook)
+  const onSaveRef = useRef(onSave)
+  const onSaveAsRef = useRef(onSaveAs)
   onCommandRef.current = onCommand
   onIsCellEditingRef.current = onIsCellEditing
   openingWorkbookRef.current = openingWorkbook
+  onSaveRef.current = onSave
+  onSaveAsRef.current = onSaveAs
   const dispatchCommand = (command: string): void => {
     if (command === 'format-cells') setShowFormatCells(true)
     else if (command === 'row-height-open') setAxisSizeTarget('row')
@@ -751,6 +755,12 @@ export function ExcelShell({
     // dialogs, Univer's find/replace and formula bar) never trigger these.
     const onKeyDown = (event: KeyboardEvent): void => {
       if (openingWorkbookRef.current) return
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.code === 'KeyS') {
+        event.preventDefault()
+        if (event.shiftKey) onSaveAsRef.current()
+        else onSaveRef.current()
+        return
+      }
       const action = resolveGlobalShortcut(event, {
         isMac: IS_MAC,
         modalOpen: isModalOpen(),

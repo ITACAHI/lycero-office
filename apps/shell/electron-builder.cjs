@@ -360,11 +360,13 @@ const config = {
       from: '../../NOTICE',
       to: 'NOTICE',
     },
-    // runtime deps the lycero-office bundle leaves external (jsdom for the Word/Markdown
-    // paths); collected by packages/cli/collect-deps.mjs during its build
+    // runtime deps the lycero-office bundle uses (jsdom for the Word/Markdown
+    // paths); collected by packages/cli/collect-deps.mjs during its build.
+    // Explicit filter: ['**/*'] prevents electron-builder from ignoring node_modules.
     {
       from: '../../packages/cli/dist/node_modules',
       to: 'cli/node_modules',
+      filter: ['**/*'],
     },
   ],
   // `mimeType` is read only by the Linux target, where it becomes the

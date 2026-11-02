@@ -305,7 +305,9 @@ export function KbAskPanel({
   // The model's history and the stored ids belong to the thread being left;
   // a question typed before the next claim resolves queues in pendingRef.
   const leaveThread = (): void => {
+    askSeqRef.current++
     loopRef.current?.reset()
+    setBusy(false)
     chatIdsRef.current = null
     pendingRef.current = []
     messagesRef.current = []

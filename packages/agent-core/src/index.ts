@@ -60,11 +60,13 @@ export {
   COMPLETED_VIA_TOOLS_TEXT,
   DEFAULT_MAX_TURNS,
   TOOL_ABORTED_OUTPUT,
+  TOOL_EXECUTION_TIMEOUT_MS,
   coerceArgumentFields,
   invalidArgumentFields,
   missingRequiredFields,
   runtimePreamble,
   sanitizeAgentPayload,
+  sanitizeAssistantText,
   applyComposedContext,
   buildBundleContextResolver,
 } from './loop'
@@ -114,8 +116,12 @@ export {
 } from './cloud-capabilities'
 export {
   DEFAULT_CLOUD_SKILL_CATALOG,
+  HIDDEN_OR_MERGED_SKILL_SLUGS,
+  NARROW_VERTICAL_SKILL_SLUGS,
+  SKILL_SLUG_ALIAS_MAP,
   classifySkillsForContext,
   normalizeSkillMatchText,
+  resolveCanonicalSkillSlug,
 } from './skill-classifier'
 export type { ClassifySkillsInput } from './skill-classifier'
 export type {

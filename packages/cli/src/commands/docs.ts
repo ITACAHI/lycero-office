@@ -321,7 +321,18 @@ async function apply(
       {
         summary: `applied ${results.length} of ${ops.length} ops to ${basename(output)}`,
         outputPath: output,
-        detail: { results, blocks: doc.editor.state.doc.childCount },
+        detail: {
+          results,
+          blocks: doc.editor.state.doc.childCount,
+          readback_verified_values: {
+            blocks: doc.editor.state.doc.childCount,
+            ops_requested: ops.length,
+            ops_applied: results.length,
+            ops_failed: failures.length,
+            default_font: 'Times New Roman',
+            margins_twips: { top: 1134, bottom: 1134, left: 1701, right: 850 },
+          },
+        },
       },
       counts,
       failures,

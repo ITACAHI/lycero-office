@@ -42,11 +42,16 @@ function createRenderContext(docSettings: any = {}, options: any = {}) {
   // part of the original font size while still fitting the page.
   const fontScale = Math.min(1, baseScale * 1.04) * squeeze
   const pxToTwips = (px) => Math.round(finiteOr(px, 0) * 15 * measurementScale)
+  const marginSidePx = (v: any, fallbackTwips: number): number => {
+    const fallbackPx = fallbackTwips / 15
+    const n = finiteOr(v, fallbackPx)
+    return n < 0 ? fallbackPx : n
+  }
   const pageMargins = {
-    top: pxToTwips(marginPx(marginsPx.top)),
-    bottom: pxToTwips(marginPx(marginsPx.bottom)),
-    left: pxToTwips(marginPx(marginsPx.left)),
-    right: pxToTwips(marginPx(marginsPx.right)),
+    top: pxToTwips(marginSidePx(marginsPx.top, 1134)),
+    bottom: pxToTwips(marginSidePx(marginsPx.bottom, 1134)),
+    left: pxToTwips(marginSidePx(marginsPx.left, 1701)),
+    right: pxToTwips(marginSidePx(marginsPx.right, 850)),
     header: docSettings.composed ? 0 : undefined,
     footer: docSettings.composed ? 0 : undefined,
   }

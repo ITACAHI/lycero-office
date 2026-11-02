@@ -15,6 +15,8 @@ import {
   carryLateJournalCells,
   isSheetRemoved,
   journalSize,
+  recordSetRangeValues,
+  recordSheetInsert,
   snapshotJournalCells,
   type JournalCellSnapshot,
   toSaveChartEdits,
@@ -158,6 +160,26 @@ export async function handleSave(
     if (mode !== 'recovery') ctx.setMessage(t('appDemoNoSave'))
     return { ok: false }
   }
+  // FX-29: Synchronize any newly created Univer sheets and their live cell
+  // snapshots into the edit journal right before save so no new sheet or cell
+  // is ever missed if a Univer mutation event had an unmatched unitId.
+  const liveWorkbook = ctx.univerRef.current?.univerAPI.getActiveWorkbook()
+  if (liveWorkbook) {
+    const fileSheetIds = new Set(state.file.sheets.map((s) => s.id))
+    for (const ws of liveWorkbook.getSheets()) {
+      const sid = ws.getSheetId()
+      const sname = ws.getSheetName()
+      if (!fileSheetIds.has(sid) && !state.editJournal.sheets.removed.has(sid)) {
+        if (!state.editJournal.sheets.added.has(sid)) {
+          recordSheetInsert(state.editJournal, sid, sname)
+        }
+        const snap = ws.getSheet().getSnapshot()
+        if (snap?.cellData && (!state.editJournal.cells.get(sid) || state.editJournal.cells.get(sid)!.size === 0)) {
+          recordSetRangeValues(state.editJournal, sid, snap.cellData)
+        }
+      }
+    }
+  }
   const edits = toSaveEdits(state.editJournal)
   const cellsAtSave = snapshotJournalCells(state.editJournal)
   const bulkConstantFills = toSaveBulkConstantFills(state.editJournal)
@@ -287,20 +309,13 @@ export async function handleSave(
     heldTables.length > 0 ||
     heldTableEdits.length > 0 ||
     heldNames !== null
-  if (splitSave) {
-    const addedSheetIds = state.editJournal.sheets.added
-    const strandedHeld = [
-      ...heldPivots.flatMap((pivot) => [pivot.sheetId, pivot.sourceSheetId]),
-      ...heldTables.map((table) => table.sheetId),
-      ...heldTableEdits.map((edit) => edit.sheetId),
-    ].some((sheetId) => addedSheetIds.has(sheetId))
-    if (strandedHeld) {
-      if (mode !== 'recovery') {
-        ctx.setMessage(t('appSaveHeldStranded'))
-        if (!quiet) showToast(t('appSaveHeldStranded'), 'error')
-      }
-      return { ok: false }
-    }
+  // FX-29: Map added sheet IDs to their display names so two-phase saves
+  // (splitSave) can remap held tables/pivots to the reopened file's new sheet
+  // IDs instead of failing with appSaveHeldStranded.
+  const addedSheetNamesById = new Map<string, string>()
+  for (const [sid, meta] of state.editJournal.sheets.added) {
+    const renamed = state.editJournal.sheets.renamed.get(sid)
+    addedSheetNamesById.set(sid, renamed ?? meta.name)
   }
   const total =
     edits.length +
@@ -553,6 +568,14 @@ export async function handleSave(
     // Two-phase saves reopen twice with structural entanglement; v1 does not
     // carry undo history across them (and clears any stale stash).
     stashUndoCarry(null)
+    const remapPhaseTwoSheetId = (oldId: string): string => {
+      const addedName = addedSheetNamesById.get(oldId)
+      if (!addedName) return oldId
+      const matched = result.file.sheets.find(
+        (s) => s.name.trim().toLowerCase() === addedName.trim().toLowerCase(),
+      )
+      return matched?.id ?? oldId
+    }
     try {
       const second = await window.desktopApi.saveWorkbookEdits({
         sessionId: result.file.sessionId,
@@ -567,9 +590,19 @@ export async function handleSave(
         visualEdits: [],
         visualAdditions: [],
         cellImageAdditions: [],
-        tableAdditions: heldTables,
-        tableEdits: heldTableEdits,
-        pivotAdditions: heldPivots,
+        tableAdditions: heldTables.map((t) => ({
+          ...t,
+          sheetId: remapPhaseTwoSheetId(t.sheetId),
+        })),
+        tableEdits: heldTableEdits.map((e) => ({
+          ...e,
+          sheetId: remapPhaseTwoSheetId(e.sheetId),
+        })),
+        pivotAdditions: heldPivots.map((p) => ({
+          ...p,
+          sheetId: remapPhaseTwoSheetId(p.sheetId),
+          sourceSheetId: remapPhaseTwoSheetId(p.sourceSheetId),
+        })),
         sheetOps: [],
         sheetOrder: [],
         filterStates: [],

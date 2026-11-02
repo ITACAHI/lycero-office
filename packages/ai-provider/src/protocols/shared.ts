@@ -4,10 +4,12 @@
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
 import {
+  DEFAULT_CLOUD_SKILL_CATALOG,
   classifySkillsForContext,
   type AgentMessage,
   type AgentToolCall,
 } from '@lycero/agent-core'
+import { PiiTokenizer } from '../pii-tokenizer'
 import type { AiTokenUsage, LyceroEditorModule, LyceroPipelineStage } from '../types'
 
 // ---- endpoint URL composition ----
@@ -394,6 +396,11 @@ export function resolveLyceroGatewayContext(options: {
     for (const m of text.matchAll(/\[LYCERO_CLOUD_SKILL:([a-zA-Z0-9._-]+)\]/g)) {
       if (m[1]?.trim()) slugs.add(m[1].trim())
     }
+    if (text.includes('## Skills loaded (')) {
+      for (const m of text.matchAll(/^###\s+([a-zA-Z0-9._-]+)\s*$/gm)) {
+        if (m[1]?.trim()) slugs.add(m[1].trim())
+      }
+    }
   }
   if (system) scanText(system)
   let latestUserPrompt = ''
@@ -401,6 +408,9 @@ export function resolveLyceroGatewayContext(options: {
     if (msg.role === 'user' && msg.text) {
       scanText(msg.text)
       latestUserPrompt = msg.text
+      // Index PII entities into PiiTokenizer's cross-turn registry so any [PII_...]
+      // token returned by the gateway or LLM can be restored before writing files (FX-04)
+      PiiTokenizer.mask(msg.text)
     }
   }
   if (slugs.size === 0 && (latestUserPrompt || system)) {
@@ -409,6 +419,7 @@ export function resolveLyceroGatewayContext(options: {
       system,
       editorModule,
       pipelineStage,
+      availableSkills: DEFAULT_CLOUD_SKILL_CATALOG,
     })
     for (const autoSlug of autoClassified) {
       slugs.add(autoSlug)
@@ -568,19 +579,20 @@ export function throwIfCreditsNotice(bodyText: string): void {
 /** Don't throw on parse failure (it would kill the whole stream); return error so the loop feeds it back for retry */
 export function parseToolInput(json: string): { input: Record<string, unknown>; error?: string } {
   if (!json.trim()) return { input: {} }
+  const normalizedJson = json.includes('PII_') ? PiiTokenizer.restoreGlobal(json) : json
   let parsed: unknown
   try {
-    parsed = JSON.parse(json)
+    parsed = JSON.parse(normalizedJson)
   } catch (e) {
     try {
-      parsed = JSON.parse(repairUnescapedQuotes(json))
+      parsed = JSON.parse(repairUnescapedQuotes(normalizedJson))
     } catch {
       const msg = e instanceof Error ? e.message : String(e)
-      return { input: {}, error: `${msg}; raw: ${json.slice(0, 500)}` }
+      return { input: {}, error: `${msg}; raw: ${normalizedJson.slice(0, 500)}` }
     }
   }
   if (!isPlainObject(parsed)) {
-    return { input: {}, error: `tool input must be a JSON object; raw: ${json.slice(0, 500)}` }
+    return { input: {}, error: `tool input must be a JSON object; raw: ${normalizedJson.slice(0, 500)}` }
   }
   return { input: parsed }
 }

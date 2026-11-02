@@ -49,7 +49,13 @@ export function readDefaultSaveDirSetting(settingsPath: string): string | null {
     const raw: unknown = JSON.parse(readFileSync(settingsPath, 'utf8'))
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
     const value = (raw as Record<string, unknown>)[DEFAULT_SAVE_DIR_KEY]
-    return typeof value === 'string' && isAbsolute(value) ? value : null
+    if (typeof value !== 'string' || !isAbsolute(value)) return null
+    // FX-18: Never allow ask-ai-work or legacy ~/Lycero as defaultSaveDir; normalize to Lycero Office
+    if (/[/\\]ask-ai-work(?:[/\\]|$)/i.test(value)) return null
+    if (/[/\\]Lycero$/i.test(value.replace(/[/\\]+$/, ''))) {
+      return `${value.replace(/[/\\]+$/, '')} Office`
+    }
+    return value
   } catch {
     return null
   }

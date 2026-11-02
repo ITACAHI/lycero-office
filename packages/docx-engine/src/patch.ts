@@ -1750,7 +1750,7 @@ export async function saveDocx(
     documentXml.slice(bodyContentEnd)
 
   const isNd30Doc =
-    /CỘNG HÒA XÃ HỘI|Độc lập\s*-\s*Tự do|TỜ TRÌNH|QUYẾT ĐỊNH|Kính gửi\s*:|Nơi nhận\s*:/i.test(
+    /CỘNG HÒA XÃ HỘI|Độc lập\s*-\s*Tự do|TỜ TRÌNH|QUYẾT ĐỊNH|Kính gửi\s*:|Nơi nhận\s*:|HỢP ĐỒNG|BIÊN BẢN|KẾ HOẠCH|MA TRẬN|BẢNG ĐẶC TẢ|PHIẾU ĐÁNH GIÁ|RUBRIC|BÁO CÁO|THÔNG BÁO|CÔNG VĂN|QUY CHẾ|GIÁO ÁN|ĐỀ KIỂM TRA/i.test(
       newDocumentXml,
     )
   if (isNd30Doc) {

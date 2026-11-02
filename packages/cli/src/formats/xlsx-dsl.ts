@@ -40,6 +40,7 @@ import {
   expandToPrimitiveOps,
   isLayoutOp,
   layoutOpLabel,
+  normalizeWorkbookOperationInput,
   structuralOpLabel,
   workbookOperationSchema,
   type WorkbookOperation,
@@ -698,7 +699,12 @@ function normalizeOp(
   idByName: Map<string, string>,
   fallbackId: string | undefined,
 ): NormalizedOp {
-  if (!raw || typeof raw !== 'object' || typeof (raw as { op?: unknown }).op !== 'string') {
+  const preNormalized = normalizeWorkbookOperationInput(raw)
+  if (
+    !preNormalized ||
+    typeof preNormalized !== 'object' ||
+    typeof (preNormalized as { op?: unknown }).op !== 'string'
+  ) {
     throw new CliError(
       EXIT.usage,
       `ops[${index}]: each op must be an object with an "op" name`,
@@ -706,7 +712,7 @@ function normalizeOp(
       { reason: 'invalid_argument' },
     )
   }
-  const op = { ...(raw as Record<string, unknown>), __index: index } as NormalizedOp
+  const op = { ...(preNormalized as Record<string, unknown>), __index: index } as NormalizedOp
   if (!(SUPPORTED_DSL_OPS as readonly string[]).includes(op.op)) {
     const reason = Object.hasOwn(REFUSED_DSL_OPS, op.op) ? REFUSED_DSL_OPS[op.op] : undefined
     const message = reason

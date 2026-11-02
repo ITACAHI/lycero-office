@@ -408,28 +408,68 @@ const TURN_LIMIT_NOTE =
 export const TOOL_ABORTED_OUTPUT =
   '(the user stopped the run while this tool was still executing; its result was discarded)'
 
+/** Hard per-tool execution timeout (180s) so stuck CLI/IPC calls never hang the loop (FX-02). */
+export const TOOL_EXECUTION_TIMEOUT_MS = 180_000
+
 const TOOL_ABORTED = Symbol('tool-aborted')
+
+/**
+ * FX-21 & FX-34: Strip leaked `<tool_call>` XML/special tokens and raw full HTML documents
+ * from assistant chat text so internal tool invocations or fallback HTML dumps never appear in chat.
+ */
+export function sanitizeAssistantText(text: string): string {
+  if (!text) return text
+  let cleaned = text
+    .replace(/<tool_call>[\s\S]*?(?:<\/tool_call>|$)/gi, '')
+    .replace(/<\|tool_call_start\|>[\s\S]*?(?:<\|tool_call_end\|>|$)/gi, '')
+    .replace(/<function=[a-zA-Z0-9_.-]+>[\s\S]*?(?:<\/function>|$)/gi, '')
+  if (
+    /(?:```html\s*)?<!DOCTYPE\s+html[\s>][\s\S]*?<\/html>(?:\s*```)?/i.test(cleaned) ||
+    /(?:```html\s*)?<html[\s>][\s\S]*?<body[\s>][\s\S]*?<\/html>(?:\s*```)?/i.test(cleaned)
+  ) {
+    cleaned = cleaned
+      .replace(/(?:```html\s*)?<!DOCTYPE\s+html[\s>][\s\S]*?<\/html>(?:\s*```)?/gi, '')
+      .replace(/(?:```html\s*)?<html[\s>][\s\S]*?<body[\s>][\s\S]*?<\/html>(?:\s*```)?/gi, '')
+      .trim()
+    if (!cleaned) {
+      return 'Đã xảy ra lỗi khi tạo tệp tài liệu. Vui lòng thử lại hoặc kiểm tra cấu hình công cụ.'
+    }
+  }
+  return cleaned
+}
 
 async function awaitToolOrAbort(
   tool: ToolExecution | Promise<ToolExecution>,
   signal: AbortSignal | undefined,
+  timeoutMs = TOOL_EXECUTION_TIMEOUT_MS,
 ): Promise<ToolExecution | typeof TOOL_ABORTED> {
-  if (!signal) return tool
-  if (signal.aborted) return TOOL_ABORTED
+  if (signal?.aborted) return TOOL_ABORTED
   const running = Promise.resolve(tool)
   return new Promise<ToolExecution | typeof TOOL_ABORTED>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      if (signal) signal.removeEventListener('abort', onAbort)
+      resolve({
+        output: `Tool execution timed out after ${Math.round(timeoutMs / 1000)}s`,
+        isError: true,
+        summary: 'timeout',
+      })
+      running.catch(() => undefined)
+    }, timeoutMs)
     const onAbort = (): void => {
+      clearTimeout(timer)
       resolve(TOOL_ABORTED)
       running.catch(() => undefined)
     }
-    signal.addEventListener('abort', onAbort, { once: true })
+    if (signal) signal.addEventListener('abort', onAbort, { once: true })
     running.then(
       (execution) => {
-        signal.removeEventListener('abort', onAbort)
+        clearTimeout(timer)
+        if (signal) signal.removeEventListener('abort', onAbort)
         resolve(execution)
       },
       (error: unknown) => {
-        signal.removeEventListener('abort', onAbort)
+        clearTimeout(timer)
+        if (signal) signal.removeEventListener('abort', onAbort)
         reject(error)
       },
     )
@@ -1045,7 +1085,7 @@ export class AgentLoop<TSnapshot = unknown> {
               return
             }
             try {
-              this.options.events?.onText?.(this.turnText)
+              this.options.events?.onText?.(sanitizeAssistantText(this.turnText))
             } catch (err) {
               // A transport drives onDelta from its own async event handler
               // (see the Electron IPC transport), so this throw never reaches
@@ -1200,12 +1240,13 @@ export class AgentLoop<TSnapshot = unknown> {
       // read-only empty turns poison follow-ups just the same. onDone still
       // reports the raw turn text so app UIs keep their localized fallbacks
       // instead of surfacing this English placeholder.
-      this.history.push({ role: 'assistant', text: this.turnText || COMPLETED_VIA_TOOLS_TEXT })
+      const cleanedTurnText = sanitizeAssistantText(this.turnText)
+      this.history.push({ role: 'assistant', text: cleanedTurnText || COMPLETED_VIA_TOOLS_TEXT })
       this.running = false
       this.runUserMsg = null
       this.mergeRunUsage()
       events?.onDone?.({
-        text: this.turnText,
+        text: cleanedTurnText,
         cancelled: this.cancelled,
         turnLimit: this.finalizing,
         // set only when true so exact-shape consumers/tests stay unaffected

@@ -693,6 +693,7 @@ function applyFontRange(
   to: number,
   node: PmDocNode,
   contentFrom: number,
+  inTable = false,
 ): void {
   const { tr, schema } = env
   for (const k of boolKeys) {
@@ -717,7 +718,8 @@ function applyFontRange(
   const preserveNd30Size =
     isBroadAiFontOp &&
     markPatch.sizeHalfPoints !== undefined &&
-    (/^-\s+(?:Như trên|Lưu\s*:)/i.test(nodeText) ||
+    (inTable ||
+      /^-\s+(?:Như trên|Lưu\s*:)/i.test(nodeText) ||
       /^Nơi nhận\s*:/i.test(nodeText) ||
       /^CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM$/i.test(nodeText) ||
       /^Độc lập\s*-\s*Tự do\s*-\s*Hạnh phúc$/i.test(nodeText) ||
@@ -763,6 +765,7 @@ function runSetFont(op: Op, env: RunEnv): OpResult {
       continue
     }
     const before = b.node
+    const inTable = b.node.type.name === 'docTable'
     for (const p of paragraphsIn(b, scoped)) {
       const contentFrom = p.pos + 1
       const contentTo = contentFrom + p.node.content.size
@@ -776,7 +779,7 @@ function runSetFont(op: Op, env: RunEnv): OpResult {
         (scoped && !b.node.isTextblock && scoped.from !== scoped.to
           ? Math.min(contentTo, scoped.to)
           : contentTo)
-      if (from < to) applyFontRange(env, op, boolKeys, markPatch, from, to, p.node, contentFrom)
+      if (from < to) applyFontRange(env, op, boolKeys, markPatch, from, to, p.node, contentFrom, inTable)
     }
     const after = tr.doc.nodeAt(b.pos)
     if (after && !after.eq(before)) {

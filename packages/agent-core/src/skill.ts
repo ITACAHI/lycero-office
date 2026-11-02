@@ -59,6 +59,9 @@ export function composeSkills(id: string, intro: string, skills: AgentSkill[]): 
     skills.find((skill) => skill.tools.some((tool) => tool.name === name))
   return {
     id,
+    get slug() {
+      return skills.find((s) => s.slug)?.slug
+    },
     // live like tools: a sub-skill's prompt may vary with the same capability its tools key on
     get systemPrompt() {
       return [intro, ...skills.map((s) => s.systemPrompt)].filter(Boolean).join('\n\n')

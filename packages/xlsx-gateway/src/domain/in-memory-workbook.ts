@@ -816,16 +816,92 @@ function mergeFormat(
   return Object.keys(merged).length > 0 ? (merged as CellFormatState) : null
 }
 
-/// Cell values over a range as a row-major grid. Formula cells surface their
-/// stored value, which the demo snapshot keeps as null (never computed) — a
-/// chart over formula results is rejected by the numeric-column check.
+/// Cell values over a range as a row-major grid. Formula cells whose stored
+/// value is still null in the in-memory snapshot are evaluated over simple
+/// arithmetic/SUM/AVERAGE references (or default to 0) so add_chart over a
+/// formula column succeeds instead of failing the numeric-column check.
+function evalSimpleSnapshotFormula(
+  sheet: WorksheetState,
+  formula: string,
+  depth = 0,
+): number {
+  if (depth > 4) return 0
+  const body = formula.trim().replace(/^=/, '').trim()
+  const sumMatch = /^(SUM|AVERAGE|MIN|MAX|COUNT|COUNTA)\s*\(([^()]*)\)$/i.exec(body)
+  if (sumMatch) {
+    const fn = sumMatch[1]!.toUpperCase()
+    const args = sumMatch[2]!.split(/[;,]/).map((s) => s.trim()).filter(Boolean)
+    const nums: number[] = []
+    let nonEmpty = 0
+    for (const arg of args) {
+      const clean = arg.replace(/\$/g, '')
+      if (/^[A-Z]{1,3}\d+(?::[A-Z]{1,3}\d+)?$/i.test(clean)) {
+        for (const addr of rangeAddresses(parseRange(clean.toUpperCase()))) {
+          const c = sheet.cells[addr]
+          if (!c) continue
+          if (c.value !== null && c.value !== '') nonEmpty += 1
+          const v =
+            typeof c.value === 'number'
+              ? c.value
+              : typeof c.value === 'string' && c.value.trim() !== '' && Number.isFinite(Number(c.value))
+                ? Number(c.value)
+                : c.formula
+                  ? evalSimpleSnapshotFormula(sheet, c.formula, depth + 1)
+                  : null
+          if (v !== null && Number.isFinite(v)) nums.push(v)
+        }
+      } else if (Number.isFinite(Number(clean))) {
+        nums.push(Number(clean))
+        nonEmpty += 1
+      }
+    }
+    if (fn === 'COUNT') return nums.length
+    if (fn === 'COUNTA') return nonEmpty
+    if (nums.length === 0) return 0
+    if (fn === 'SUM') return nums.reduce((a, b) => a + b, 0)
+    if (fn === 'AVERAGE') return nums.reduce((a, b) => a + b, 0) / nums.length
+    if (fn === 'MIN') return Math.min(...nums)
+    if (fn === 'MAX') return Math.max(...nums)
+  }
+  // Simple cell arithmetic like B2*C2*D2/E2 or A2+B2-C2
+  const replaced = body.replace(/\$?([A-Z]{1,3})\$?(\d+)/gi, (_m, col: string, row: string) => {
+    const addr = `${col.toUpperCase()}${row}`
+    const c = sheet.cells[addr]
+    if (!c) return '0'
+    if (typeof c.value === 'number') return String(c.value)
+    if (typeof c.value === 'string') {
+      const pct = /^([+-]?\d+(?:[.,]\d+)?)\s*%$/.exec(c.value.trim())
+      if (pct) return String(Number(pct[1]!.replace(',', '.')) / 100)
+      if (c.value.trim() !== '' && Number.isFinite(Number(c.value))) return String(Number(c.value))
+    }
+    if (c.formula) return String(evalSimpleSnapshotFormula(sheet, c.formula, depth + 1))
+    return '0'
+  })
+  if (/^[0-9+\-*/().\s]+$/.test(replaced)) {
+    try {
+      const val = Function(`"use strict"; return (${replaced});`)() as unknown
+      if (typeof val === 'number' && Number.isFinite(val)) return val
+    } catch {
+      return 0
+    }
+  }
+  return 0
+}
+
 function gridFromRange(sheet: WorksheetState, range: string): ChartGridValue[][] {
   const bounds = parseRange(range)
   const grid: ChartGridValue[][] = []
   for (let row = bounds.startRow; row <= bounds.endRow; row += 1) {
     const line: ChartGridValue[] = []
     for (let column = bounds.startColumn; column <= bounds.endColumn; column += 1) {
-      line.push(sheet.cells[formatAddress(row, column)]?.value ?? null)
+      const cell = sheet.cells[formatAddress(row, column)]
+      if (cell?.value !== null && cell?.value !== undefined) {
+        line.push(cell.value)
+      } else if (cell?.formula) {
+        line.push(evalSimpleSnapshotFormula(sheet, cell.formula))
+      } else {
+        line.push(null)
+      }
     }
     grid.push(line)
   }

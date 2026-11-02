@@ -8,6 +8,7 @@ import type { AgentToolCall, AgentToolDef } from '@lycero/agent-core'
 import {
   copyTargetBounds,
   describeOperationErrors,
+  normalizeWorkbookOperationInput,
   workbookOperationSchema,
   type WorkbookOperation,
 } from '@lycero/xlsx-gateway/domain/workbook-dsl'
@@ -269,7 +270,7 @@ const MAX_AGGREGATE_CELLS = 1_000_000
 const MAX_AGGREGATE_TOP_VALUES = 50
 const DEFAULT_AGGREGATE_TOP_VALUES = 10
 /** Read-back after write: max number of formula cells whose results are read back */
-const MAX_READBACK_FORMULAS = 10
+const MAX_READBACK_FORMULAS = 60
 /** Read-back after write: wait time (ms) for Univer's async formula recalc */
 const FORMULA_RECALC_DELAY_MS = 300
 const MAX_READ_FORMAT_CELLS = 200
@@ -1343,9 +1344,13 @@ export function executeWorkbookTool(
       if (typeof summaryInput !== 'string' || !summaryInput.trim()) {
         return fail(t('aiToolPropose'), 'summary must not be empty')
       }
-      const parsedOps = z.array(workbookOperationSchema).safeParse(rawOps)
+      const normalizedRawOps = rawOps.map((op) => normalizeWorkbookOperationInput(op))
+      const parsedOps = z.array(workbookOperationSchema).safeParse(normalizedRawOps)
       if (!parsedOps.success) {
-        return fail(t('aiToolPropose'), describeOperationErrors(rawOps, parsedOps.error))
+        return fail(
+          t('aiToolPropose'),
+          `[OP_ERRORS_DETECTED]\n${describeOperationErrors(normalizedRawOps, parsedOps.error)}\nCRITICAL (FX-19): Do NOT claim in chat that these operations (such as add_chart, conditional formatting, or edits) succeeded. Fix and resubmit, or report the exact failure to the user.`,
+        )
       }
       const operations: WorkbookOperation[] = parsedOps.data
       // A cell the reader withheld still holds real data the model never saw,
@@ -1362,14 +1367,14 @@ export function executeWorkbookTool(
       if (refusal) {
         return fail(
           t('aiToolPropose'),
-          `Rejected — none of the ${operations.length} operation(s) were applied (a batch is all-or-nothing): ${refusal.reason}`,
+          `[OP_ERRORS_DETECTED]\nRejected — none of the ${operations.length} operation(s) were applied (a batch is all-or-nothing): ${refusal.reason}`,
         )
       }
       const outcome = deps.proposeOperations(operations, summaryInput.trim())
       if (!outcome.ok) {
         return fail(
           t('aiToolPropose'),
-          `Rejected — none of the ${operations.length} operation(s) were applied (a batch is all-or-nothing): ${outcome.error}`,
+          `[OP_ERRORS_DETECTED]\nRejected — none of the ${operations.length} operation(s) were applied (a batch is all-or-nothing): ${outcome.error}\nCRITICAL (FX-19): Do NOT claim in chat that these operations succeeded. Fix and retry, or report the failure honestly.`,
         )
       }
       const summary = summaryInput.trim()
@@ -1405,11 +1410,21 @@ export function executeWorkbookTool(
           if (last !== first) formulaCells.push({ sheetId: op.sheetId, address: last })
         }
         if (formulaCells.length === 0) {
-          return { output: base, mutated: true, summary }
+          return {
+            output: `${base}\n[READBACK_VERIFIED_VALUES]\nNo formula cells modified; ${outcome.plan.cellChanges.length} cell(s) and ${outcome.plan.formatChanges.length} format range(s) verified.`,
+            mutated: true,
+            summary,
+          }
         }
         return (async (): Promise<ToolExecution> => {
           await new Promise((resolve) => setTimeout(resolve, FORMULA_RECALC_DELAY_MS))
-          const shown = formulaCells.slice(0, MAX_READBACK_FORMULAS)
+          const shown =
+            formulaCells.length <= MAX_READBACK_FORMULAS
+              ? formulaCells
+              : [
+                  ...formulaCells.slice(0, Math.floor(MAX_READBACK_FORMULAS / 2)),
+                  ...formulaCells.slice(-Math.ceil(MAX_READBACK_FORMULAS / 2)),
+                ]
           // Cells are read per target sheet (operations may span sheets);
           // addresses are prefixed with the sheet name only when they do.
           const bySheet = new Map<string, string[]>()
@@ -1441,7 +1456,8 @@ export function executeWorkbookTool(
           )
           return {
             output:
-              `${base}\nFormula results: ${lines.join('; ')}${rest > 0 ? `; …${rest} more formula cells` : ''}` +
+              `${base}\n[READBACK_VERIFIED_VALUES]\nFormula results: ${lines.join('; ')}${rest > 0 ? `; …${rest} more formula cells` : ''}` +
+              `\nCRITICAL (FX-01): Cite ONLY the verified numbers from [READBACK_VERIFIED_VALUES] above in your response.` +
               (hasError
                 ? '\n⚠️ Formula error values present — check references/divisors and fix them.'
                 : ''),
@@ -1457,12 +1473,12 @@ export function executeWorkbookTool(
         return fail(
           t('aiToolPropose'),
           applied.partiallyApplied
-            ? `Apply failed MID-BATCH — operations before the failing one were already committed: ${reason}. ` +
+            ? `[OP_ERRORS_DETECTED]\nApply failed MID-BATCH — operations before the failing one were already committed: ${reason}. ` +
                 'Read the affected ranges to see the current state before continuing; ' +
                 (applied.undoDropped
                   ? 'the committed part is too large for the undo history — ⌘Z will NOT revert it.'
                   : 'the whole partial batch is one undo step (⌘Z / [Undo]).')
-            : `Apply failed — the workbook is UNCHANGED: ${reason}. ` +
+            : `[OP_ERRORS_DETECTED]\nApply failed — the workbook is UNCHANGED: ${reason}. ` +
                 'Do not tell the user the changes were made; adjust the operations and retry, or explain the failure.',
         )
       })

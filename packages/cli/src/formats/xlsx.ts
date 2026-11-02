@@ -12,6 +12,7 @@ import {
   parseCsv,
 } from '@lycero/xlsx-gateway/gateway/csv-import'
 import { columnLabel, parseAddress, parseRange } from '@lycero/xlsx-gateway/domain/cell-address'
+import { sanitizeExcelFormula } from '@lycero/xlsx-gateway/domain/workbook-dsl'
 import {
   assembleWithJsZip,
   createBufferEntrySource,
@@ -1082,16 +1083,75 @@ export async function blankWorkbook(sheetName = 'Sheet1'): Promise<Buffer> {
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
 }
 
+const PERCENT_STRING_RE = /^\s*([+-]?\d+(?:[.,]\d+)?)\s*%\s*$/
+const PERCENT_HEADER_RE =
+  /%|tỷ\s*lệ|tỉ\s*lệ|phần\s*trăm|hoàn\s*thành|progress|weight|trọng\s*số|\bconfidence\b|độ\s*tự\s*tin|độ\s*tin\s*cậy/i
+const CONFIDENCE_HEADER_RE = /\bconfidence\b|độ\s*tự\s*tin|độ\s*tin\s*cậy/i
+
+function applyAutoPercentageColumnFormats(
+  rows: Scalar[][],
+  formats: Record<string, string>,
+): void {
+  if (rows.length < 2) return
+  const width = rows.reduce((max, r) => Math.max(max, r.length), 0)
+  for (let c = 0; c < width; c += 1) {
+    let headerRow = -1
+    for (let r = 0; r < Math.min(rows.length, 4); r += 1) {
+      const h = rows[r]?.[c]
+      if (typeof h === 'string' && PERCENT_HEADER_RE.test(h)) {
+        headerRow = r
+        break
+      }
+    }
+    if (headerRow < 0) continue
+    const dataNums: number[] = []
+    for (let r = headerRow + 1; r < rows.length; r += 1) {
+      const val = rows[r]?.[c]
+      if (typeof val === 'number' && Number.isFinite(val)) dataNums.push(val)
+    }
+    const isRatioColumn =
+      dataNums.length > 0 &&
+      dataNums.every((n) => n >= 0 && n <= 1) &&
+      dataNums.some((n) => n > 0 && n < 1)
+    if (!isRatioColumn) continue
+    for (let r = headerRow + 1; r < rows.length; r += 1) {
+      const val = rows[r]?.[c]
+      const key = `${r}:${c}`
+      if (typeof val === 'number' && val >= 0 && val <= 1 && !formats[key]) {
+        formats[key] = '0.0%'
+      }
+    }
+  }
+}
+
+const isFormulaCellInput = (s: string): boolean =>
+  (s.startsWith('=') && s.length > 1 && !/^=+$/.test(s)) ||
+  /^'=\s*[A-Za-z0-9($+-]/.test(s.trim())
+
 /** CSV → table; numeric-looking cells become numbers like the app's importer. */
 export function csvTable(bytes: Uint8Array, name: string, opts: CsvTableOptions = {}): TableInput {
   const formats: Record<string, string> = {}
   const rows = parseCsv(decodeCsvBuffer(bytes)).map((r, rowIndex) =>
     r.map((v, columnIndex) => {
+      if (typeof v === 'string' && isFormulaCellInput(v)) {
+        return sanitizeExcelFormula(v, toA1Address(rowIndex, columnIndex))
+      }
+      const pct = PERCENT_STRING_RE.exec(v)
+      if (pct) {
+        const parsed = Number(pct[1]!.replace(',', '.'))
+        if (Number.isFinite(parsed)) {
+          formats[`${rowIndex}:${columnIndex}`] = '0.0%'
+          return parsed / 100
+        }
+      }
       if (opts.decimal === ',') {
         const n = commaDecimalNumber(v)
         if (n !== undefined) return n
       } else if (isNumericCell(v)) {
         return Number(v)
+      } else if (/^-?\d+,\d+$/.test(v.trim())) {
+        const n = Number(v.trim().replace(',', '.'))
+        if (Number.isFinite(n)) return n
       }
       const date = isoDateSerial(v)
       if (!date) return v
@@ -1099,6 +1159,7 @@ export function csvTable(bytes: Uint8Array, name: string, opts: CsvTableOptions 
       return date.serial
     }),
   )
+  applyAutoPercentageColumnFormats(rows, formats)
   return Object.keys(formats).length ? { name, rows, formats } : { name, rows }
 }
 
@@ -1107,13 +1168,29 @@ export function jsonTable(name: string, rawRows: Scalar[][]): TableInput {
   const formats: Record<string, string> = {}
   const rows = rawRows.map((r, rowIndex) =>
     r.map((v, columnIndex) => {
-      if (typeof v !== 'string' || v.startsWith('=')) return v
+      if (typeof v !== 'string') return v
+      if (isFormulaCellInput(v)) {
+        return sanitizeExcelFormula(v, toA1Address(rowIndex, columnIndex))
+      }
+      const pct = PERCENT_STRING_RE.exec(v)
+      if (pct) {
+        const parsed = Number(pct[1]!.replace(',', '.'))
+        if (Number.isFinite(parsed)) {
+          formats[`${rowIndex}:${columnIndex}`] = '0.0%'
+          return parsed / 100
+        }
+      }
+      if (/^-?\d+,\d+$/.test(v.trim())) {
+        const n = Number(v.trim().replace(',', '.'))
+        if (Number.isFinite(n)) return n
+      }
       const date = isoDateSerial(v)
       if (!date) return v
       formats[`${rowIndex}:${columnIndex}`] = date.format
       return date.serial
     }),
   )
+  applyAutoPercentageColumnFormats(rows, formats)
   return Object.keys(formats).length ? { name, rows, formats } : { name, rows }
 }
 
@@ -1140,14 +1217,31 @@ function cellEdit(
   raw: Scalar,
   style?: WorkbookStyleEdit,
 ): CellEdit {
-  const formula = typeof raw === 'string' && raw.startsWith('=') ? raw : undefined
+  let effectiveRaw = raw
+  let effectiveStyle = style
+  if (typeof effectiveRaw === 'string') {
+    const pct = PERCENT_STRING_RE.exec(effectiveRaw)
+    if (pct) {
+      const parsed = Number(pct[1]!.replace(',', '.'))
+      if (Number.isFinite(parsed)) {
+        effectiveRaw = parsed / 100
+        if (!effectiveStyle?.numberFormat) {
+          effectiveStyle = { ...effectiveStyle, numberFormat: '0.0%' }
+        }
+      }
+    }
+  }
+  const formula =
+    typeof effectiveRaw === 'string' && isFormulaCellInput(effectiveRaw)
+      ? sanitizeExcelFormula(effectiveRaw, toA1Address(row, column))
+      : undefined
   return {
     sheetName: sheet,
     row,
     column,
     writeValue: true,
-    cell: formula ? { value: null, formula } : { value: raw },
-    ...(style ? { style } : {}),
+    cell: formula ? { value: null, formula } : { value: effectiveRaw },
+    ...(effectiveStyle ? { style: effectiveStyle } : {}),
   }
 }
 
@@ -1168,14 +1262,26 @@ export function cellEditsFromInputs(inputs: CellInput[], defaultSheet: string): 
     }
     const raw: Scalar =
       input.formula !== undefined
-        ? input.formula.startsWith('=')
-          ? input.formula
-          : `=${input.formula}`
+        ? sanitizeExcelFormula(input.formula, input.cell)
         : (input.value ?? null)
     const styleOnly = input.value === undefined && input.formula === undefined
     const edit = cellEdit(input.sheet ?? defaultSheet, coords.row, coords.column, raw, input.style)
     return styleOnly ? { ...edit, writeValue: false } : edit
   })
+}
+
+export interface ReadbackVerifiedValues {
+  formula_results: Record<string, { formula: string; value: Scalar }>
+  summary_rows: { sheet: string; row: number; values: Record<string, Scalar> }[]
+  applied_features: {
+    sheets: number
+    cells_written: number
+    formulas: number
+    charts: number
+    conditional_formats: number
+    data_validations: number
+    styled_cells: number
+  }
 }
 
 export interface WriteOutcome {
@@ -1192,6 +1298,171 @@ export interface WriteOutcome {
   formulaError?: string
   /** side effects a program should know about that are not formula related */
   notes?: { code: string; message: string }[]
+  /** Verified post-write readback values for mandatory AI citation (FX-01) */
+  readbackVerifiedValues?: ReadbackVerifiedValues
+}
+
+function buildReadbackVerifiedValues(
+  snapshotBySheet: ReadonlyMap<string, Record<string, { value: Scalar; formula?: string }>>,
+  edits: readonly CellEdit[],
+  gateway: GatewayPayloads,
+  formulaCells: readonly CellEdit[],
+): ReadbackVerifiedValues {
+  const formulaResults: Record<string, { formula: string; value: Scalar }> = {}
+  for (const [sheetName, cells] of snapshotBySheet) {
+    for (const [addr, cell] of Object.entries(cells)) {
+      if (cell.formula) {
+        formulaResults[`${sheetName}!${addr}`] = {
+          formula: cell.formula.startsWith('=') ? cell.formula : `=${cell.formula}`,
+          value: cell.value ?? null,
+        }
+      }
+    }
+  }
+  const summaryRows: { sheet: string; row: number; values: Record<string, Scalar> }[] = []
+  const SUMMARY_LABEL_RE =
+    /\b(tổng|total|cộng|sum|trung\s*bình|average|tb|chênh\s*lệch|tỷ\s*lệ|tỉ\s*lệ|grand\s*total|subtotal)\b/i
+  for (const [sheetName, cells] of snapshotBySheet) {
+    const byRow = new Map<number, Record<string, Scalar>>()
+    for (const [addr, cell] of Object.entries(cells)) {
+      if (cell.value === null || cell.value === undefined || cell.value === '') continue
+      try {
+        const { row } = parseAddress(addr)
+        const rowMap = byRow.get(row + 1) ?? {}
+        rowMap[addr] = cell.value
+        byRow.set(row + 1, rowMap)
+      } catch {
+        // ignore
+      }
+    }
+    for (const [rowNum, rowMap] of [...byRow.entries()].sort((a, b) => a[0] - b[0])) {
+      const hasSummaryLabel = Object.values(rowMap).some(
+        (v) => typeof v === 'string' && SUMMARY_LABEL_RE.test(v),
+      )
+      const isLastRow = rowNum === Math.max(...byRow.keys()) && Object.keys(rowMap).length >= 2
+      if (hasSummaryLabel || isLastRow) {
+        summaryRows.push({ sheet: sheetName, row: rowNum, values: rowMap })
+      }
+    }
+  }
+  return {
+    formula_results: formulaResults,
+    summary_rows: summaryRows.slice(-20),
+    applied_features: {
+      sheets: Math.max(1, snapshotBySheet.size),
+      cells_written: edits.length,
+      formulas: Math.max(formulaCells.length, Object.keys(formulaResults).length),
+      charts:
+        gateway.visualAdditions.filter((v) => v.chart).length + gateway.chartEdits.length,
+      conditional_formats: gateway.cfStates.reduce((n, s) => n + s.rules.length, 0),
+      data_validations: gateway.dvStates.reduce((n, s) => n + s.rules.length, 0),
+      styled_cells: edits.filter((e) => e.style && Object.keys(e.style).length > 0).length,
+    },
+  }
+}
+
+/**
+ * Enriches edits and gateway payloads when a sheet contains a `Confidence`
+ * column (`FX-41`: Data Validation 1–10) or ratio/percentage columns (`FX-33`: `0.0%`).
+ */
+function enrichConfidenceAndPercentageColumns(
+  edits: readonly CellEdit[],
+  gateway: GatewayPayloads,
+): { edits: readonly CellEdit[]; gateway: GatewayPayloads } {
+  const bySheet = new Map<string, CellEdit[]>()
+  for (const e of edits) {
+    bySheet.set(e.sheetName, [...(bySheet.get(e.sheetName) ?? []), e])
+  }
+  const extraEdits: CellEdit[] = [...edits]
+  const editIndexByKey = new Map<string, number>()
+  extraEdits.forEach((e, idx) => editIndexByKey.set(`${e.sheetName}|${e.row}|${e.column}`, idx))
+  const extraDvStates = [...gateway.dvStates.map((s) => ({ ...s, rules: [...s.rules] }))]
+
+  for (const [sheetName, sheetEdits] of bySheet) {
+    const cellMap = new Map<string, CellEdit>()
+    let maxRow = 0
+    let maxCol = 0
+    for (const e of sheetEdits) {
+      cellMap.set(`${e.row}:${e.column}`, e)
+      if (e.row > maxRow) maxRow = e.row
+      if (e.column > maxCol) maxCol = e.column
+    }
+    if (maxRow < 1) continue
+    for (let c = 0; c <= maxCol; c += 1) {
+      let headerRow = -1
+      let headerText = ''
+      for (let r = 0; r <= Math.min(maxRow, 4); r += 1) {
+        const val = cellMap.get(`${r}:${c}`)?.cell.value
+        if (typeof val === 'string' && PERCENT_HEADER_RE.test(val)) {
+          headerRow = r
+          headerText = val
+          break
+        }
+      }
+      if (headerRow < 0) continue
+      const dataRows: { row: number; num: number }[] = []
+      for (let r = headerRow + 1; r <= maxRow; r += 1) {
+        const e = cellMap.get(`${r}:${c}`)
+        if (!e || e.cell.formula) continue
+        if (typeof e.cell.value === 'number' && Number.isFinite(e.cell.value)) {
+          dataRows.push({ row: r, num: e.cell.value })
+        }
+      }
+      // 1. Auto 0.0% formatting for ratio columns (0 <= v <= 1 with at least one < 1)
+      const isRatio =
+        dataRows.length > 0 &&
+        dataRows.every((d) => d.num >= 0 && d.num <= 1) &&
+        dataRows.some((d) => d.num > 0 && d.num < 1)
+      if (isRatio) {
+        for (const d of dataRows) {
+          const key = `${sheetName}|${d.row}|${c}`
+          const idx = editIndexByKey.get(key)
+          if (idx !== undefined) {
+            const current = extraEdits[idx]!
+            if (!current.style?.numberFormat) {
+              extraEdits[idx] = {
+                ...current,
+                style: { ...current.style, numberFormat: '0.0%' },
+              }
+            }
+          }
+        }
+      }
+      // 2. Auto Data Validation 1-10 for Confidence column (FX-41)
+      if (CONFIDENCE_HEADER_RE.test(headerText) && dataRows.length > 0) {
+        const startRow = headerRow + 1
+        const endRow = Math.max(...dataRows.map((d) => d.row))
+        const bounds: Bounds = { startRow, endRow, startColumn: c, endColumn: c }
+        let dvSheet = extraDvStates.find((s) => s.sheetName === sheetName)
+        const alreadyHasDv = dvSheet?.rules.some((r) =>
+          r.ranges.some((rg) => rg.startColumn <= c && rg.endColumn >= c),
+        )
+        if (!alreadyHasDv) {
+          const rule = {
+            ranges: [bounds],
+            rule: {
+              allowBlank: true,
+              showErrorMessage: true,
+              type: 'decimal' as const,
+              operator: 'between' as const,
+              formula1: '1',
+              formula2: '10',
+            },
+          }
+          if (dvSheet) {
+            dvSheet.rules.push(rule)
+          } else {
+            dvSheet = { sheetName, rules: [rule], append: true, remove: [] }
+            extraDvStates.push(dvSheet)
+          }
+        }
+      }
+    }
+  }
+  return {
+    edits: extraEdits,
+    gateway: { ...gateway, dvStates: extraDvStates },
+  }
 }
 
 /**
@@ -1214,7 +1485,10 @@ export async function writeWorkbook(
     gateway?: GatewayPayloads
   } = {},
 ): Promise<WriteOutcome> {
-  const { plan, structuralOps = [], renames = {}, gateway = EMPTY_PAYLOADS } = opts
+  const { plan, structuralOps = [], renames = {} } = opts
+  const enriched = enrichConfidenceAndPercentageColumns(edits, opts.gateway ?? EMPTY_PAYLOADS)
+  edits = enriched.edits
+  const gateway = enriched.gateway
   const notes: { code: string; message: string }[] = []
   if (edits.some((e) => e.style && styleHasThemeColor(e.style)) && !(await hasThemePart(source))) {
     // without xl/theme/theme1.xml Excel has no palette to resolve a slot against
@@ -1302,14 +1576,30 @@ export async function writeWorkbook(
       snapshotBySheet = new Map()
     }
   }
-  if (allFormulaCells.length === 0) return { ...base, cachedValues: true }
+  const withReadback = (outcome: WriteOutcome): WriteOutcome => ({
+    ...outcome,
+    readbackVerifiedValues: buildReadbackVerifiedValues(
+      snapshotBySheet,
+      edits,
+      gateway,
+      allFormulaCells,
+    ),
+  })
+  if (allFormulaCells.length === 0) return withReadback({ ...base, cachedValues: true })
   if (!xlsxSidecarPath()) {
-    if (writtenFormulaCells.length === 0) return { ...base, cachedValues: true }
-    return {
+    // Evaluate formulas via JS fallback when sidecar is unavailable so cachedValues still populate
+    const fallbackValues = evaluateFormulasFallbackOnly(allFormulaCells, renames, snapshotBySheet)
+    if (fallbackValues.length > 0) {
+      const second = await save(fallbackValues)
+      await atomicWriteFile(outputPath, second.buffer)
+      return withReadback({ ...base, cachedValues: true })
+    }
+    if (writtenFormulaCells.length === 0) return withReadback({ ...base, cachedValues: true })
+    return withReadback({
       ...base,
       cachedValues: false,
       warning: 'xlsx engine not found; formulas recalculate on open',
-    }
+    })
   }
   try {
     const { values, uncached, unparsed } = await evaluateFormulas(
@@ -1323,10 +1613,10 @@ export async function writeWorkbook(
       const second = await save(values)
       await atomicWriteFile(outputPath, second.buffer)
       if (writtenFormulaCells.length === 0 || (uncached.length === 0 && unparsed.length === 0)) {
-        return { ...base, cachedValues: true }
+        return withReadback({ ...base, cachedValues: true })
       }
       const skipped = uncached.length + unparsed.length
-      return {
+      return withReadback({
         ...base,
         cachedValues: skipped < writtenFormulaCells.length,
         ...(uncached.length ? { uncached } : {}),
@@ -1341,24 +1631,65 @@ export async function writeWorkbook(
               formulaError: `${unparsed.length} formula(s) the local engine could not parse (${list(unparsed)}); check their references — they have no cached value and recalculate on open`,
             }
           : {}),
-      }
+      })
     }
-    if (writtenFormulaCells.length === 0) return { ...base, cachedValues: true }
-    return {
+    if (writtenFormulaCells.length === 0) return withReadback({ ...base, cachedValues: true })
+    return withReadback({
       ...base,
       cachedValues: false,
       warning:
         'the engine returned no results for the written formulas; the file recalculates on open',
-    }
+    })
   } catch (err) {
-    if (writtenFormulaCells.length === 0) return { ...base, cachedValues: true }
+    const fallbackValues = evaluateFormulasFallbackOnly(allFormulaCells, renames, snapshotBySheet)
+    if (fallbackValues.length > 0) {
+      const second = await save(fallbackValues)
+      await atomicWriteFile(outputPath, second.buffer)
+      return withReadback({ ...base, cachedValues: true })
+    }
+    if (writtenFormulaCells.length === 0) return withReadback({ ...base, cachedValues: true })
     const message = err instanceof Error ? err.message : String(err)
-    return {
+    return withReadback({
       ...base,
       cachedValues: false,
       warning: `formula results not cached (${message}); the file is complete and recalculates on open`,
+    })
+  }
+}
+
+function evaluateFormulasFallbackOnly(
+  formulaCells: readonly CellEdit[],
+  renames: Record<string, string>,
+  snapshotBySheet: ReadonlyMap<string, Record<string, { value: Scalar; formula?: string }>>,
+): SheetFormulaValues[] {
+  const bySheet = new Map<string, CellEdit[]>()
+  for (const e of formulaCells) bySheet.set(e.sheetName, [...(bySheet.get(e.sheetName) ?? []), e])
+  const out: SheetFormulaValues[] = []
+  for (const [sheet, cells] of bySheet) {
+    const writtenSheet = renames[sheet] ?? sheet
+    const sheetCells = snapshotBySheet.get(writtenSheet)
+    const sorted = [...cells].sort((a, b) => a.row - b.row || a.column - b.column)
+    const evaluatedCells: { row: number; column: number; value: Scalar }[] = []
+    for (const c of sorted) {
+      const val = tryEvaluateFallbackFormula(
+        c.cell.formula ?? '',
+        writtenSheet,
+        snapshotBySheet,
+        UNPARSED_RESULT,
+      )
+      if (val !== undefined) {
+        if (sheetCells) {
+          const addr = toA1Address(c.row, c.column)
+          sheetCells[addr] = { ...sheetCells[addr], value: val }
+        }
+        evaluatedCells.push({ row: c.row, column: c.column, value: val })
+      }
+    }
+    if (evaluatedCells.length > 0) {
+      out.push({ sheetName: sheet, cells: evaluatedCells })
     }
   }
+  return out
 }
 
 /**
@@ -1409,41 +1740,46 @@ async function evaluateFormulas(
           }
         }
       }
-      const values = evaluated
+      const matched = evaluated
         .filter((cell) => formulaMap.has(`${originalName(cell.sheet)} ${cell.row} ${cell.column}`))
-        .map((cell) => {
-          const cellKey = `${originalName(cell.sheet)} ${cell.row} ${cell.column}`
-          const isWritten = writtenKeys.has(cellKey)
-          const rawFormula = formulaMap.get(cellKey) ?? ''
-          const fallbackVal = tryEvaluateFallbackFormula(
-            rawFormula,
-            writtenSheet,
-            snapshotBySheet,
-            cell.formatted,
-          )
-          if (fallbackVal !== undefined) {
-            return { row: cell.row, column: cell.column, value: fallbackVal }
+        .sort((a, b) => a.row - b.row || a.column - b.column)
+      const values = matched.map((cell) => {
+        const cellKey = `${originalName(cell.sheet)} ${cell.row} ${cell.column}`
+        const isWritten = writtenKeys.has(cellKey)
+        const rawFormula = formulaMap.get(cellKey) ?? ''
+        const fallbackVal = tryEvaluateFallbackFormula(
+          rawFormula,
+          writtenSheet,
+          snapshotBySheet,
+          cell.isError ? UNPARSED_RESULT : cell.formatted,
+        )
+        if (fallbackVal !== undefined) {
+          if (sheetCells) {
+            const addr = toA1Address(cell.row, cell.column)
+            sheetCells[addr] = { ...sheetCells[addr], value: fallbackVal }
           }
-          // Both leave the cell without a cached value — the file is correct
-          // and Excel recomputes on open — but they have different causes and
-          // the caller reports them apart.
-          if (cell.formatted === UNKNOWN_FUNCTION_RESULT) {
-            if (isWritten) uncached.push(`${sheet}!${toA1Address(cell.row, cell.column)}`)
-            return { row: cell.row, column: cell.column, value: null }
-          }
-          if (cell.formatted === UNPARSED_RESULT) {
-            if (isWritten) unparsed.push(`${sheet}!${toA1Address(cell.row, cell.column)}`)
-            return { row: cell.row, column: cell.column, value: null }
-          }
-          if (cell.isError) {
-            return { row: cell.row, column: cell.column, value: { error: cell.formatted } }
-          }
-          return {
-            row: cell.row,
-            column: cell.column,
-            value: (cell.number ?? (cell.formatted === '' ? null : cell.formatted)) as Scalar,
-          }
-        })
+          return { row: cell.row, column: cell.column, value: fallbackVal }
+        }
+        // Both leave the cell without a cached value — the file is correct
+        // and Excel recomputes on open — but they have different causes and
+        // the caller reports them apart.
+        if (cell.formatted === UNKNOWN_FUNCTION_RESULT) {
+          if (isWritten) uncached.push(`${sheet}!${toA1Address(cell.row, cell.column)}`)
+          return { row: cell.row, column: cell.column, value: null }
+        }
+        if (cell.formatted === UNPARSED_RESULT) {
+          if (isWritten) unparsed.push(`${sheet}!${toA1Address(cell.row, cell.column)}`)
+          return { row: cell.row, column: cell.column, value: null }
+        }
+        if (cell.isError) {
+          return { row: cell.row, column: cell.column, value: { error: cell.formatted } }
+        }
+        return {
+          row: cell.row,
+          column: cell.column,
+          value: (cell.number ?? (cell.formatted === '' ? null : cell.formatted)) as Scalar,
+        }
+      })
       // the refresh is keyed like the edits, by the file's original sheet name
       if (values.length) out.push({ sheetName: sheet, cells: values })
     }
@@ -1467,7 +1803,7 @@ function splitFormulaArgs(inner: string): string[] {
     } else if (!inQuotes) {
       if (ch === '(') depth += 1
       else if (ch === ')') depth = Math.max(0, depth - 1)
-      else if (ch === ',' && depth === 0) {
+      else if ((ch === ',' || ch === ';') && depth === 0) {
         args.push(inner.slice(start, i).trim())
         start = i + 1
       }
@@ -1492,12 +1828,103 @@ function resolveSheetAndRef(
 function toNumberOrDate(v: Scalar): number | null {
   if (typeof v === 'number') return Number.isFinite(v) ? v : null
   if (typeof v === 'string') {
+    const pct = PERCENT_STRING_RE.exec(v)
+    if (pct) {
+      const n = Number(pct[1]!.replace(',', '.'))
+      if (Number.isFinite(n)) return n / 100
+    }
     const d = isoDateSerial(v)
     if (d) return d.serial
     const trimmed = v.trim()
     if (isNumericCell(trimmed)) return Number(trimmed)
+    if (/^-?\d+,\d+$/.test(trimmed)) {
+      const n = Number(trimmed.replace(',', '.'))
+      if (Number.isFinite(n)) return n
+    }
   }
   return null
+}
+
+function evalBasicAggregateOrMath(
+  clean: string,
+  currentSheet: string,
+  snapshotBySheet: ReadonlyMap<string, Record<string, { value: Scalar; formula?: string }>>,
+): Scalar | undefined {
+  const fnMatch = /^(SUM|AVERAGE|MIN|MAX|COUNT|COUNTA|ROUND|IFERROR)\s*\(([\s\S]*)\)$/i.exec(clean)
+  if (fnMatch) {
+    const fn = fnMatch[1]!.toUpperCase()
+    const args = splitFormulaArgs(fnMatch[2]!)
+    if (fn === 'ROUND' && args.length === 2) {
+      const val = evalBasicAggregateOrMath(args[0]!, currentSheet, snapshotBySheet)
+      const digits = Number(args[1]!)
+      if (typeof val === 'number' && Number.isFinite(val) && Number.isFinite(digits)) {
+        const factor = 10 ** digits
+        return Math.round(val * factor) / factor
+      }
+      return undefined
+    }
+    if (fn === 'IFERROR' && args.length === 2) {
+      const val = evalBasicAggregateOrMath(args[0]!, currentSheet, snapshotBySheet)
+      if (val !== undefined && val !== null) return val
+      return parseCriteriaValue(args[1]!, currentSheet, snapshotBySheet)
+    }
+    const nums: number[] = []
+    let nonEmpty = 0
+    for (const arg of args) {
+      if (arg.includes(':')) {
+        const vals = readRangeValues(arg, currentSheet, snapshotBySheet)
+        if (!vals) continue
+        for (const v of vals) {
+          if (v !== null && v !== undefined && v !== '') nonEmpty += 1
+          const n = toNumberOrDate(v)
+          if (n !== null) nums.push(n)
+        }
+      } else {
+        const { sheet, ref } = resolveSheetAndRef(arg, currentSheet)
+        if (/^[A-Z]{1,3}\d+$/i.test(ref)) {
+          const cellVal = snapshotBySheet.get(sheet)?.[ref.toUpperCase()]?.value ?? null
+          if (cellVal !== null && cellVal !== undefined && cellVal !== '') nonEmpty += 1
+          const n = toNumberOrDate(cellVal)
+          if (n !== null) nums.push(n)
+        } else {
+          const n = toNumberOrDate(arg)
+          if (n !== null) {
+            nums.push(n)
+            nonEmpty += 1
+          }
+        }
+      }
+    }
+    if (fn === 'COUNT') return nums.length
+    if (fn === 'COUNTA') return nonEmpty
+    if (fn === 'SUM') return nums.reduce((a, b) => a + b, 0)
+    if (nums.length === 0) return 0
+    if (fn === 'AVERAGE') return nums.reduce((a, b) => a + b, 0) / nums.length
+    if (fn === 'MIN') return Math.min(...nums)
+    if (fn === 'MAX') return Math.max(...nums)
+  }
+  // Basic arithmetic expression over cell refs (e.g. B2*C2*D2/E2)
+  if (!/[A-Za-z]{4,}/.test(clean) && /[+\-*/]/.test(clean)) {
+    const replaced = clean.replace(
+      /(?:'((?:[^']|'')+)'!|([A-Za-z0-9_]+)!)?\$?([A-Z]{1,3})\$?(\d+)/g,
+      (_m, qSheet: string | undefined, bSheet: string | undefined, col: string, row: string) => {
+        const targetSheet = qSheet ? qSheet.replace(/''/g, "'") : bSheet || currentSheet
+        const addr = `${col.toUpperCase()}${row}`
+        const cellVal = snapshotBySheet.get(targetSheet)?.[addr]?.value ?? null
+        const n = toNumberOrDate(cellVal)
+        return n !== null ? String(n) : '0'
+      },
+    )
+    if (/^[0-9+\-*/().\s]+$/.test(replaced)) {
+      try {
+        const res = Function(`"use strict"; return (${replaced});`)() as unknown
+        if (typeof res === 'number' && Number.isFinite(res)) return res
+      } catch {
+        return undefined
+      }
+    }
+  }
+  return undefined
 }
 
 function tryEvaluateFallbackFormula(
@@ -1508,17 +1935,32 @@ function tryEvaluateFallbackFormula(
 ): Scalar | undefined {
   const clean = formula.trim().replace(/^=/, '').trim()
   const m = /^(SUMPRODUCT|SUMIFS|COUNTIFS|AVERAGEIFS)\s*\(([\s\S]*)\)$/i.exec(clean)
-  if (!m) return undefined
-  const fn = m[1]!.toUpperCase()
-  const args = splitFormulaArgs(m[2]!)
-  try {
-    if (fn === 'SUMPRODUCT') {
-      return evalSumproduct(args, currentSheet, snapshotBySheet)
+  if (m) {
+    const fn = m[1]!.toUpperCase()
+    const args = splitFormulaArgs(m[2]!)
+    try {
+      if (fn === 'SUMPRODUCT') {
+        return evalSumproduct(args, currentSheet, snapshotBySheet)
+      }
+      return evalIfs(
+        fn as 'SUMIFS' | 'COUNTIFS' | 'AVERAGEIFS',
+        args,
+        currentSheet,
+        snapshotBySheet,
+        sidecarFormatted,
+      )
+    } catch {
+      return undefined
     }
-    return evalIfs(fn as 'SUMIFS' | 'COUNTIFS' | 'AVERAGEIFS', args, currentSheet, snapshotBySheet, sidecarFormatted)
-  } catch {
-    return undefined
   }
+  if (
+    sidecarFormatted === UNKNOWN_FUNCTION_RESULT ||
+    sidecarFormatted === UNPARSED_RESULT ||
+    sidecarFormatted.startsWith('#')
+  ) {
+    return evalBasicAggregateOrMath(clean, currentSheet, snapshotBySheet)
+  }
+  return undefined
 }
 
 function readRangeValues(

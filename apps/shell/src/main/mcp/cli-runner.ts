@@ -3,7 +3,7 @@
  * Copyright © 2026 ITAC AI Heavy Industries.
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
-import { spawn } from 'node:child_process'
+import { spawn, type ChildProcess } from 'node:child_process'
 
 /**
  * Shell-main half of the MCP → `genoffice` CLI delegation.
@@ -50,12 +50,14 @@ export interface CliRunOutcome {
 export interface CliRunOptions {
   /** text piped to stdin (for commands that read `-`, e.g. `create --ops -`) */
   input?: string
-  /** abort the child after this long; default 120s (the CLI lazily loads jsdom) */
+  /** abort the child after this long; default 120s, hard-capped at 180s (FX-02) */
   timeoutMs?: number
   /** working directory relative paths resolve against (default: the app's) */
   cwd?: string
   /** per-run environment on top of the runner's (e.g. GENOFFICE_ALLOWED_ROOTS) */
   env?: NodeJS.ProcessEnv
+  /** optional abort signal to kill the child process immediately on Stop / New Chat */
+  signal?: AbortSignal
 }
 
 export interface CliRunner {
@@ -89,27 +91,67 @@ function parseJson(stdout: string): CliJsonOk | CliJsonError | undefined {
 /** Child output budget: past this the buffers are truncated and the child killed. */
 export const MAX_CLI_OUTPUT_BYTES = 64 * 1024 * 1024
 
+/** Hard per-subprocess timeout cap (180s) so stuck CLI runs never hang the turn (FX-02). */
+export const MAX_CLI_TIMEOUT_MS = 180_000
+
+const activeCliChildren = new Set<ChildProcess>()
+
+/** Immediately terminate all running CLI subprocesses (called on Stop / New Chat). */
+export function killActiveCliProcesses(): number {
+  let killed = 0
+  for (const child of activeCliChildren) {
+    try {
+      child.kill('SIGKILL')
+      killed++
+    } catch {
+      try {
+        child.kill()
+      } catch {}
+    }
+  }
+  activeCliChildren.clear()
+  return killed
+}
+
 export function createCliRunner(paths: CliRunnerPaths): CliRunner {
   return {
     run(args, options = {}) {
       // timeoutMs arrives from tool callers: a NaN/Infinity value would break
-      // the watchdog (NaN fires immediately, Infinity never), so normalize it.
+      // the watchdog (NaN fires immediately, Infinity never), so normalize it and cap at 180s.
       const timeoutMs = Number.isFinite(options.timeoutMs)
-        ? Math.min(Math.max(1000, Math.floor(options.timeoutMs as number)), 600_000)
+        ? Math.min(Math.max(1000, Math.floor(options.timeoutMs as number)), MAX_CLI_TIMEOUT_MS)
         : 120_000
       return new Promise<CliRunOutcome>((resolve) => {
+        if (options.signal?.aborted) {
+          resolve({ ok: false, code: -1, stdout: '', stderr: 'genoffice aborted by user' })
+          return
+        }
         const child = spawn(paths.executable, [paths.entry, ...args, '--json'], {
           env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', ...paths.env, ...options.env },
           ...(options.cwd ? { cwd: options.cwd } : {}),
           windowsHide: true,
         })
+        activeCliChildren.add(child)
         let stdout = ''
         let stderr = ''
         let settled = false
         let truncated = false
+        const onAbort = (): void => {
+          try {
+            child.kill('SIGKILL')
+          } catch {
+            try {
+              child.kill()
+            } catch {}
+          }
+          finish({ ok: false, code: -1, stdout, stderr: `${stderr}\ngenoffice aborted by user` })
+        }
+        options.signal?.addEventListener('abort', onAbort, { once: true })
         const finish = (outcome: CliRunOutcome): void => {
           if (settled) return
           settled = true
+          activeCliChildren.delete(child)
+          options.signal?.removeEventListener('abort', onAbort)
           clearTimeout(timer)
           resolve(outcome)
         }

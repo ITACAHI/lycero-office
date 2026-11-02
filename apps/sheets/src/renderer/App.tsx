@@ -2735,7 +2735,8 @@ export function App({
               sheet?: { id?: string; name?: string }
             }
           | undefined
-        if (params?.unitId !== `file-${state.file.sha256}`) return
+        if (!params || (params.unitId !== undefined && params.unitId !== `file-${state.file.sha256}`))
+          return
         if (SHEET_LIFECYCLE_MUTATIONS.has(event.id)) {
           if (event.id === 'sheet.mutation.insert-sheet') {
             const { id, name } = params.sheet ?? {}
@@ -4014,14 +4015,21 @@ export function App({
     if (!results.some(Boolean)) return
     const state = lazyWorkbookRef.current
     if (!state || journalSize(state.editJournal) === 0) return
-    // AutoSave off = the user decides when the file is written: the
-    // run's edits stay pending in the journal, so the offered Undo / ⌘Z keeps
-    // working (saving would reopen the session and reset the undo stack).
-    if (!autoSaveRef.current) {
-      setMessage(t('appAiChangesNotSaved'))
-      return
+    // FX-29 & User Request #4.4: Always persist AI-completed edits to disk even
+    // when interval AutoSave is toggled off, and pre-rename untitled workbooks
+    // before saving so the first save lands under the AI-named sheet title.
+    const preWorkbook = univerRef.current?.univerAPI.getActiveWorkbook()
+    const preCandidate = preWorkbook
+      ?.getSheets()
+      .map((sheet) => sheet.getSheetName().trim())
+      .find((name) => name.length > 0 && !DEFAULT_SHEET_NAME_RE.test(name))
+    if (preCandidate) {
+      try {
+        await window.desktopApi.autoRenameWorkbook(state.file.sessionId, preCandidate)
+      } catch {
+        // best-effort pre-rename before save
+      }
     }
-    // AutoSave-driven write after an AI run: silent like the interval autosave.
     await handleSave('save', true)
     const after = lazyWorkbookRef.current
     if (after && journalSize(after.editJournal) === 0) {
@@ -4213,7 +4221,23 @@ export function App({
           // drift too (the plan can no longer apply as previewed).
           let stillMatches: boolean
           try {
-            stillMatches = planStillMatches(stored.plan, lazyWorkbookCellReader(workbook))
+            const pendingSheetNames = new Set(
+              stored.plan.structuralChanges.flatMap((sc) =>
+                sc.op.op === 'add_sheet'
+                  ? [sc.op.name.toLowerCase()]
+                  : sc.op.op === 'duplicate_sheet' && sc.op.name
+                    ? [sc.op.name.toLowerCase()]
+                    : [],
+              ),
+            )
+            const baseReader = lazyWorkbookCellReader(workbook, pendingSheetNames)
+            stillMatches = planStillMatches(stored.plan, (addr, sid) => {
+              try {
+                return baseReader(addr, sid)
+              } catch {
+                return { value: null, rawValue: null }
+              }
+            })
           } catch {
             stillMatches = false
           }

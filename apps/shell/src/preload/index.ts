@@ -256,6 +256,7 @@ const homeApi: HomeApi = {
     await ipcRenderer.invoke('ai:stream', request)
   },
   async aiStreamCancel(requestId) {
+    void ipcRenderer.invoke('kb:abort-cli').catch(() => {})
     await ipcRenderer.invoke('ai:stream-cancel', requestId)
   },
   onAiStream(handler) {

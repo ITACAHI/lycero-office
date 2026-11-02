@@ -55,6 +55,33 @@ const rawText = {
   },
 }
 
+// Inline jsdom's default-stylesheet.css and xhr-sync-worker resolution so jsdom
+// can be bundled directly inside lycero-office.cjs without relying on external
+// node_modules at runtime (fixes FX-31).
+const jsdomInline = {
+  name: 'jsdom-inline',
+  setup(b) {
+    b.onLoad({ filter: /jsdom[\\/]lib[\\/]jsdom[\\/]living[\\/]helpers[\\/]style-rules\.js$/ }, async (args) => {
+      const src = await readFile(args.path, 'utf8')
+      const cssPath = resolve(dirname(args.path), '../../browser/default-stylesheet.css')
+      const cssText = await readFile(cssPath, 'utf8')
+      const patched = src.replace(
+        /fs\.readFileSync\(\s*path\.resolve\(__dirname,\s*["']\.\.\/\.\.\/browser\/default-stylesheet\.css["']\),\s*\{\s*encoding:\s*["']utf-8["']\s*\}\s*\)/,
+        JSON.stringify(cssText),
+      )
+      return { contents: patched, loader: 'js' }
+    })
+    b.onLoad({ filter: /jsdom[\\/]lib[\\/]jsdom[\\/]living[\\/]xhr[\\/]XMLHttpRequest-impl\.js$/ }, async (args) => {
+      const src = await readFile(args.path, 'utf8')
+      const patched = src.replace(
+        /require\.resolve\(["']\.\/xhr-sync-worker\.js["']\)/g,
+        '__filename',
+      )
+      return { contents: patched, loader: 'js' }
+    })
+  },
+}
+
 /**
  * The bundle runs under ELECTRON_RUN_AS_NODE, where `require('electron')` has
  * no module to resolve to. `electron` is external below, so a top-level import
@@ -99,9 +126,9 @@ async function bundle() {
       ].join('\n'),
     },
     jsx: 'automatic',
-    // jsdom reads its own stylesheet from disk and cannot be inlined; it ships beside the bundle
+    // jsdom is bundled directly via jsdomInline plugin (plus shipped in cli/node_modules as fallback)
     // mermaid is only reached by the markdown editor's lazy diagram renderer, which never runs headless
-    external: ['electron', 'jsdom', 'mermaid'],
+    external: ['electron', 'mermaid'],
     loader: {
       '.css': 'empty',
       '.ttf': 'empty',
@@ -110,7 +137,7 @@ async function bundle() {
       '.svg': 'empty',
       '.png': 'empty',
     },
-    plugins: [rawText],
+    plugins: [rawText, jsdomInline],
   })
   const offenders = findElectronRequires(await readFile(CLI_BUNDLE, 'utf8'))
   if (offenders.length > 0) {

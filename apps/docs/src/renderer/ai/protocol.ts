@@ -105,7 +105,7 @@ export const HTML_RULES = [
   'The html tool input is a restricted HTML fragment. Rules:',
   '- Only these tags are allowed: h1 h2 h3 h4 h5 h6 p ul ol li strong em u s a br table thead tbody tr th td pre code blockquote',
   '- Tables: for data tables, use <th> for the first (header) row; for 2-column Vietnamese administrative header tables (Quốc hiệu - Tiêu ngữ) and signature/footer blocks, use a borderless <table style="width: 100%; border: none; border-collapse: collapse;"> with <td> cells (never <th>) and format cell lines with <p style="text-align: center;">, <strong>, <em>, <u>, or <br>; nested tables are not supported',
-  '- Vietnamese Quốc hiệu - Tiêu ngữ & Document Title standard (Nghị định 30/2020/NĐ-CP & Enterprise/Legal/Education docs): (1) 2-column borderless header <table> where both columns start at row 0 top-aligned (Left <td style="width: 44%; text-align: center; vertical-align: top; border: none;">: TÊN CƠ QUAN CHỦ QUẢN in regular upright uppercase without <strong> / <strong><u>TÊN CƠ QUAN, TỔ CHỨC BAN HÀNH</u></strong> bold underlined / Số: 15/2026/TTr-...; Right <td style="width: 56%; text-align: center; vertical-align: top; border: none;">: <strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong> / <strong><u>Độc lập - Tự do - Hạnh phúc</u></strong> / <em>Hà Nội, ngày ... tháng ... năm 2026</em>), (2) centered Document Title <h1 style="text-align: center;"><strong>TÊN LOẠI VĂN BẢN IN HOA</strong></h1> and centered Subtitle/Trích yếu <p style="text-align: center;"><strong>Về việc ...</strong></p>, (3) each "Căn cứ ...;" line as its own separate <p style="text-align: left;"><em>Căn cứ ...;</em></p> paragraph (italic, left-aligned so it is never stretched by justify; never join multiple Căn cứ with <br>), (4) 6-column budget/cost tables (STT, Nội dung chi, ĐVT, SL, Đơn giá, Thành tiền) with proportional widths (6%, 44%, 10%, 8%, 15%, 17%), bold centered headers, right-aligned dot-separated numbers (45.000.000), and bold TỔNG CỘNG row with full Vietnamese diacritics, (5) 2-column borderless signature table (Left 45% Nơi nhận 11-12pt; Right 55% centered bold uppercase signer title, italic "(Ký, ghi rõ họ tên và đóng dấu)", 3-4 blank lines for wet signature/stamp, and bold signer full name)',
+  '- Vietnamese Quốc hiệu - Tiêu ngữ & Document Title standard (Nghị định 30/2020/NĐ-CP for Administrative & Legal docs — STRICTLY EXCLUDING Education Lesson Plans CV 5512/CV 2345, Exam Matrices CV 7991, and Rubrics per FX-40, which must NEVER have Quốc hiệu - Tiêu ngữ, administrative legal bases, or administrative file numbers): (1) 2-column borderless header <table> where both columns start at row 0 top-aligned (Left <td style="width: 40%; text-align: center; vertical-align: top; border: none;">: TÊN CƠ QUAN CHỦ QUẢN in regular upright uppercase 12pt / <strong><u>TÊN CƠ QUAN, TỔ CHỨC BAN HÀNH</u></strong> bold underlined 12pt / Số: [cần bổ sung: số văn bản]; Right <td style="width: 60%; text-align: center; vertical-align: top; border: none;"> wide enough so Quốc hiệu never wraps: <strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong> 12-13pt bold on 1 line / <strong><u>Độc lập - Tự do - Hạnh phúc</u></strong> 13-14pt bold underlined / <em>..., ngày ... tháng ... năm ...</em>), (2) centered Document Title <h1 style="text-align: center;"><strong>TÊN LOẠI VĂN BẢN IN HOA</strong></h1> and centered Subtitle/Trích yếu <p style="text-align: center;"><strong>Về việc ...</strong></p> with an independent horizontal rule 1/3–1/2 width below, (3) each "Căn cứ" line as its own separate <p style="text-align: left;"><em>Căn cứ ...;</em></p> paragraph ending with ";", and the FINAL "Căn cứ" line MUST end with a period "." (FX-12); for Luật / Bộ luật per Phụ lục I NĐ30, write ONLY the Law title without "số .../QH..."; never fabricate internal bases not in the prompt, (4) 6-column budget/cost tables (STT, Nội dung chi, ĐVT, SL, Đơn giá, Thành tiền) with proportional widths (8%, 42%, 10%, 8%, 15%, 17%), right-aligned dot-separated numbers (45.000.000), and bold TỔNG CỘNG row (personnel list tables must NOT have ĐVT/SL columns per FX-14), (5) 2-column borderless signature table (Left 45% Nơi nhận 11pt; Right 55% centered bold uppercase signer title, 3-4 blank lines, and bold signer full name — omit the line "(Ký, ghi rõ...)" per FX-13)',
   '- Use <pre> for code samples (monospace font + shading, line breaks preserved); use <blockquote> for quotations (indent + left bar)',
   '- Use <formula>LaTeX</formula> for math (produces native Word equations): as a top-level block it becomes its own centered paragraph; placed inside <p>/<li>/<h*> text it is an inline formula flowing with the text, e.g. <p>From <formula>E = mc^2</formula> we know…</p>; supports the common subset of \\frac \\sqrt super/subscripts \\sum \\int \\lim matrix environments Greek letters etc., the align environment is not supported; invalid LaTeX fails the whole call — fix and retry',
   '- Do not include <html>/<body>, markdown code fences, or explanatory text',
@@ -134,7 +134,7 @@ export const AGENT_SYSTEM_PROMPT = [
   '- When a list preview is truncated, read the full content with read_blocks before rewriting; never rewrite based on a truncated preview;',
   '- Content changes: use insert_content for new content, and replace_blocks to rewrite/replace existing blocks (pass a block index range and the new HTML); replaced blocks pass their paragraph and text formatting (font, size, color, indent, spacing, alignment) on to the new blocks automatically, and a rewritten table keeps its widths, borders, shading and cell formatting, so a rewrite never needs follow-up formatting commands;',
   '- Long new content (drafting a whole document, a chapter, a full report/article/translation — anything beyond a few paragraphs) goes through write_document: you pass the plan and the reference material, and the system writer streams the text into the document while the user watches; never paste long content into insert_content. When the document is blank and the user asks for content, use write_document;',
-  '- Never invent `{{PLACEHOLDER}}` variables (such as `{{SO_TO_TRINH}}`, `{{NGAY}}`) when drafting or editing a concrete document unless the user explicitly asks for a reusable form/template ("mẫu biểu", "form mẫu", "template"); use standard administrative notation (e.g. "Số: .../TTr-...", "ngày ... tháng ... năm 2026") for open administrative fields and preserve all concrete facts from the user prompt;',
+  '- Never invent `{{PLACEHOLDER}}` variables (such as `{{SO_TO_TRINH}}`, `{{NGAY}}`) and NEVER fabricate facts not in the user prompt (phone, email, address, CCCD, GCN, contract/invoice/document number, supplier, norm, person in charge, internal basis, opinion, or task); for any missing information, write `"[cần bổ sung: ...]"` (Rule A.1). In chat replies, report ONLY figures and features verified via read-back after saving; if a tool reports `error`, state clearly that the action was not completed; never paste raw HTML or tool calls into chat (Rule A.2);',
   '- Formatting, structure, and batch operations (color/font size/line spacing/alignment/indent/heading level/find & replace/delete/move/list conversion) go through apply_ops — do not rewrite whole blocks with replace_blocks;',
   '- Small in-place text fixes (changing a few words inside a sentence) go through apply_ops findReplace with a target — do not rewrite the whole block; styling every occurrence of a phrase (e.g. bold each "TODO") uses setMatchedFont, and so does restyling every run of a given color or size (matchColor / matchFontSize) — never rewrite blocks or restyle whole blocks to fix a few runs;',
   '- When the user has text selected, the message includes the selection block indexes and content; rewrite-style requests apply to the selection by default;',
@@ -1099,9 +1099,12 @@ function formatVnThousandDots(rawText: string): string {
 
 function sanitizeNd30Placeholders(rawHtml: string): string {
   let out = rawHtml
-  // Replace {{PLACEHOLDER}} tokens if the model emitted template variables on a short prompt (1h)
-  out = out.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_full, keyRaw: string) => {
-    const key = keyRaw.trim().toUpperCase()
+  // FX-03: Strip leaked internal session IDs (kb-ask-..., kb-...) from document content
+  out = out.replace(/\bkb-(?:ask-)?[a-z0-9_-]*\d[a-z0-9_-]*\b/gi, '')
+  // Replace {{PLACEHOLDER}} tokens only when the model emitted UPPERCASE NĐ30 template variables (1h);
+  // preserve normal mail-merge placeholders like {{name}} or {{missing}} for `merge`.
+  out = out.replace(/\{\{\s*([A-Z0-9_]+)\s*\}\}/g, (full, keyRaw: string) => {
+    const key = keyRaw.trim()
     if (/SO_KY_HIEU|SO_HIEU|SO_VAN_BAN|SO_TO_TRINH|SO_QUYET_DINH/.test(key)) return '15/2026/TTr-ĐV'
     if (/\bNGAY\b/.test(key) && !/THANG|NAM/.test(key)) return '30'
     if (/\bTHANG\b/.test(key) && !/NAM/.test(key)) return '10'
@@ -1110,11 +1113,11 @@ function sanitizeNd30Placeholders(rawHtml: string): string {
     if (/CO_QUAN_CHU_QUAN|DON_VI_CHU_QUAN/.test(key)) return 'ỦY BAN NHÂN DÂN THÀNH PHỐ'
     if (/CO_QUAN_BAN_HANH|DON_VI_BAN_HANH|TEN_DON_VI|TEN_CO_QUAN/.test(key))
       return 'PHÒNG HÀNH CHÍNH - TỔNG HỢP'
-    if (/NGUOI_KY|HO_TEN|DAI_DIEN| HIEU_TRUONG|GIAM_DOC/.test(key)) return 'Nguyễn Văn An'
+    if (/NGUOI_KY|HO_TEN|DAI_DIEN|HIEU_TRUONG|GIAM_DOC/.test(key)) return 'Nguyễn Văn An'
     if (/CHUC_VU/.test(key)) return 'THỦ TRƯỞNG ĐƠN VỊ'
     if (/NOI_NHAN/.test(key)) return 'Như trên'
     if (/TONG_TIEN|SO_TIEN/.test(key)) return '45.000.000'
-    return keyRaw.trim().replace(/_/g, ' ')
+    return full
   })
   // Normalize unaccented TONG CONG -> TỔNG CỘNG (1d)
   out = out.replace(/\bTONG\s+CONG\b/gi, 'TỔNG CỘNG')
@@ -1122,7 +1125,7 @@ function sanitizeNd30Placeholders(rawHtml: string): string {
   return out
 }
 
-const CAN_CU_LINE_RE = /^(?:Căn cứ|Xét đề nghị|Theo đề nghị)\b/i
+const CAN_CU_LINE_RE = /^(?:Căn cứ|Xét đề nghị|Theo đề nghị)(?:\s|:|,|$)/i
 const SEPARATOR_LINE_RE = /^[-_─━=*~]{3,}$/
 const VN_DATE_LINE_RE =
   /^(?:[A-ZÀ-Ỹa-zà-ỹ0-9\s.,-]+,\s*)?ngày\s+(?:\d+|\.+|_+|\[.*?\])\s+tháng\s+(?:\d+|\.+|_+|\[.*?\])\s+năm\s+(?:\d+|\.+|_+|\[.*?\])/i
@@ -1506,7 +1509,7 @@ function parseTable(el: Element, docTitleHint?: string): PmNode | null {
     /border(?:-style)?\s*:\s*(?:none|0)\b/i.test(el.getAttribute('style') ?? '')
   const firstCellText = (rawRows[0]?.[0]?.textContent ?? '').replace(/\s+/g, ' ').trim()
   const isDataHeaderFirstCell =
-    /^(?:STT|TT|Số TT|Mã|Hạng mục|Nội dung|Khoản mục|Tiêu chí|Cấp)\b/i.test(firstCellText)
+    /^(?:STT|TT|Số TT|Mã|Hạng mục|Nội dung|Khoản mục|Tiêu chí|Cấp)(?:\s|:|,|$)/i.test(firstCellText)
   const isQuocHieuTable =
     cols <= 2 &&
     rawRows.length <= 6 &&
@@ -1572,14 +1575,16 @@ function parseTable(el: Element, docTitleHint?: string): PmNode | null {
   const defaultCellAlign: 'center' | undefined =
     isQuocHieuTable || isSignatureTable ? 'center' : undefined
 
-  // Detect budget / cost / item columns for NĐ30 & accounting tables (1d)
+  // Detect budget / cost / item columns for NĐ30 & accounting tables (1d, FX-14)
+  // FX-14: Personnel/HR assignment tables also start with STT, so only classify as budget table when header mentions cost/quantity/unit columns
   const isSttTable = !isBorderless && /^(?:STT|TT|Số TT)$/i.test(firstRowTexts[0] ?? '')
   const isBudgetTable =
     !isBorderless &&
-    (isSttTable ||
-      firstRowTexts.some((h) =>
-        /Đơn giá|Thành tiền|Số tiền|Kinh phí|Dự toán|Chi phí/i.test(h),
-      ))
+    firstRowTexts.some((h) =>
+      /^(?:ĐVT|Đơn vị(?:\s*tính)?)$|Đơn giá|Thành tiền|Số tiền|Kinh phí|Dự toán|Chi phí|Tổng tiền/i.test(
+        h.trim(),
+      ),
+    )
 
   const colDefaultAligns: Array<'left' | 'center' | 'right' | undefined> = Array.from(
     { length: cols },
@@ -1605,7 +1610,7 @@ function parseTable(el: Element, docTitleHint?: string): PmNode | null {
     const isTotalRow =
       !isBorderless &&
       r > 0 &&
-      /\b(?:TỔNG\s*CỘNG|TONG\s*CONG|CỘNG|TỔNG\s*SỐ|TONG\s*SO|TỔNG\s*KINH\s*PHÍ)\b/i.test(rowText)
+      /(?:^|\s)(?:TỔNG\s*CỘNG|TONG\s*CONG|CỘNG|TỔNG\s*SỐ|TONG\s*SO|TỔNG\s*KINH\s*PHÍ)(?:\s|:|,|\.|$)/i.test(rowText)
     let colCursor = 0
     const row: TableCell[] = cells.map((cell) => {
       const c = colCursor
@@ -1680,14 +1685,17 @@ function parseTable(el: Element, docTitleHint?: string): PmNode | null {
   let colWidthsPct: number[]
   let colWidthsTwips: number[] | undefined
   if (isQuocHieuTable && cols === 2) {
-    colWidthsPct = [44, 56]
-    colWidthsTwips = [4118, 5242]
+    colWidthsPct = [40, 60]
+    colWidthsTwips = [3760, 5600]
   } else if (isSignatureTable && cols === 2) {
     colWidthsPct = [45, 55]
     colWidthsTwips = [4212, 5148]
-  } else if (cols === 6 && !isBorderless) {
-    colWidthsPct = [6, 44, 10, 8, 15, 17]
-    colWidthsTwips = [560, 3900, 900, 700, 1400, 1600]
+  } else if (cols === 6 && !isBorderless && isBudgetTable) {
+    colWidthsPct = [8, 42, 10, 8, 15, 17]
+    colWidthsTwips = [720, 3740, 900, 700, 1400, 1600]
+  } else if (cols === 6 && !isBorderless && (isSttTable || !explicitWidths || allEqualExplicit)) {
+    colWidthsPct = [7, 21, 16, 16, 24, 16]
+    colWidthsTwips = [650, 1960, 1500, 1500, 2250, 1500]
   } else if (cols === 5 && !isBorderless && (isBudgetTable || !explicitWidths || allEqualExplicit)) {
     colWidthsPct = [7, 45, 10, 18, 20]
   } else if (cols === 4 && !isBorderless && (isSttTable || !explicitWidths || allEqualExplicit)) {
@@ -1701,6 +1709,7 @@ function parseTable(el: Element, docTitleHint?: string): PmNode | null {
     colWidthsPct = Array.from({ length: cols }, () => 100 / cols)
   }
 
+  const quocHieuCellMar = { top: 0, bottom: 0, left: 20, right: 20 }
   const table: TableModel = {
     rows,
     colWidthsPct,
@@ -1708,6 +1717,7 @@ function parseTable(el: Element, docTitleHint?: string): PmNode | null {
       ? { colWidthsTwips, autoFit: 'fixed' as const, fixedLayout: true }
       : {}),
     ...(isBorderless ? { borders: BORDERLESS_TABLE_BORDERS } : {}),
+    ...(isQuocHieuTable ? { cellMarTwips: quocHieuCellMar } : {}),
     ...(isSignatureTable
       ? {
           rowCantSplit: rows.map(() => true),
@@ -1722,13 +1732,24 @@ function parseTable(el: Element, docTitleHint?: string): PmNode | null {
         tblAutoFit: 'fixed',
         tblAutoFitEdited: true,
         tblFixedLayout: true,
+        ...(isQuocHieuTable
+          ? { cellMar: quocHieuCellMar, cellMarEdited: true }
+          : {}),
       }
     }
     if (pmNode.content) {
-      // Clear pixel-rounded colwidth on cells so pmTableToModel uses exact colWidthsTwips ([560, 3900, 900, 700, 1400, 1600])
+      // Clear pixel-rounded colwidth on cells so pmTableToModel uses exact colWidthsTwips ([720, 3740, 900, 700, 1400, 1600] / [3760, 5600])
       for (const rNode of pmNode.content) {
         for (const cNode of rNode.content ?? []) {
-          if (cNode.attrs) cNode.attrs = { ...cNode.attrs, colwidth: null }
+          if (cNode.attrs) {
+            cNode.attrs = {
+              ...cNode.attrs,
+              colwidth: null,
+              ...(isQuocHieuTable
+                ? { cellMar: quocHieuCellMar, tcPrEdited: true }
+                : {}),
+            }
+          }
         }
       }
     }
@@ -1746,7 +1767,7 @@ function parseTable(el: Element, docTitleHint?: string): PmNode | null {
     const isTotalRow =
       !isBorderless &&
       r > 0 &&
-      /\b(?:TỔNG\s*CỘNG|TONG\s*CONG|CỘNG|TỔNG\s*SỐ|TONG\s*SO|TỔNG\s*KINH\s*PHÍ)\b/i.test(rowText)
+      /(?:^|\s)(?:TỔNG\s*CỘNG|TONG\s*CONG|CỘNG|TỔNG\s*SỐ|TONG\s*SO|TỔNG\s*KINH\s*PHÍ)(?:\s|:|,|\.|$)/i.test(rowText)
 
     let colCursor = 0
     cells.forEach((cellEl, cellIdx) => {
@@ -1786,27 +1807,43 @@ function parseTable(el: Element, docTitleHint?: string): PmNode | null {
           return t !== '' && !SEPARATOR_LINE_RE.test(t)
         })
         if (c === 0) {
-          // Left column: governing agency (regular upright uppercase), issuing agency (BOLD + UNDERLINE uppercase), Số/ký hiệu (regular upright)
+          // Left column: governing agency (regular upright uppercase, 12pt), issuing agency (BOLD + UNDERLINE uppercase, 12pt), Số/ký hiệu (regular upright)
           const soIdx = paras.findIndex((p) => /^(?:Số|SỐ)\s*:/i.test(getParagraphNodeText(p)))
           const agencyParas = soIdx >= 0 ? paras.slice(0, soIdx) : [...paras]
           let soPara = soIdx >= 0 ? paras[soIdx] : null
           const normalizedLeft: PmNode[] = []
 
+          const buildAgencyTextStyle = (lineText: string, isBold: boolean): Record<string, unknown> => {
+            const len = lineText.trim().length
+            const estWidth = len * (isBold ? 142 : 133)
+            const fitProps: Record<string, unknown> = {}
+            if (estWidth > 3580) {
+              fitProps.charSpacingTwips = -6
+              fitProps.charScalePct = Math.max(
+                72,
+                Math.min(95, Math.floor(((3580 + len * 6) / estWidth) * 100)),
+              )
+            }
+            return {
+              font: 'Times New Roman',
+              fontAscii: 'Times New Roman',
+              eastAsiaFont: 'Times New Roman',
+              sizeHalfPoints: 24, // 12pt so governing & issuing agency names fit on 1 line
+              ...fitProps,
+            }
+          }
+
           if (agencyParas.length >= 2) {
-            // Line 0: Cơ quan chủ quản -> UPPERCASE, regular upright (NO bold, NO italic, NO underline)
+            // Line 0: Cơ quan chủ quản -> UPPERCASE, regular upright (NO bold, NO italic, NO underline), 12pt
             const govPara = agencyParas[0]!
+            const govText = getParagraphNodeText(govPara).toUpperCase()
             let govInline = uppercaseTextNodes(govPara.content ?? [])
             govInline = removeMarkFromNodes(govInline, 'bold')
             govInline = removeMarkFromNodes(govInline, 'italic')
             govInline = removeMarkFromNodes(govInline, 'underline')
             govInline = applyTextStyleToNodes(
               govInline,
-              {
-                font: 'Times New Roman',
-                fontAscii: 'Times New Roman',
-                eastAsiaFont: 'Times New Roman',
-                sizeHalfPoints: 24,
-              },
+              buildAgencyTextStyle(govText, false),
               true,
             )
             normalizedLeft.push(
@@ -1816,20 +1853,16 @@ function parseTable(el: Element, docTitleHint?: string): PmNode | null {
                 govInline,
               ),
             )
-            // Line 1+: Cơ quan ban hành -> UPPERCASE, BOLD + UNDERLINE (gạch chân ngắn)
+            // Line 1+: Cơ quan ban hành -> UPPERCASE, BOLD + UNDERLINE (gạch chân ngắn), 12pt
             for (let i = 1; i < agencyParas.length; i++) {
+              const issText = getParagraphNodeText(agencyParas[i]!).toUpperCase()
               let issInline = uppercaseTextNodes(agencyParas[i]!.content ?? [])
               issInline = ensureMarkOnNodes(issInline, 'bold')
               issInline = ensureMarkOnNodes(issInline, 'underline')
               issInline = removeMarkFromNodes(issInline, 'italic')
               issInline = applyTextStyleToNodes(
                 issInline,
-                {
-                  font: 'Times New Roman',
-                  fontAscii: 'Times New Roman',
-                  eastAsiaFont: 'Times New Roman',
-                  sizeHalfPoints: 25,
-                },
+                buildAgencyTextStyle(issText, true),
                 true,
               )
               normalizedLeft.push(
@@ -1841,18 +1874,14 @@ function parseTable(el: Element, docTitleHint?: string): PmNode | null {
               )
             }
           } else if (agencyParas.length === 1) {
+            const issText = getParagraphNodeText(agencyParas[0]!).toUpperCase()
             let issInline = uppercaseTextNodes(agencyParas[0]!.content ?? [])
             issInline = ensureMarkOnNodes(issInline, 'bold')
             issInline = ensureMarkOnNodes(issInline, 'underline')
             issInline = removeMarkFromNodes(issInline, 'italic')
             issInline = applyTextStyleToNodes(
               issInline,
-              {
-                font: 'Times New Roman',
-                fontAscii: 'Times New Roman',
-                eastAsiaFont: 'Times New Roman',
-                sizeHalfPoints: 26,
-              },
+              buildAgencyTextStyle(issText, true),
               true,
             )
             normalizedLeft.push(
@@ -1904,7 +1933,7 @@ function parseTable(el: Element, docTitleHint?: string): PmNode | null {
           )
           paras = normalizedLeft
         } else if (c === 1) {
-          // Right column: Quốc hiệu (IN HOA đậm cỡ 12-13), Tiêu ngữ (đậm cỡ 13-14, gạch chân bằng độ dài dòng chữ), địa danh ngày tháng (nghiêng)
+          // Right column: Quốc hiệu (IN HOA đậm cỡ 12, nằm gọn trên 1 dòng trong cột 5600 twips), Tiêu ngữ (đậm cỡ 13, gạch chân bằng độ dài dòng chữ), địa danh ngày tháng (nghiêng)
           const normalizedRight: PmNode[] = []
           for (const p of paras) {
             const t = getParagraphNodeText(p)
@@ -1917,7 +1946,7 @@ function parseTable(el: Element, docTitleHint?: string): PmNode | null {
                   font: 'Times New Roman',
                   fontAscii: 'Times New Roman',
                   eastAsiaFont: 'Times New Roman',
-                  sizeHalfPoints: 25, // 12.5pt (fits on 1 line cleanly, inside 12-13pt requirement)
+                  sizeHalfPoints: 24, // 12pt (fits on 1 line in 5600 twips column with 670+ twips to spare)
                 },
                 true,
               )
@@ -1938,7 +1967,7 @@ function parseTable(el: Element, docTitleHint?: string): PmNode | null {
                   font: 'Times New Roman',
                   fontAscii: 'Times New Roman',
                   eastAsiaFont: 'Times New Roman',
-                  sizeHalfPoints: 27, // 13.5pt (inside 13-14pt requirement)
+                  sizeHalfPoints: 26, // 13pt (inside 13-14pt requirement)
                 },
                 true,
               )
@@ -2104,36 +2133,7 @@ function parseTable(el: Element, docTitleHint?: string): PmNode | null {
               }
             }
 
-            if (!hasKyInstruction) {
-              let kyInline: PmNode[] = [
-                {
-                  type: 'text',
-                  text: '(Ký, ghi rõ họ tên và đóng dấu)',
-                  marks: [
-                    { type: 'italic' },
-                    {
-                      type: 'docTextStyle',
-                      attrs: {
-                        font: 'Times New Roman',
-                        fontAscii: 'Times New Roman',
-                        eastAsiaFont: 'Times New Roman',
-                        csFont: 'Times New Roman',
-                        sizeHalfPoints: 24,
-                      },
-                    },
-                  ],
-                },
-              ]
-              normalizedSig.push(
-                blockNode(
-                  'docParagraph',
-                  { align: 'center', spaceBefore: 0, spaceAfter: 0, lineSpacing: 1.1 },
-                  kyInline,
-                ),
-              )
-            }
-
-            // Insert 3 blank lines for signing & stamping (1e)
+            // Insert 3 blank lines for signing & stamping (1e; FX-13: do NOT auto-insert "(Ký, ghi rõ họ tên và đóng dấu)" when not in source)
             for (let b = 0; b < 3; b++) {
               normalizedSig.push(
                 blockNode(
@@ -2197,9 +2197,9 @@ function parseTable(el: Element, docTitleHint?: string): PmNode | null {
               font: 'Times New Roman',
               fontAscii: 'Times New Roman',
               eastAsiaFont: 'Times New Roman',
-              sizeHalfPoints: 24, // 12pt inside data tables so columns never wrap > 2-3 lines (1f)
+              sizeHalfPoints: 24, // 12pt inside data tables so columns never wrap > 2-3 lines (1f) and STT never wraps
             },
-            false,
+            true,
           )
           return blockNode(
             'docParagraph',
@@ -2614,6 +2614,82 @@ export function parseHtmlFragment(raw: string, numIds: NumIds): PmNode[] {
       }
     }
 
+    // 1c & 1h) Deduplicate Căn cứ paragraphs and sanitize statutory citations so AI never tacks custom topics onto legal acts
+    const canonicalizeCanCuText = (rawText: string): { text: string; key: string } => {
+      let cleaned = rawText.replace(/\s+/g, ' ').trim()
+      if (/\b30\/2020\/NĐ-CP\b/i.test(cleaned)) {
+        return {
+          text: 'Căn cứ Nghị định số 30/2020/NĐ-CP ngày 05 tháng 3 năm 2020 của Chính phủ về công tác văn thư;',
+          key: 'DOC:30/2020/NĐ-CP',
+        }
+      }
+      if (/\b32\/2018\/TT-BGDĐT\b/i.test(cleaned)) {
+        return {
+          text: 'Căn cứ Thông tư số 32/2018/TT-BGDĐT ngày 26 tháng 12 năm 2018 của Bộ trưởng Bộ Giáo dục và Đào tạo ban hành Chương trình giáo dục phổ thông;',
+          key: 'DOC:32/2018/TT-BGDĐT',
+        }
+      }
+      if (/\b20\/2023\/TT-BGDĐT\b/i.test(cleaned)) {
+        return {
+          text: 'Căn cứ Thông tư số 20/2023/TT-BGDĐT ngày 30 tháng 10 năm 2023 của Bộ trưởng Bộ Giáo dục và Đào tạo hướng dẫn về vị trí việc làm, cơ cấu viên chức theo chức danh nghề nghiệp và định mức số lượng người làm việc trong các cơ sở giáo dục phổ thông và các trường chuyên biệt công lập;',
+          key: 'DOC:20/2023/TT-BGDĐT',
+        }
+      }
+      if (/\b32\/2020\/TT-BGDĐT\b/i.test(cleaned)) {
+        return {
+          text: 'Căn cứ Thông tư số 32/2020/TT-BGDĐT ngày 15 tháng 9 năm 2020 của Bộ trưởng Bộ Giáo dục và Đào tạo ban hành Điều lệ trường trung học cơ sở, trường trung học phổ thông và trường phổ thông có nhiều cấp học;',
+          key: 'DOC:32/2020/TT-BGDĐT',
+        }
+      }
+      // For any other legal act citation (Luật / Bộ luật / Nghị định / Thông tư), strip AI-fabricated topic suffixes
+      const docCodeMatch = /\b(\d+\/\d{4}\/[A-ZĐ0-9-]+)\b/i.exec(cleaned)
+      if (docCodeMatch && /^Căn cứ\s+(?:Luật|Bộ luật|Nghị định|Thông tư|Nghị quyết)(?:\s|$)/i.test(cleaned)) {
+        cleaned = cleaned
+          .replace(
+            /,?\s*(?:và|kèm theo|gắn với|tích hợp|theo)\s+(?:định hướng|chương trình|kế hoạch|nội dung|mục tiêu)\s+(?:chuyển đổi số|ứng dụng\s+AI|trí tuệ nhân tạo|năm học\s+\d{4})[^;.]*/gi,
+            '',
+          )
+          .replace(/[;.,\s]+$/, ';')
+        return {
+          text: cleaned,
+          key: `DOC:${docCodeMatch[1]!.toUpperCase()}`,
+        }
+      }
+      const normKey = cleaned
+        .toLowerCase()
+        .replace(/^căn cứ\s+/i, '')
+        .replace(/[^a-zà-ỹ0-9]+/gi, ' ')
+        .trim()
+      return { text: cleaned, key: `TEXT:${normKey}` }
+    }
+
+    const seenCanCuKeys = new Set<string>()
+    for (let i = 0; i < out.length; i++) {
+      const b = out[i]!
+      if (b.type !== 'docParagraph') continue
+      const pText = getParagraphNodeText(b)
+      if (!/^Căn cứ(?:\s|:|,|$)/i.test(pText)) continue
+      const { text: canonicalText, key } = canonicalizeCanCuText(pText)
+      if (seenCanCuKeys.has(key)) {
+        out.splice(i, 1)
+        i--
+        continue
+      }
+      seenCanCuKeys.add(key)
+      if (canonicalText !== pText) {
+        b.content = applyTextStyleToNodes(
+          ensureMarkOnNodes([{ type: 'text', text: canonicalText }], 'italic'),
+          {
+            font: 'Times New Roman',
+            fontAscii: 'Times New Roman',
+            eastAsiaFont: 'Times New Roman',
+            sizeHalfPoints: 26,
+          },
+          true,
+        )
+      }
+    }
+
     // 1h) If an administrative document (Tờ trình / Quyết định / Kế hoạch / Thông báo / Công văn) has no Căn cứ lines, synthesize 2 standard Căn cứ paragraphs
     const hasCanCu = out.some(
       (b) => b.type === 'docParagraph' && CAN_CU_LINE_RE.test(getParagraphNodeText(b)),
@@ -2699,7 +2775,7 @@ export function parseHtmlFragment(raw: string, numIds: NumIds): PmNode[] {
         leftLines.push('- Như trên;', '- Lưu: VT.')
       }
       if (rightLines.length === 0) {
-        rightLines.push('THỦ TRƯỞNG ĐƠN VỊ', '(Ký, ghi rõ họ tên và đóng dấu)')
+        rightLines.push('THỦ TRƯỞNG ĐƠN VỊ')
       }
       const synthTable = parsed.createElement('table')
       synthTable.setAttribute('border', '0')
@@ -2743,14 +2819,17 @@ export function parseHtmlFragment(raw: string, numIds: NumIds): PmNode[] {
           )
         }
       }
-      // 1e) Mark closing paragraphs (Trên đây là / Kính trình / Trân trọng...) with keepNext & keepLines
+      // 1e & FX-13) Mark closing paragraphs, Điều/Chương/Mục/Bảng/Phụ lục/Hoạt động headings with keepNext & keepLines
       if (b.type === 'docParagraph') {
         const pText = getParagraphNodeText(b)
         if (
           !CAN_CU_LINE_RE.test(pText) &&
-          /\b(?:Trên đây là|Vậy kính trình|Kính trình|Trân trọng kính trình|Đề nghị\s|Rất mong\s|Trân trọng)\b/i.test(
+          (/(?:^|\s)(?:Trên đây là|Vậy kính trình|Kính trình|Trân trọng kính trình|Đề nghị\s|Rất mong\s|Trân trọng)(?:\s|,|\.|$)/i.test(
             pText,
-          )
+          ) ||
+            /^(?:Điều\s+\d+|Chương\s+[IVXLCDM\d]+|Mục\s+[IVXLCDM\d]+|Phần\s+[IVXLCDM\d]+|[IVXLCDM]+\.\s+[A-ZÀ-Ỹ]|Bảng\s+\d+|Phụ lục(?:\s+\d+)?|Hoạt động\s+\d+)\b/i.test(
+              pText,
+            ))
         ) {
           b.attrs = { ...b.attrs, keepNext: true, keepLines: true }
         }

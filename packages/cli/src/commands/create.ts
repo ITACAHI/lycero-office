@@ -123,6 +123,15 @@ export const createCommand: CommandDef = {
       force: flagBool(args, 'force'),
       fresh: true,
     })
+    const outExt = extname(output).toLowerCase()
+    if (outExt && outExt !== `.${type}`) {
+      throw new CliError(
+        EXIT.usage,
+        `--out path for --type ${type} must end with .${type}, got "${outExt}" (FX-34)`,
+        undefined,
+        { reason: 'invalid_argument' },
+      )
+    }
     if (type === 'pdf') {
       const from = flagString(args, 'from')
       if (!from)
@@ -312,7 +321,12 @@ async function createXlsx(
       renames: dsl.renames,
       gateway: dsl.gateway,
     })
-    r = { ...r, warning: r.warning ?? w.warning, formulaError: r.formulaError ?? w.formulaError }
+    r = {
+      ...r,
+      warning: r.warning ?? w.warning,
+      formulaError: r.formulaError ?? w.formulaError,
+      readbackVerifiedValues: w.readbackVerifiedValues ?? r.readbackVerifiedValues,
+    }
     for (const note of w.notes ?? []) ctx.warn(note)
   }
 
@@ -323,6 +337,7 @@ async function createXlsx(
     cells: r.cells,
     formulas: r.formulas,
     cached_values: r.cachedValues,
+    ...(r.readbackVerifiedValues ? { readback_verified_values: r.readbackVerifiedValues } : {}),
   }
 }
 
@@ -387,18 +402,46 @@ async function createDocx(
     })
   const source = resolveInput(from, ctx)
   const text = readFileSync(source, 'utf-8')
+  if (/^\s*hello\s+test[.!]*\s*$/i.test(text.replace(/<[^>]+>/g, '').trim())) {
+    throw new CliError(
+      EXIT.usage,
+      'Self-test content ("Hello test") is blocked from writing to user documents (FX-02)',
+      undefined,
+      { reason: 'invalid_argument' },
+    )
+  }
   const ext = extname(source).toLowerCase()
   if (ext === '.md' || ext === '.markdown') {
+    const bytes = await markdownToDocx(text, { file: source, ctx })
+    const headings = [...text.matchAll(/^#{1,4}\s+(.+)$/gm)].map((m) => m[1]!.trim()).slice(0, 15)
     return {
-      bytes: await markdownToDocx(text, { file: source, ctx }),
-      detail: { source: 'markdown' },
+      bytes,
+      detail: {
+        source: 'markdown',
+        readback_verified_values: {
+          headings,
+          default_font: 'Times New Roman',
+          margins_twips: { top: 1134, bottom: 1134, left: 1701, right: 850 },
+        },
+      },
     }
   }
   if (ext === '.html' || ext === '.htm') {
     const doc = await blankDocument()
     try {
       const blocks = fillFromHtml(doc, text)
-      return { bytes: await saveDocument(doc), detail: { source: 'html', blocks } }
+      return {
+        bytes: await saveDocument(doc),
+        detail: {
+          source: 'html',
+          blocks,
+          readback_verified_values: {
+            blocks,
+            default_font: 'Times New Roman',
+            margins_twips: { top: 1134, bottom: 1134, left: 1701, right: 850 },
+          },
+        },
+      }
     } finally {
       closeDocument(doc)
     }

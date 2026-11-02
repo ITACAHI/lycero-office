@@ -127,13 +127,13 @@ export const WORK_BUNDLES: readonly WorkBundle[] = [
     skills: [
       {
         name: 'vn-tax-tt200',
-        description: 'Quy tắc thuế GTGT theo Thông tư 200/2014/TT-BTC',
-        content: 'Khi tính thuế GTGT, áp dụng phương pháp khấu trừ. Hàng hóa dịch vụ xuất khẩu được hưởng thuế suất 0%.'
+        description: 'Quy tắc thuế GTGT, kế toán theo Thông tư 99/2025/TT-BTC (hiệu lực 01/01/2026), Luật Thuế TNDN số 67/2025/QH15 và Thuế TNCN 2026',
+        content: 'Khi hạch toán kế toán, áp dụng Thông tư 99/2025/TT-BTC (hiệu lực 01/01/2026). Thuế TNDN áp dụng Luật Thuế TNDN số 67/2025/QH15. Hóa đơn điện tử áp dụng Nghị định 123/2020/NĐ-CP được sửa đổi, bổ sung bởi Nghị định 70/2025/NĐ-CP (hiệu lực 01/06/2025). Thuế TNCN áp dụng quy định 2026: giảm trừ bản thân 15.500.000 đ/tháng, người phụ thuộc 6.200.000 đ/người/tháng (Nghị quyết 110/2025/UBTVQH15), biểu thuế lũy tiến 5 bậc (Luật Thuế TNCN số 109/2025/QH15). Cơ quan thuế gọi là Thuế cơ sở N tỉnh/TP.'
       },
       {
         name: 'vn-mtt-201-balance',
-        description: 'Hướng dẫn lập báo cáo tài chính theo MTT 200/201',
-        content: 'Báo cáo tài chính theo MTT gồm: Bảng cân đối kế toán, Báo cáo kết quả hoạt động kinh doanh, Báo cáo lưu chuyển tiền tệ, Thuyết minh báo cáo tài chính.'
+        description: 'Hướng dẫn lập báo cáo tài chính theo Thông tư 99/2025/TT-BTC (hiệu lực 01/01/2026) & TT 133/2016',
+        content: 'Báo cáo tài chính theo Thông tư 99/2025/TT-BTC gồm: Bảng cân đối kế toán (Mẫu B01-DN), Báo cáo kết quả hoạt động kinh doanh (Mẫu B02-DN), Báo cáo lưu chuyển tiền tệ (Mẫu B03-DN), Thuyết minh báo cáo tài chính (Mẫu B09-DN). Đảm bảo Tổng Tài sản = Tổng Nguồn vốn và dùng công thức Excel sống.'
       }
     ],
     defaultConfig: { accounting_standard: 'vas_2015' },
@@ -185,7 +185,7 @@ export const WORK_BUNDLES: readonly WorkBundle[] = [
       {
         name: 'freelance-invoice-vn',
         description: 'Mẫu hóa đơn dịch vụ tự xuất cho cá nhân/freelancer',
-        content: 'Hóa đơn tự xuất: ghi rõ họ tên, MST (nếu có), địa chỉ, nội dung dịch vụ, số tiền, thuế suất 10% nếu có, ký và đóng dấu.'
+        content: 'Hóa đơn tự xuất: ghi rõ họ tên, MST (nếu có), địa chỉ, nội dung dịch vụ, số tiền, thuế suất 10% (hoặc khấu trừ TNCN 10% tại nguồn với hợp đồng dịch vụ >= 2.000.000 đ), số tiền bằng chữ, ký và đóng dấu.'
       }
     ],
     defaultConfig: { currency: 'VND', tax_rate: 10 },
@@ -240,7 +240,7 @@ export const WORK_BUNDLES: readonly WorkBundle[] = [
       {
         name: 'smb-quarterly-report',
         description: 'Cấu trúc báo cáo quý cho doanh nghiệp nhỏ',
-        content: 'Báo cáo quý gồm: Tóm tắt điều hành, Kết quả kinh doanh, Dòng tiền, Chỉ số tài chính chính, Kế hoạch quý tới.'
+        content: 'Báo cáo quý gồm: Tóm tắt điều hành, Kết quả kinh doanh, Dòng tiền, Chỉ số tài chính chính, Kế hoạch quý tới. Không tự bịa số liệu tài chính khi chưa có dữ liệu đầu vào.'
       }
     ],
     defaultConfig: { fiscal_year_start: '01-01' },
@@ -337,13 +337,13 @@ export const WORK_BUNDLES: readonly WorkBundle[] = [
     skills: [
       {
         name: 'vn-civil-code-2015',
-        description: 'Nguyên tắc pháp luật dân sự Việt Nam 2015',
-        content: 'Bộ luật Dân sự 2015: quyền và nghĩa vụ dân sự, giao dịch dân sự, hợp đồng, trách nhiệm dân sự. Hợp đồng có hiệu lực khi đủ điều kiện: chủ thể có năng lực, mục đích hợp pháp, không vi phạm điều cấm.'
+        description: 'Nguyên tắc pháp luật dân sự Việt Nam 2015, thương mại và bảo vệ dữ liệu cá nhân',
+        content: 'Bộ luật Dân sự 2015 & Luật Thương mại 2005: quyền và nghĩa vụ dân sự, giao dịch dân sự, hợp đồng, trách nhiệm dân sự, phạt vi phạm (tối đa 8% phần nghĩa vụ bị vi phạm đối với hợp đồng thương mại theo Điều 301 Luật Thương mại 2005), quan hệ giữa phạt vi phạm và bồi thường thiệt hại theo Điều 307 Luật Thương mại 2005. Bảo vệ dữ liệu cá nhân theo Luật Bảo vệ dữ liệu cá nhân số 91/2025/QH15 và Nghị định 356/2025/NĐ-CP (hiệu lực 01/01/2026). Giải quyết tranh chấp tại TAND khu vực (Nghị quyết 81/2025/UBTVQH15).'
       },
       {
         name: 'vn-labor-code-2019',
-        description: 'Luật Lao động Việt Nam 2019',
-        content: 'Luật Lao động 2019: HĐLĐ phải ghi rõ công việc, địa điểm, thời giờ làm việc, lương, thời hạn. Thử việc tối đa 180 ngày. Nghỉ phép năm: 12-16 ngày tùy thâm niên.'
+        description: 'Bộ luật Lao động 2019, Luật BHXH 41/2024/QH15 và Luật Việc làm 74/2025/QH15',
+        content: 'Bộ luật Lao động 2019, Luật Bảo hiểm xã hội số 41/2024/QH15 (hiệu lực 01/07/2025) và Luật Việc làm số 74/2025/QH15 (hiệu lực 01/01/2026): HĐLĐ phải ghi rõ công việc, địa điểm, thời giờ làm việc, lương, phụ cấp, BHXH/BHYT/BHTN, thời hạn. Thử việc tối đa 180 ngày (quản lý doanh nghiệp), 60 ngày (CĐ/ĐH trở lên), 30 ngày (trung cấp/công nhân kỹ thuật). Thanh toán quyền lợi khi chấm dứt HĐLĐ trong thời hạn 14 ngày làm việc (Điều 48 BLLĐ 2019).'
       }
     ],
     defaultConfig: { legal_system: 'vn_2019', contract_lang: 'vi' },
@@ -374,7 +374,7 @@ export const WORK_BUNDLES: readonly WorkBundle[] = [
       {
         name: 'vn-land-law-2024',
         description: 'Luật Đất đai 2024 và các văn bản hướng dẫn',
-        content: 'Luật Đất đai 2024: quyền sử dụng đất, chuyển nhượng, thuê, thế chấp. Lưu ý: đất nông nghiệp không được chuyển thành đất ở nếu không đủ điều kiện. Hạn mức nhận chuyển nhượng: 10ha tỉnh, 30ha thành phố.'
+        content: 'Luật Đất đai 2024, Luật Kinh doanh Bất động sản 2023, Luật Nhà ở 2023, Nghị định 96/2024/NĐ-CP và Nghị định 101/2024/NĐ-CP (Mẫu số 04/ĐK, Mẫu số 11/ĐK): quyền sử dụng đất, đăng ký biến động, cấp GCNQSDĐ (sổ đỏ), chuyển nhượng, thuê, thế chấp. Tổng các đợt thanh toán trong hợp đồng chuyển nhượng BĐS bắt buộc bằng đúng 100% giá trị chuyển nhượng.'
       }
     ],
     defaultConfig: { region: 'south', property_type: 'residential' },
@@ -404,13 +404,13 @@ export const WORK_BUNDLES: readonly WorkBundle[] = [
     skills: [
       {
         name: 'cv-5512-template',
-        description: 'Mẫu kế hoạch bài dạy chuẩn 5512',
-        content: 'Cấu trúc KHBD 5512: I. Mục tiêu (chung + về PC&NL), II. Thiết bị dạy học, III. Chuẩn bị của GV&HS, IV. Tiến trình dạy học (hoạt động khởi động, hình thành kiến thức, luyện tập, vận dụng, tìm tòi mở rộng), V. Điều chỉnh sau giảng.'
+        description: 'Mẫu kế hoạch bài dạy chuẩn Phụ lục IV Công văn 5512/BGDĐT-GDTrH',
+        content: 'Cấu trúc KHBD 5512 (Phụ lục IV Công văn 5512/BGDĐT-GDTrH): I. Mục tiêu (1. Kiến thức, 2. Năng lực, 3. Phẩm chất), II. Thiết bị dạy học và học liệu, III. Tiến trình dạy học (4 hoạt động: 1. Mở đầu, 2. Hình thành kiến thức mới, 3. Luyện tập, 4. Vận dụng; mỗi hoạt động có đủ 4 mục a) Mục tiêu, b) Nội dung, c) Sản phẩm, d) Tổ chức thực hiện). TUYỆT ĐỐI KHÔNG gắn Quốc hiệu - Tiêu ngữ, căn cứ pháp lý hay mã hồ sơ hành chính. Tổng thời gian <= 90 phút cho 2 tiết.'
       },
       {
         name: 'bloom-taxonomy-vi',
-        description: 'Thang tư duy Bloom phiên bản tiếng Việt',
-        content: '6 mức Bloom: 1. NHẬN BIẾT - nhớ lại, 2. THÔNG HIỂU - giải thích, 3. VẬN DỤNG - sử dụng quy tắc, 4. PHÂN TÍCH - phân rã, 5. ĐÁNH GIÁ - phán đoán, 6. SÁNG TẠO - thiết kế mới.'
+        description: 'Ma trận và đặc tả đề kiểm tra 3 mức độ theo Công văn 7991/BGDĐT-GDTrH',
+        content: 'Ma trận đặc tả đề kiểm tra theo Công văn 7991/BGDĐT-GDTrH gồm 3 mức độ: 1. Nhận biết, 2. Thông hiểu, 3. Vận dụng (bỏ mức Vận dụng cao 4 mức cũ); cấu trúc 4 phần: Phần I. Trắc nghiệm nhiều lựa chọn (~3,0 điểm), Phần II. Trắc nghiệm Đúng - Sai (~2,0 điểm), Phần III. Trắc nghiệm trả lời ngắn (~2,0 điểm), Phần IV. Tự luận (~3,0 điểm). Tổng điểm = 10,0 điểm. TUYỆT ĐỐI KHÔNG gắn Quốc hiệu - Tiêu ngữ.'
       }
     ],
     defaultConfig: { grade_level: 'thcs', curriculum: '2018' },
@@ -441,7 +441,7 @@ export const WORK_BUNDLES: readonly WorkBundle[] = [
       {
         name: 'higher-ed-syllabus-vi',
         description: 'Cấu trúc đề cương học phần đại học chuẩn Việt Nam',
-        content: 'Đề cương HP gồm: Thông tin chung, Mục tiêu (PLO mapping), Chuẩn đầu ra (CLO), Nội dung (phân bổ tuần), Phương pháp giảng dạy, Đánh giá (rubric), Tài liệu. Theo thông tư sửa đổi về chuẩn đầu ra.'
+        content: 'Đề cương HP gồm: Thông tin chung, Mục tiêu (PLO mapping), Chuẩn đầu ra (CLO), Nội dung (phân bổ tuần), Phương pháp giảng dạy, Đánh giá (rubric có các mức điểm liên tục, không hở, không chồng lấn), Tài liệu. Theo thông tư sửa đổi về chuẩn đầu ra (TT 17/2021/TT-BGDĐT). TUYỆT ĐỐI KHÔNG gắn Quốc hiệu - Tiêu ngữ.'
       }
     ],
     defaultConfig: { university_type: 'dhcn', credit_system: '3' },

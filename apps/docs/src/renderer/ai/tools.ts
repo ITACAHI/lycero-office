@@ -1378,7 +1378,7 @@ async function writeDocument(
     ? ' The stream ended early, so the content is INCOMPLETE (the user chose to keep it): the tail is missing. Say so and offer to finish the missing sections with write_document (afterBlockIndex at the end) or insert_content.'
     : ''
   const nextStepNote = nd30PageSetupApplied
-    ? '\nNghị định 30/2020/NĐ-CP standard page setup (A4, margins top 20mm / bottom 20mm / left 30mm / right 15mm), Times New Roman 13pt (1.15 line spacing), left-aligned italic Căn cứ, proportional 6-column budget table (6%/44%/10%/8%/15%/17%), and borderless header/signature tables with keep-with-next have all been applied automatically. Reply with a short summary.'
+    ? '\nNghị định 30/2020/NĐ-CP standard page setup (A4, margins top 20mm / bottom 20mm / left 30mm / right 15mm), Times New Roman 13pt (1.15 line spacing), left-aligned italic deduplicated Căn cứ, proportional 6-column budget table (8%/42%/10%/8%/15%/17% — 720/3740/900/700/1400/1600 twips), and borderless header (40%/60% — 3760/5600 twips) & signature tables with keep-with-next have all been applied automatically. Reply with a short summary.'
     : '\nNext step: if page margins or custom styles are needed, call set_page_setup or apply_ops before replying with a short summary.'
   return {
     output: `Content written by the system (${nodes.length} block(s), ${result.html.length} chars). Block indexes have changed; use get_document_context if needed.${note}${nextStepNote}`,

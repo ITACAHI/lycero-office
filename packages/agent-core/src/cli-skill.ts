@@ -221,6 +221,48 @@ export function createCliSkill(deps: CliSkillDeps): CliSkill {
     if (out) lines.push(`output_path: ${out}`, `cite: ${kbCiteHref(out)}`)
     lines.push(clip(body))
     if (result.stderr.trim()) lines.push(`[stderr]\n${clip(result.stderr)}`)
+
+    // FX-01: Surface mandatory [READBACK_VERIFIED_VALUES] block after any file write/update
+    const jsonRecord =
+      result.json && typeof result.json === 'object'
+        ? (result.json as Record<string, unknown>)
+        : null
+    const detailRecord =
+      jsonRecord?.detail && typeof jsonRecord.detail === 'object'
+        ? (jsonRecord.detail as Record<string, unknown>)
+        : null
+    if (detailRecord?.readback_verified_values) {
+      lines.push(
+        `\n[READBACK_VERIFIED_VALUES]\n${JSON.stringify(detailRecord.readback_verified_values, null, 1)}\n` +
+          `CRITICAL (FX-01): When summarizing or citing any totals, ratios, or metrics in chat, you MUST use ONLY the exact values from [READBACK_VERIFIED_VALUES] above. Never cite unverified mental math.`,
+      )
+    }
+
+    // FX-19: Surface explicit [OP_ERRORS_DETECTED] when any op or batch fails
+    const batchRecord =
+      detailRecord?.batch && typeof detailRecord.batch === 'object'
+        ? (detailRecord.batch as Record<string, unknown>)
+        : null
+    const failuresList = Array.isArray(detailRecord?.failures) ? detailRecord.failures : []
+    const warningsList = Array.isArray(jsonRecord?.warnings) ? jsonRecord.warnings : []
+    const hasFailedOps =
+      !result.ok ||
+      failuresList.length > 0 ||
+      (typeof batchRecord?.failed === 'number' && batchRecord.failed > 0) ||
+      warningsList.some(
+        (w) =>
+          w &&
+          typeof w === 'object' &&
+          ((w as { code?: string }).code === 'formula_errors' ||
+            (w as { code?: string }).code === 'op_warning'),
+      )
+    if (hasFailedOps && !plain) {
+      lines.push(
+        `\n[OP_ERRORS_DETECTED]\n` +
+          `CRITICAL (FX-19): One or more operations failed or returned errors. You MUST either fix and re-run the failed operation(s) now, or explicitly report to the user which operation(s) failed and why. NEVER claim in chat that a failed chart, conditional format, or edit was completed.`,
+      )
+    }
+
     return {
       output: lines.join('\n'),
       isError: !result.ok,
@@ -237,7 +279,10 @@ export function createCliSkill(deps: CliSkillDeps): CliSkill {
     buildContext: () => {
       const ctx = deps.context()
       if (!ctx) return ''
-      return `genoffice directories:\n  work directory: ${ctx.workDir}\n  output directory: ${ctx.outDir}`
+      return (
+        `genoffice directories:\n  work directory: ${ctx.workDir}\n  output directory: ${ctx.outDir}\n` +
+        `  (CRITICAL FX-03/FX-18: NEVER put final output files in the work directory; ALWAYS pass --out "${ctx.outDir}/<filename>". NEVER copy any "kb-..." session ID or internal path into document content or filenames.)`
+      )
     },
     executeTool: async (call) => {
       if (call.name === LOAD_GUIDE_TOOL) {

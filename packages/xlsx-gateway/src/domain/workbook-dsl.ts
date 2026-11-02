@@ -1142,6 +1142,539 @@ const OPERATION_FIELDS = new Map<string, readonly string[]>(
  * grouped per operation; misspelled fields are named against the op's real
  * field list so a `col`/`width` batch is fixed in one retry instead of a guess.
  */
+/**
+ * Sanitizes an Excel formula string before writing:
+ * 1. Trims whitespace, surrounding backticks, and accidental leading apostrophes (`'=SUM(...)`).
+ * 2. Replaces `;` argument separators outside string literals with `,`.
+ * 3. When `address` (e.g. `"F10"`) is provided, clamps circular self-referencing ranges
+ *    inside aggregate functions (`=SUM(F2:F10)` in `F10` -> `=SUM(F2:F9)`).
+ */
+export function sanitizeExcelFormula(rawFormula: string, address?: string): string {
+  let text = rawFormula.trim()
+  if (text.startsWith('`') && text.endsWith('`') && text.length > 2) {
+    text = text.slice(1, -1).trim()
+  }
+  if (/^'?=\s*[A-Za-z0-9($+-]/.test(text)) {
+    text = '=' + text.replace(/^'?=\s*/, '')
+  } else if (!text.startsWith('=')) {
+    text = '=' + text
+  }
+  // Replace `;` with `,` outside double-quoted strings
+  let out = ''
+  let inQuotes = false
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i]!
+    if (ch === '"') {
+      inQuotes = !inQuotes
+      out += ch
+    } else if (!inQuotes && ch === ';') {
+      out += ','
+    } else {
+      out += ch
+    }
+  }
+  if (address) {
+    try {
+      const self = parseAddress(address.replace(/\$/g, '').toUpperCase())
+      const selfCol = columnLabel(self.column)
+      const selfRow1 = self.row + 1
+      out = out.replace(
+        /\b(SUM|AVERAGE|MIN|MAX|COUNT|COUNTA|SUBTOTAL)\s*\(([^()]*)\)/gi,
+        (full, fn: string, inner: string) => {
+          const fixedInner = inner.replace(
+            /(\$?)([A-Z]{1,3})(\$?)(\d+):(\$?)([A-Z]{1,3})(\$?)(\d+)/gi,
+            (
+              rangeMatch,
+              d1: string,
+              c1: string,
+              d2: string,
+              r1Str: string,
+              d3: string,
+              c2: string,
+              d4: string,
+              r2Str: string,
+            ) => {
+              const col1 = c1.toUpperCase()
+              const col2 = c2.toUpperCase()
+              const row1 = Number(r1Str)
+              const row2 = Number(r2Str)
+              if (col1 === selfCol && col2 === selfCol && row2 === selfRow1 && row1 < selfRow1) {
+                return `${d1}${col1}${d2}${row1}:${d3}${col2}${d4}${selfRow1 - 1}`
+              }
+              if (
+                row1 === selfRow1 &&
+                row2 === selfRow1 &&
+                col2 === selfCol &&
+                columnIndex(col1) < self.column
+              ) {
+                return `${d1}${col1}${d2}${row1}:${d3}${columnLabel(self.column - 1)}${d4}${row2}`
+              }
+              return rangeMatch
+            },
+          )
+          return `${fn}(${fixedInner})`
+        },
+      )
+    } catch {
+      // ignore invalid address
+    }
+  }
+  return out
+}
+
+const NAMED_CF_COLORS: Record<string, string> = {
+  red: '#FFC7CE',
+  lightred: '#FFC7CE',
+  darkred: '#9C0006',
+  green: '#C6EFCE',
+  lightgreen: '#C6EFCE',
+  darkgreen: '#006100',
+  yellow: '#FFEB9C',
+  lightyellow: '#FFEB9C',
+  darkyellow: '#9C6500',
+  blue: '#DDEBF7',
+  orange: '#FCE4D6',
+  gray: '#D9D9D9',
+  grey: '#D9D9D9',
+  white: '#FFFFFF',
+  black: '#000000',
+}
+
+function normalizeHexColor(val: unknown): string | undefined {
+  if (typeof val !== 'string') return undefined
+  const trimmed = val.trim()
+  if (/^#[0-9A-Fa-f]{6}$/.test(trimmed)) return trimmed
+  if (/^[0-9A-Fa-f]{6}$/.test(trimmed)) return `#${trimmed}`
+  const named = NAMED_CF_COLORS[trimmed.toLowerCase().replace(/[\s_-]/g, '')]
+  return named
+}
+
+function stripSheetPrefixFromRange(
+  rawRange: unknown,
+  holder: Record<string, unknown>,
+): string | undefined {
+  if (typeof rawRange !== 'string') return undefined
+  const trimmed = rawRange.trim()
+  const bang = trimmed.indexOf('!')
+  if (bang >= 0) {
+    const sheetPart = trimmed.slice(0, bang).replace(/^'|'$/g, '').replace(/''/g, "'").trim()
+    if (sheetPart && holder.sheet === undefined && holder.sheetId === undefined) {
+      holder.sheet = sheetPart
+    }
+    return trimmed.slice(bang + 1).replace(/\$/g, '').toUpperCase()
+  }
+  return trimmed.replace(/\$/g, '').toUpperCase()
+}
+
+/**
+ * Normalizes common LLM field/op aliases before Zod validation so both CLI
+ * `sheet apply` and GUI `propose_operations` accept minor variations without
+ * rejecting the batch (`FX-19`, `FX-33`, `FX-41`).
+ */
+export function normalizeWorkbookOperationInput(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return raw
+  const op = { ...(raw as Record<string, unknown>) }
+  if (typeof op.op !== 'string') return op
+
+  // 1. Op name aliases
+  const opAliases: Record<string, string> = {
+    set_number_format: 'format_range',
+    number_format: 'format_range',
+    format_cells: 'format_range',
+    set_format: 'format_range',
+    conditional_format: 'add_conditional_format',
+    set_conditional_format: 'add_conditional_format',
+    add_data_validation: 'set_data_validation',
+    data_validation: 'set_data_validation',
+    create_chart: 'add_chart',
+    insert_chart: 'add_chart',
+  }
+  if (opAliases[op.op]) {
+    op.op = opAliases[op.op]!
+  }
+
+  // 2. Normalize range/address fields
+  if (typeof op.address === 'string') {
+    op.address = stripSheetPrefixFromRange(op.address, op)
+  }
+  if (typeof op.range === 'string') {
+    op.range = stripSheetPrefixFromRange(op.range, op)
+  }
+  if (typeof op.start === 'string') {
+    op.start = stripSheetPrefixFromRange(op.start, op)
+  }
+
+  // 3. Per-op normalization
+  if (op.op === 'set_cell') {
+    if (op.address === undefined && typeof op.cell === 'string') {
+      op.address = stripSheetPrefixFromRange(op.cell, op)
+      delete op.cell
+    }
+    if (typeof op.value === 'string' && op.type !== 'text' && /^'?=\s*[A-Za-z0-9($+-]/.test(op.value.trim())) {
+      op.op = 'set_formula'
+      op.formula = sanitizeExcelFormula(op.value, typeof op.address === 'string' ? op.address : undefined)
+      delete op.value
+    } else if (typeof op.value === 'string' && /^\s*[+-]?\d+(?:[.,]\d+)?\s*%\s*$/.test(op.value)) {
+      const m = /^\s*([+-]?\d+(?:[.,]\d+)?)\s*%\s*$/.exec(op.value)
+      if (m) op.value = Number(m[1]!.replace(',', '.')) / 100
+    }
+  } else if (op.op === 'set_formula') {
+    if (op.address === undefined && typeof op.cell === 'string') {
+      op.address = stripSheetPrefixFromRange(op.cell, op)
+      delete op.cell
+    }
+    if (op.formula === undefined && typeof op.value === 'string') {
+      op.formula = op.value
+      delete op.value
+    }
+    if (typeof op.formula === 'string') {
+      op.formula = sanitizeExcelFormula(
+        op.formula,
+        typeof op.address === 'string' ? op.address : undefined,
+      )
+    }
+  } else if (op.op === 'format_range') {
+    if (op.range === undefined && typeof (op.address ?? op.cell) === 'string') {
+      op.range = stripSheetPrefixFromRange(op.address ?? op.cell, op)
+      delete op.address
+      delete op.cell
+    }
+    const fmtObj: Record<string, unknown> =
+      op.format && typeof op.format === 'object' && !Array.isArray(op.format)
+        ? { ...(op.format as Record<string, unknown>) }
+        : {}
+    if (typeof op.format === 'string') {
+      fmtObj.numberFormat = op.format
+    }
+    for (const k of [
+      'bold',
+      'italic',
+      'underline',
+      'strikethrough',
+      'fontFamily',
+      'fontSize',
+      'fontColor',
+      'fillColor',
+      'fill',
+      'numberFormat',
+      'numFmt',
+      'number_format',
+      'horizontalAlign',
+      'verticalAlign',
+      'wrapText',
+      'border',
+    ]) {
+      if (op[k] !== undefined && fmtObj[k] === undefined) {
+        fmtObj[k] = op[k]
+        delete op[k]
+      }
+    }
+    if (fmtObj.numberFormat === undefined) {
+      const nf = fmtObj.numFmt ?? fmtObj.number_format ?? fmtObj.format
+      if (typeof nf === 'string') fmtObj.numberFormat = nf
+    }
+    delete fmtObj.numFmt
+    delete fmtObj.number_format
+    if (typeof fmtObj.format === 'string') delete fmtObj.format
+    if (typeof fmtObj.numberFormat === 'string') {
+      const lower = fmtObj.numberFormat.trim().toLowerCase()
+      if (lower === 'percent' || lower === 'percentage') fmtObj.numberFormat = '0.0%'
+    }
+    if (typeof fmtObj.fillColor === 'string') {
+      fmtObj.fillColor = normalizeHexColor(fmtObj.fillColor) ?? fmtObj.fillColor
+    }
+    if (typeof fmtObj.fontColor === 'string') {
+      fmtObj.fontColor = normalizeHexColor(fmtObj.fontColor) ?? fmtObj.fontColor
+    }
+    op.format = fmtObj
+  } else if (op.op === 'add_chart') {
+    if (op.chartType === undefined && typeof op.type === 'string') {
+      op.chartType = op.type
+      delete op.type
+    }
+    if (typeof op.chartType === 'string') {
+      const ct = op.chartType.trim().toLowerCase()
+      const chartAliases: Record<string, string> = {
+        col: 'column',
+        clusteredcolumn: 'column',
+        columnchart: 'column',
+        barchart: 'bar',
+        horizontalbar: 'bar',
+        linechart: 'line',
+        areachart: 'area',
+        piechart: 'pie',
+        donut: 'doughnut',
+        doughnutchart: 'doughnut',
+        scatterchart: 'scatter',
+        radarchart: 'radar',
+        combochart: 'combo',
+      }
+      op.chartType = chartAliases[ct.replace(/[\s_-]/g, '')] ?? ct
+    }
+    if (op.dataRange === undefined) {
+      const dr = op.range ?? op.sourceRange ?? op.source ?? op.data
+      if (typeof dr === 'string') op.dataRange = dr
+      delete op.range
+      delete op.sourceRange
+      delete op.source
+      delete op.data
+    }
+    if (typeof op.dataRange === 'string') {
+      op.dataRange = stripSheetPrefixFromRange(op.dataRange, op)
+    }
+    if (op.anchorCell === undefined) {
+      const ac = op.anchor ?? op.position ?? op.targetCell ?? op.cell
+      if (typeof ac === 'string') op.anchorCell = ac
+      delete op.anchor
+      delete op.position
+      delete op.targetCell
+      delete op.cell
+    }
+    if (typeof op.anchorCell === 'string') {
+      const stripped = stripSheetPrefixFromRange(op.anchorCell, op) ?? op.anchorCell
+      op.anchorCell = stripped.split(':')[0]!.trim()
+    }
+  } else if (op.op === 'add_conditional_format') {
+    if (op.range === undefined && typeof (op.address ?? op.cell ?? op.target) === 'string') {
+      op.range = stripSheetPrefixFromRange(op.address ?? op.cell ?? op.target, op)
+      delete op.address
+      delete op.cell
+      delete op.target
+    }
+    const rawRule =
+      op.rule && typeof op.rule === 'object' && !Array.isArray(op.rule)
+        ? { ...(op.rule as Record<string, unknown>) }
+        : {}
+    for (const k of [
+      'kind',
+      'type',
+      'operator',
+      'value',
+      'value2',
+      'min',
+      'max',
+      'text',
+      'formula',
+      'minColor',
+      'midColor',
+      'maxColor',
+      'color',
+      'format',
+      'fillColor',
+      'fontColor',
+      'bold',
+      'italic',
+      'bgColor',
+      'backgroundColor',
+      'textColor',
+    ]) {
+      if (op[k] !== undefined && rawRule[k] === undefined) {
+        rawRule[k] = op[k]
+        delete op[k]
+      }
+    }
+    const opMap: Record<string, string> = {
+      '>': 'greaterThan',
+      gt: 'greaterThan',
+      greater_than: 'greaterThan',
+      '>=': 'greaterThanOrEqual',
+      gte: 'greaterThanOrEqual',
+      greater_than_or_equal: 'greaterThanOrEqual',
+      '<': 'lessThan',
+      lt: 'lessThan',
+      less_than: 'lessThan',
+      '<=': 'lessThanOrEqual',
+      lte: 'lessThanOrEqual',
+      less_than_or_equal: 'lessThanOrEqual',
+      '=': 'equal',
+      '==': 'equal',
+      eq: 'equal',
+      '!=': 'notEqual',
+      '<>': 'notEqual',
+      neq: 'notEqual',
+      not_equal: 'notEqual',
+      contains_text: 'contains',
+      containstext: 'contains',
+      not_contains: 'notContains',
+      begins_with: 'beginsWith',
+      starts_with: 'beginsWith',
+      ends_with: 'endsWith',
+    }
+    if (typeof rawRule.operator === 'string') {
+      const mapped = opMap[rawRule.operator.trim()] ?? opMap[rawRule.operator.trim().toLowerCase()]
+      if (mapped) rawRule.operator = mapped
+    }
+    if (rawRule.kind === undefined && typeof rawRule.type === 'string') {
+      const t = rawRule.type.trim().toLowerCase()
+      if (t === 'colorscale' || t === 'color_scale') rawRule.kind = 'colorScale'
+      else if (t === 'databar' || t === 'data_bar') rawRule.kind = 'dataBar'
+      else if (t === 'expression' || t === 'formula') rawRule.kind = 'formula'
+      else if (t === 'text' || t === 'containstext' || t === 'textcontains') rawRule.kind = 'text'
+      else if (t === 'duplicate' || t === 'duplicatevalues' || t === 'uniquevalues')
+        rawRule.kind = 'duplicate'
+      else if (t === 'top10' || t === 'rank') rawRule.kind = 'top10'
+      else if (t === 'blank' || t === 'blanks') rawRule.kind = 'blank'
+      else rawRule.kind = 'number'
+      delete rawRule.type
+    }
+    if (rawRule.kind === undefined) {
+      if (rawRule.minColor !== undefined && rawRule.maxColor !== undefined) rawRule.kind = 'colorScale'
+      else if (rawRule.formula !== undefined) rawRule.kind = 'formula'
+      else if (
+        rawRule.text !== undefined ||
+        (typeof rawRule.operator === 'string' &&
+          ['contains', 'notContains', 'beginsWith', 'endsWith'].includes(rawRule.operator))
+      ) {
+        rawRule.kind = 'text'
+      } else {
+        rawRule.kind = 'number'
+      }
+    }
+    if (rawRule.kind === 'number') {
+      if (rawRule.operator === undefined) rawRule.operator = 'greaterThan'
+      if (rawRule.value === undefined && rawRule.min !== undefined) {
+        rawRule.value = rawRule.min
+        delete rawRule.min
+      }
+      if (rawRule.value2 === undefined && rawRule.max !== undefined) {
+        rawRule.value2 = rawRule.max
+        delete rawRule.max
+      }
+      if (typeof rawRule.value === 'string' && Number.isFinite(Number(rawRule.value))) {
+        rawRule.value = Number(rawRule.value)
+      }
+      if (typeof rawRule.value2 === 'string' && Number.isFinite(Number(rawRule.value2))) {
+        rawRule.value2 = Number(rawRule.value2)
+      }
+    } else if (rawRule.kind === 'text') {
+      if (rawRule.operator === undefined) rawRule.operator = 'contains'
+      if (rawRule.text === undefined && typeof rawRule.value === 'string') {
+        rawRule.text = rawRule.value
+        delete rawRule.value
+      }
+    } else if (rawRule.kind === 'formula' && typeof rawRule.formula === 'string') {
+      rawRule.formula = sanitizeExcelFormula(rawRule.formula)
+    } else if (rawRule.kind === 'colorScale') {
+      rawRule.minColor = normalizeHexColor(rawRule.minColor) ?? '#F8696B'
+      if (rawRule.midColor !== undefined) {
+        rawRule.midColor = normalizeHexColor(rawRule.midColor) ?? '#FFEB84'
+      }
+      rawRule.maxColor = normalizeHexColor(rawRule.maxColor) ?? '#63BE7B'
+    } else if (rawRule.kind === 'dataBar' && rawRule.color !== undefined) {
+      rawRule.color = normalizeHexColor(rawRule.color) ?? '#638EC6'
+    }
+    if (rawRule.kind !== 'colorScale' && rawRule.kind !== 'dataBar') {
+      const fmt: Record<string, unknown> =
+        rawRule.format && typeof rawRule.format === 'object' && !Array.isArray(rawRule.format)
+          ? { ...(rawRule.format as Record<string, unknown>) }
+          : {}
+      const bg =
+        fmt.fillColor ??
+        rawRule.fillColor ??
+        rawRule.bgColor ??
+        rawRule.backgroundColor ??
+        rawRule.color
+      const fg = fmt.fontColor ?? rawRule.fontColor ?? rawRule.textColor
+      if (bg !== undefined) fmt.fillColor = normalizeHexColor(bg) ?? '#FFC7CE'
+      if (fg !== undefined) fmt.fontColor = normalizeHexColor(fg) ?? '#9C0006'
+      if (rawRule.bold !== undefined && fmt.bold === undefined) fmt.bold = Boolean(rawRule.bold)
+      if (rawRule.italic !== undefined && fmt.italic === undefined)
+        fmt.italic = Boolean(rawRule.italic)
+      if (Object.keys(fmt).length === 0) {
+        fmt.fillColor = '#FFC7CE'
+        fmt.fontColor = '#9C0006'
+      }
+      delete rawRule.fillColor
+      delete rawRule.fontColor
+      delete rawRule.bgColor
+      delete rawRule.backgroundColor
+      delete rawRule.textColor
+      delete rawRule.color
+      delete rawRule.bold
+      delete rawRule.italic
+      rawRule.format = fmt
+    }
+    op.rule = rawRule
+  } else if (op.op === 'set_data_validation') {
+    if (op.range === undefined && typeof (op.address ?? op.cell ?? op.target) === 'string') {
+      op.range = stripSheetPrefixFromRange(op.address ?? op.cell ?? op.target, op)
+      delete op.address
+      delete op.cell
+      delete op.target
+    }
+    if (op.validation === undefined && op.rule !== undefined) {
+      op.validation = op.rule
+      delete op.rule
+    }
+    if (op.validation === undefined && (op.kind || op.type || op.values || op.min !== undefined || op.minimum !== undefined || op.formula1 !== undefined)) {
+      const extracted: Record<string, unknown> = {}
+      for (const k of ['kind', 'type', 'values', 'options', 'list', 'range', 'min', 'max', 'minimum', 'maximum', 'formula1', 'formula2', 'start', 'end', 'formula']) {
+        if (op[k] !== undefined && k !== 'range') {
+          extracted[k] = op[k]
+          delete op[k]
+        }
+      }
+      op.validation = extracted
+    }
+    if (op.validation && typeof op.validation === 'object' && !Array.isArray(op.validation)) {
+      const v = { ...(op.validation as Record<string, unknown>) }
+      if (v.kind === undefined && typeof v.type === 'string') {
+        const t = v.type.trim().toLowerCase()
+        if (t === 'whole' || t === 'integer' || t === 'decimal' || t === 'number' || t === 'numberbetween') {
+          v.kind = 'numberBetween'
+        } else if (t === 'list') {
+          v.kind = typeof v.range === 'string' ? 'listRef' : 'list'
+        } else if (t === 'date' || t === 'datebetween') {
+          v.kind = 'dateBetween'
+        } else if (t === 'checkbox' || t === 'boolean') {
+          v.kind = 'checkbox'
+        } else if (t === 'custom' || t === 'formula') {
+          v.kind = 'formula'
+        }
+        delete v.type
+      }
+      if (v.kind === undefined) {
+        if (v.values !== undefined || v.options !== undefined || v.list !== undefined) v.kind = 'list'
+        else if (v.min !== undefined || v.max !== undefined || v.minimum !== undefined || v.maximum !== undefined || v.formula1 !== undefined) v.kind = 'numberBetween'
+        else if (v.start !== undefined && v.end !== undefined) v.kind = 'dateBetween'
+        else if (v.formula !== undefined) v.kind = 'formula'
+      }
+      if (v.kind === 'numberBetween') {
+        const rawMin = v.min ?? v.minimum ?? v.formula1 ?? v.from ?? 1
+        const rawMax = v.max ?? v.maximum ?? v.formula2 ?? v.to ?? 10
+        v.min = Number(rawMin)
+        v.max = Number(rawMax)
+        delete v.minimum
+        delete v.maximum
+        delete v.formula1
+        delete v.formula2
+        delete v.from
+        delete v.to
+        delete v.operator
+      } else if (v.kind === 'list') {
+        const rawVals = v.values ?? v.options ?? v.list ?? v.formula1
+        if (typeof rawVals === 'string') {
+          const clean = rawVals.replace(/^"|"$/g, '').trim()
+          if (clean.startsWith('=')) {
+            v.kind = 'listRef'
+            v.range = clean.slice(1).replace(/\$/g, '').toUpperCase()
+            delete v.values
+          } else {
+            v.values = clean.split(',').map((s) => s.trim()).filter(Boolean)
+          }
+        } else if (Array.isArray(rawVals)) {
+          v.values = rawVals.map((item) => String(item).trim()).filter(Boolean)
+        }
+        delete v.options
+        delete v.list
+        delete v.formula1
+      }
+      op.validation = v
+    }
+  }
+  return op
+}
+
 export function describeOperationErrors(ops: readonly unknown[], error: z.ZodError): string {
   const byIndex = new Map<number, string[]>()
   for (const issue of error.issues) {
@@ -1758,12 +2291,27 @@ export function expandToPrimitiveOps(
             origin.startRow + rowOffset,
             origin.startColumn + columnOffset,
           )
-          if (typeof value === 'string' && value.startsWith('=')) {
+          if (
+            typeof value === 'string' &&
+            ((value.startsWith('=') && value.length > 1 && !/^=+$/.test(value)) ||
+              /^'=\s*[A-Za-z0-9($+-]/.test(value.trim()))
+          ) {
             expanded.push({
               op: 'set_formula',
               sheetId: operation.sheetId,
               address,
-              formula: value,
+              formula: sanitizeExcelFormula(value, address),
+            })
+          } else if (
+            typeof value === 'string' &&
+            /^\s*([+-]?\d+(?:[.,]\d+)?)\s*%\s*$/.test(value)
+          ) {
+            const m = /^\s*([+-]?\d+(?:[.,]\d+)?)\s*%\s*$/.exec(value)
+            expanded.push({
+              op: 'set_cell',
+              sheetId: operation.sheetId,
+              address,
+              value: m ? Number(m[1]!.replace(',', '.')) / 100 : value,
             })
           } else {
             expanded.push({ op: 'set_cell', sheetId: operation.sheetId, address, value })
@@ -2041,6 +2589,12 @@ export function expandToPrimitiveOps(
         throw new Error('set_page_setup: scale and fitToWidth/fitToHeight are mutually exclusive.')
       }
       expanded.push(operation)
+    } else if (operation.op === 'set_formula') {
+      countCell()
+      expanded.push({
+        ...operation,
+        formula: sanitizeExcelFormula(operation.formula, operation.address),
+      })
     } else {
       if (CELL_CONTENT_OPS.has(operation.op)) countCell()
       expanded.push(operation)

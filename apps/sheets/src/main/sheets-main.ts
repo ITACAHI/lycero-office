@@ -3599,11 +3599,16 @@ export function registerSheetsIpc(): void {
       if (existsSync(targetPath) && request.overwrite !== true) {
         throw new Error(`file already exists: ${targetPath}`)
       }
-    } else if (request.mode === 'save' && request.quiet && session.unsavedNew) {
-      // AutoSave / AI-run autosave of a workbook the user has not named yet:
-      // no dialog mid-flow, the edits land in the backing temp file and the
-      // session stays an unsaved new one (Ctrl+S still asks where to save)
-      targetPath = session.path
+    } else if (request.mode === 'save' && session.unsavedNew && session.suggestSaveAs !== undefined) {
+      // FX-29 & FX-18: Promote new workbooks directly to their suggested path in
+      // <Documents>/Lycero Office/ on both Ctrl+S and AI completion auto-save,
+      // avoiding a blocking Save As dialog or stranding edits in os.tmpdir().
+      const suggestDir = dirname(session.suggestSaveAs)
+      mkdirSync(suggestDir, { recursive: true })
+      targetPath = existsSync(session.suggestSaveAs)
+        ? uniquePathIn(suggestDir, basename(session.suggestSaveAs))
+        : session.suggestSaveAs
+      untitledWorkbookPaths.add(targetPath)
     } else if (request.mode === 'save-as' || session.suggestSaveAs !== undefined) {
       // .xlsm keeps its extension: untouched archive entries (vbaProject.bin,
       // the macro-enabled content type) round-trip verbatim through the save.

@@ -40,6 +40,7 @@ import {
   journalSize,
   recordBulkConstantFill,
   recordPageSetup,
+  recordSheetInsert,
   recordSheetProtection,
   recordSparklineAdd,
   removeBulkConstantFill,
@@ -92,6 +93,7 @@ import {
   pushVisualUndo,
   queueSparklineInstall,
   readCopySourceDirect,
+  resolveUniverWorksheet,
   sniffImageMime,
   workbookStructureLocked,
 } from './univer-sync'
@@ -414,7 +416,7 @@ async function applyChangePlanNow(
     // Every operation routes to its own sheetId — the active sheet at
     // propose time has no special role.
     const sheetById = (id: string): UniverWorksheet => {
-      const found = workbook.getSheetBySheetId(id)
+      const found = resolveUniverWorksheet(workbook, id)
       if (!found) throw new Error(`Unknown sheet: ${id}`)
       return found
     }
@@ -559,7 +561,7 @@ async function executeOp(op: PlannedOp, run: OpRun): Promise<void> {
       run.userFacing && taken.some((existing) => existing.toLowerCase() === op.name.toLowerCase())
         ? nextSheetName(taken)
         : op.name
-    workbook.insertSheet(
+    const inserted = workbook.insertSheet(
       name,
       op.rows !== undefined || op.columns !== undefined
         ? {
@@ -570,6 +572,9 @@ async function executeOp(op: PlannedOp, run: OpRun): Promise<void> {
           }
         : undefined,
     )
+    if (inserted) {
+      recordSheetInsert(state.editJournal, inserted.getSheetId(), inserted.getSheetName())
+    }
   } else if (op.op === 'delete_sheet') workbook.deleteSheet(op.sheetId)
   else if (op.op === 'merge_cells') sheetById(op.sheetId).getRange(op.range).merge()
   else if (op.op === 'unmerge_cells') sheetById(op.sheetId).getRange(op.range).breakApart()

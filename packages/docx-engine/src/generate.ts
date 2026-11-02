@@ -2459,20 +2459,43 @@ export function generateTableModelXml(model: TableModel, originalTableXml?: stri
       : Array.from({ length: columnCount }, () => 100 / columnCount)
   const totalPct = percentages.reduce((sum, value) => sum + value, 0) || 100
   const isBorderlessTable = model.borders?.top?.style === 'none'
+  const headerRowText = (model.rows[0] ?? [])
+    .map(
+      (cell) =>
+        cell.richParas?.map((p) => p.runs.map((r) => r.text).join('')).join(' ') ||
+        cell.paras.join(' '),
+    )
+    .join(' ')
+  const hasBudgetHeader =
+    /ĐVT|Đơn vị(?:\s*tính)?|Đơn giá|Thành tiền|Kinh phí|Dự toán|Số tiền|Chi phí/i.test(
+      headerRowText,
+    )
+  const hasExplicitBudgetTwips =
+    model.colWidthsTwips?.length === 6 &&
+    model.colWidthsTwips[0] === 720 &&
+    model.colWidthsTwips[1] === 3740
   const isSixColBudgetTable =
     columnCount === 6 &&
     !isBorderlessTable &&
-    (!originalTableXml ||
-      (model.colWidthsTwips?.length === 6 &&
-        model.colWidthsTwips.every((w) => Math.abs(w - 1560) <= 15)) ||
-      (percentages.length === 6 &&
-        (percentages.every((p) => Math.abs(p - 100 / 6) < 1) ||
-          (Math.abs(percentages[0]! - 6) < 1.5 && Math.abs(percentages[1]! - 44) < 3))))
-  const widths = isSixColBudgetTable
-    ? [560, 3900, 900, 700, 1400, 1600]
+    (hasExplicitBudgetTwips ||
+      (hasBudgetHeader &&
+        (!originalTableXml ||
+          (model.colWidthsTwips?.length === 6 &&
+            model.colWidthsTwips.every((w) => Math.abs(w - 1560) <= 15)) ||
+          (percentages.length === 6 &&
+            (percentages.every((p) => Math.abs(p - 100 / 6) < 1) ||
+              (Math.abs(percentages[0]! - 6) < 1.5 && Math.abs(percentages[1]! - 44) < 3) ||
+              (Math.abs(percentages[0]! - 8) < 1.5 && Math.abs(percentages[1]! - 42) < 3))))))
+  const rawWidths = isSixColBudgetTable
+    ? [720, 3740, 900, 700, 1400, 1600]
     : model.colWidthsTwips?.length === columnCount
       ? model.colWidthsTwips.map((value) => Math.max(1, Math.round(value)))
       : percentages.map((value) => Math.max(1, Math.round((value / totalPct) * 9360)))
+  const rawTotalWidth = rawWidths.reduce((sum, value) => sum + value, 0)
+  const widths =
+    !originalTableXml && rawTotalWidth > 9360
+      ? rawWidths.map((value) => Math.max(1, Math.round((value / rawTotalWidth) * 9360)))
+      : rawWidths
   const totalWidth = widths.reduce((sum, value) => sum + value, 0)
   const border = (name: string) => `<w:${name} w:val="single" w:sz="4" w:space="0" w:color="auto"/>`
   const sides = ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'] as const

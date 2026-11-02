@@ -1656,15 +1656,32 @@ export function pmTableToModel(table: PmNode): TableModel {
   const isBorderlessTbl =
     (table.attrs?.borders as { top?: { style?: string } } | null | undefined)?.top?.style === 'none'
   if (
+    maximumColumns === 2 &&
+    isBorderlessTbl &&
+    (table.attrs?.docxIndex == null ||
+      (colWidthsPct?.length === 2 &&
+        Math.abs(colWidthsPct[0]! - 40) < 5 &&
+        Math.abs(colWidthsPct[1]! - 60) < 5))
+  ) {
+    const flatHeaderText = rows
+      .flatMap((r) => r.flatMap((c) => c.paras))
+      .join(' ')
+    if (/CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM|Độc lập\s*-\s*Tự do/i.test(flatHeaderText)) {
+      colWidthsPct = [40, 60]
+      colWidthsTwips = [3760, 5600]
+    }
+  }
+  if (
     maximumColumns === 6 &&
     !isBorderlessTbl &&
     (table.attrs?.docxIndex == null ||
       (colWidthsPct?.length === 6 &&
         (colWidthsPct.every((p) => Math.abs(p - 100 / 6) < 1) ||
-          (Math.abs(colWidthsPct[0]! - 6) < 1.5 && Math.abs(colWidthsPct[1]! - 44) < 3))))
+          (Math.abs(colWidthsPct[0]! - 6) < 1.5 && Math.abs(colWidthsPct[1]! - 44) < 3) ||
+          (Math.abs(colWidthsPct[0]! - 8) < 1.5 && Math.abs(colWidthsPct[1]! - 42) < 3))))
   ) {
-    colWidthsPct = [6, 44, 10, 8, 15, 17]
-    colWidthsTwips = [560, 3900, 900, 700, 1400, 1600]
+    colWidthsPct = [8, 42, 10, 8, 15, 17]
+    colWidthsTwips = [720, 3740, 900, 700, 1400, 1600]
   }
   const tblStyleAttr = table.attrs?.tblStyleId as string | null | undefined
   const isNew = table.attrs?.docxIndex == null

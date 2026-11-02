@@ -220,7 +220,7 @@ import {
   stopMcpSync,
   type McpSettings,
 } from './mcp/app-mcp'
-import { createCliRunner } from './mcp/cli-runner'
+import { createCliRunner, killActiveCliProcesses } from './mcp/cli-runner'
 import { DEFAULT_MCP_PORT } from './mcp/mcp-server'
 import { createDocsControl, installDocsBridge } from './mcp/docs-bridge'
 import { createSlidesControl } from './mcp/slides-bridge'
@@ -391,7 +391,7 @@ import {
   searchKnowledgeBase,
 } from './knowledge-base'
 import { createFileViaCli } from './mcp/headless-cli'
-import { homeCliContext, runHomeCli, type HomeCliDeps } from './home-cli'
+import { homeCliContext, runHomeCli, sanitizeStagedContent, type HomeCliDeps } from './home-cli'
 import { sanitizeFileBase } from './mcp/tools/document-tools'
 import { runHeadlessExport, type HeadlessExporters } from './headless-export'
 import { TabManager } from './tab-manager'
@@ -5169,11 +5169,12 @@ function registerHomeIpc(): void {
         dir: defaultSaveDir,
         uniquePath: uniquePathIn,
         sanitizeBase: sanitizeFileBase,
-        writeText: (path, text) => atomicWriteFile(path, Buffer.from(text, 'utf8')),
+        writeText: (path, text) =>
+          atomicWriteFile(path, Buffer.from(sanitizeStagedContent(text), 'utf8')),
         markdownToDocx: async (markdown, out) => {
           await createFileViaCli(bundledCliRunner(), {
             type: 'docx',
-            input: { name: 'content.md', content: markdown },
+            input: { name: 'content.md', content: sanitizeStagedContent(markdown) },
             out,
           })
         },
@@ -5195,6 +5196,7 @@ function registerHomeIpc(): void {
   ipcMain.handle('kb:cli-context', (_event, sessionId: unknown): unknown =>
     homeCliContext(homeCliDeps, typeof sessionId === 'string' ? sessionId : ''),
   )
+  ipcMain.handle('kb:abort-cli', (): number => killActiveCliProcesses())
   ipcMain.handle('kb:run-cli', async (_event, raw: unknown): Promise<unknown> => {
     const req = (raw && typeof raw === 'object' ? raw : {}) as {
       sessionId?: unknown

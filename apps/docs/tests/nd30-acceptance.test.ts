@@ -126,8 +126,8 @@ describe('NĐ 30/2020/NĐ-CP Administrative Document Acceptance Suite (v2.0.16)'
     )
     expect(system).toContain('CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM')
     expect(system).toContain('Độc lập - Tự do - Hạnh phúc')
-    expect(system).toContain('width: 44%')
-    expect(system).toContain('width: 56%')
+    expect(system).toContain('width: 40%')
+    expect(system).toContain('width: 60%')
     expect(system).toContain('{{PLACEHOLDER}}')
     expect(system).toContain('TỔNG CỘNG')
   })
@@ -274,20 +274,25 @@ describe('NĐ 30/2020/NĐ-CP Administrative Document Acceptance Suite (v2.0.16)'
     expect(rawDocXml).toMatch(/<w:pgMar[^>]*\bw:left="1701"/)
     expect(rawDocXml).toMatch(/<w:pgMar[^>]*\bw:right="85[01]"/)
 
-    // QA Item 3: Budget table gridCol in document.xml has proportional widths [560, 3900, 900, 700, 1400, 1600] (NOT 6 × 1560) and tblLayout fixed
+    // QA Item 3: Budget table gridCol in document.xml has proportional widths [720, 3740, 900, 700, 1400, 1600] (NOT 6 × 1560, and STT is 720 so it never wraps "ST/T") and tblLayout fixed
     expect(rawDocXml).not.toContain('<w:gridCol w:w="1560"/>')
+    expect(rawDocXml).not.toContain('<w:gridCol w:w="560"/>')
     expect(rawDocXml).toContain('<w:tblLayout w:type="fixed"/>')
-    expect(rawDocXml).toContain('<w:tcW w:w="560" w:type="dxa"/>')
-    expect(rawDocXml).toContain('<w:tcW w:w="3900" w:type="dxa"/>')
+    expect(rawDocXml).toContain('<w:tcW w:w="720" w:type="dxa"/>')
+    expect(rawDocXml).toContain('<w:tcW w:w="3740" w:type="dxa"/>')
     expect(rawDocXml).toContain(
       '<w:tblGrid>' +
-        '<w:gridCol w:w="560"/>' +
-        '<w:gridCol w:w="3900"/>' +
+        '<w:gridCol w:w="720"/>' +
+        '<w:gridCol w:w="3740"/>' +
         '<w:gridCol w:w="900"/>' +
         '<w:gridCol w:w="700"/>' +
         '<w:gridCol w:w="1400"/>' +
         '<w:gridCol w:w="1600"/>' +
         '</w:tblGrid>',
+    )
+    // Header table gridCol is [3760, 5600] (40% / 60%) so Quốc hiệu fits on 1 single line
+    expect(rawDocXml).toContain(
+      '<w:tblGrid><w:gridCol w:w="3760"/><w:gridCol w:w="5600"/></w:tblGrid>',
     )
 
     // QA Item 4: Closing paragraph has <w:keepNext/> and <w:keepLines/>, and Nơi nhận + signature table has <w:cantSplit/>
@@ -323,9 +328,10 @@ describe('NĐ 30/2020/NĐ-CP Administrative Document Acceptance Suite (v2.0.16)'
       const tm = headerBlock.table
       expect(tm.rows.length).toBe(1)
       expect(tm.rows[0]?.length).toBe(2)
-      // Proportional widths ~44% and ~56%
-      expect(tm.colWidthsPct?.[0]).toBeCloseTo(44, 0)
-      expect(tm.colWidthsPct?.[1]).toBeCloseTo(56, 0)
+      // Proportional widths ~40% and ~60% ([3760, 5600] twips)
+      expect(tm.colWidthsTwips).toEqual([3760, 5600])
+      expect(tm.colWidthsPct?.[0]).toBeCloseTo(40.17, 1)
+      expect(tm.colWidthsPct?.[1]).toBeCloseTo(59.83, 1)
       const leftCell = tm.rows[0]![0]!
       const rightCell = tm.rows[0]![1]!
       // In OOXML, 'top' is the default cell vertical alignment when w:vAlign is omitted
@@ -370,9 +376,9 @@ describe('NĐ 30/2020/NĐ-CP Administrative Document Acceptance Suite (v2.0.16)'
     if (budgetBlock.type === 'table' && budgetBlock.table) {
       const bm = budgetBlock.table
       expect(bm.colWidthsPct?.length).toBe(6)
-      expect(bm.colWidthsTwips).toEqual([560, 3900, 900, 700, 1400, 1600])
-      expect(bm.colWidthsPct?.[0]).toBeCloseTo(6.18, 1)
-      expect(bm.colWidthsPct?.[1]).toBeCloseTo(43.05, 1)
+      expect(bm.colWidthsTwips).toEqual([720, 3740, 900, 700, 1400, 1600])
+      expect(bm.colWidthsPct?.[0]).toBeCloseTo(7.95, 1)
+      expect(bm.colWidthsPct?.[1]).toBeCloseTo(41.28, 1)
       expect(bm.colWidthsPct?.[2]).toBeCloseTo(9.93, 1)
       expect(bm.colWidthsPct?.[3]).toBeCloseTo(7.73, 1)
       expect(bm.colWidthsPct?.[4]).toBeCloseTo(15.45, 1)
@@ -550,5 +556,123 @@ describe('NĐ 30/2020/NĐ-CP Administrative Document Acceptance Suite (v2.0.16)'
       fs.writeFileSync(outDocxPath, Buffer.from(docxBytes))
       editor.destroy()
     }
+  })
+
+  it('7) QA Round 4 (TỜ TRÌNH-7.docx): deduplicates repeated Căn cứ (30/2020/NĐ-CP), strips AI-fabricated suffixes on TT 32/2018/TT-BGDĐT, preserves 12pt & 1-line fit on "SỞ GIÁO DỤC VÀ ĐÀO TẠO TP. HỒ CHÍ MINH" even after broad setFont, and sets STT column to 720 twips', async () => {
+    const JSZip = (await import('jszip')).default
+    const { editorExtensions } = await import('../src/renderer/editor/extensions')
+    const parsed = await parseDocx(await buildBlankDocx())
+    const editor = new Editor({
+      element: document.createElement('div'),
+      extensions: editorExtensions,
+    })
+    editor.commands.setContent(blocksToPmDoc(parsed.blocks) as never)
+
+    const qaRound4Html = `
+      <table style="width: 100%; border: none; border-collapse: collapse;">
+        <tr>
+          <td style="width: 44%; text-align: center; vertical-align: top; border: none;">
+            <p>SỞ GIÁO DỤC VÀ ĐÀO TẠO TP. HỒ CHÍ MINH</p>
+            <p><strong><u>TRƯỜNG THPT NGUYỄN THỊ MINH KHAI</u></strong></p>
+            <p>Số: 15/2026/TTr-NTMK</p>
+          </td>
+          <td style="width: 56%; text-align: center; vertical-align: top; border: none;">
+            <p><strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong></p>
+            <p><strong><u>Độc lập - Tự do - Hạnh phúc</u></strong></p>
+            <p><em>TP. Hồ Chí Minh, ngày 31 tháng 10 năm 2026</em></p>
+          </td>
+        </tr>
+      </table>
+      <h1 style="text-align: center;"><strong>TỜ TRÌNH</strong></h1>
+      <p style="text-align: center;"><strong>Về việc xin phê duyệt kinh phí 45.000.000 đồng triển khai hoạt động giáo dục năm học 2026 - 2027</strong></p>
+      <p style="text-align: center;"><strong>Kính gửi: Ban Giám hiệu Trường THPT Nguyễn Thị Minh Khai</strong></p>
+      <p><em>Căn cứ Nghị định số 30/2020/NĐ-CP ngày 05 tháng 3 năm 2020 của Chính phủ về công tác văn thư;</em></p>
+      <p><em>Căn cứ Thông tư số 32/2018/TT-BGDĐT ngày 26 tháng 12 năm 2018 của Bộ trưởng Bộ Giáo dục và Đào tạo ban hành Chương trình giáo dục phổ thông và định hướng chuyển đổi số, ứng dụng AI năm học 2026-2027;</em></p>
+      <p><em>Căn cứ Nghị định số 30/2020/NĐ-CP ngày 05/03/2020 của Chính phủ về công tác văn thư;</em></p>
+      <p><em>Căn cứ Kế hoạch nhiệm vụ năm học 2026 - 2027 của Trường THPT Nguyễn Thị Minh Khai;</em></p>
+      <table>
+        <tr><th>STT</th><th>Nội dung chi</th><th>ĐVT</th><th>SL</th><th>Đơn giá</th><th>Thành tiền</th></tr>
+        <tr><td>1</td><td>Tập huấn chuyên đề</td><td>Buổi</td><td>3</td><td>15.000.000</td><td>45.000.000</td></tr>
+        <tr><td></td><td><strong>TỔNG CỘNG</strong></td><td></td><td></td><td></td><td><strong>45.000.000</strong></td></tr>
+      </table>
+      <p>Kính trình Ban Giám hiệu xem xét, phê duyệt./.</p>
+      <table>
+        <tr>
+          <td><p><strong><em>Nơi nhận:</em></strong></p><p>- Như trên;</p><p>- Lưu: VT.</p></td>
+          <td><p><strong>HIỆU TRƯỞNG</strong></p><p><em>(Ký, ghi rõ họ tên và đóng dấu)</em></p><p><strong>Nguyễn Thị Hương</strong></p></td>
+        </tr>
+      </table>
+    `
+
+    const writer: AiDocWriter = {
+      write: async (_spec, onProgress) => {
+        onProgress(qaRound4Html)
+        return { ok: true, html: qaRound4Html }
+      },
+    }
+
+    await executeTool(
+      editor,
+      {
+        id: 'call_r4_write',
+        name: 'write_document',
+        input: { title: 'Tờ trình', plan: 'Tờ trình 45tr' },
+      },
+      NUM_IDS,
+      undefined,
+      undefined,
+      null,
+      undefined,
+      undefined,
+      writer,
+    )
+
+    // Simulate the AI running a broad setFont op (13.5pt) on the whole document afterwards
+    await executeTool(
+      editor,
+      {
+        id: 'call_r4_font',
+        name: 'apply_ops',
+        input: {
+          ops: [{ op: 'setFont', font: 'Times New Roman', size: 13.5 }],
+        },
+      },
+      NUM_IDS,
+    )
+
+    const pmJson = editor.getJSON() as PmNode
+    const plan = pmDocToSavePlan(pmJson, parsed.blocks)
+    const docxBytes = await saveDocx(parsed, plan.saveBlocks)
+    const zip = await JSZip.loadAsync(docxBytes)
+    const rawDocXml = await zip.file('word/document.xml')!.async('string')
+
+    // 1. Verify "30/2020/NĐ-CP" appears ONLY ONCE (duplicate removed)
+    const nd30Matches = rawDocXml.match(/30\/2020\/NĐ-CP/g) ?? []
+    expect(nd30Matches.length).toBe(1)
+
+    // 2. Verify TT 32/2018/TT-BGDĐT has its exact authentic title and NO fabricated suffix
+    expect(rawDocXml).toContain(
+      'Căn cứ Thông tư số 32/2018/TT-BGDĐT ngày 26 tháng 12 năm 2018 của Bộ trưởng Bộ Giáo dục và Đào tạo ban hành Chương trình giáo dục phổ thông;',
+    )
+    expect(rawDocXml).not.toContain('định hướng chuyển đổi số, ứng dụng AI năm học 2026-2027')
+
+    // 3. Verify Header table is [3760, 5600] twips and "SỞ GIÁO DỤC VÀ ĐÀO TẠO TP. HỒ CHÍ MINH" & Quốc hiệu kept size 24 (12pt) even after broad setFont(13.5)
+    expect(rawDocXml).toContain('<w:tblGrid><w:gridCol w:w="3760"/><w:gridCol w:w="5600"/></w:tblGrid>')
+    const reparsed = await parseDocx(docxBytes)
+    const headerTbl = reparsed.blocks[0]?.table
+    expect(headerTbl?.colWidthsTwips).toEqual([3760, 5600])
+    const govRun = headerTbl?.rows[0]?.[0]?.richParas?.[0]?.runs[0]
+    expect(govRun?.text).toBe('SỞ GIÁO DỤC VÀ ĐÀO TẠO TP. HỒ CHÍ MINH')
+    expect(govRun?.sizeHalfPoints).toBe(24) // 12pt preserved!
+    expect(govRun?.charScalePct).toBeLessThanOrEqual(80) // Scaled so 38 uppercase chars stay on 1 line in 3760 twips
+    const qhRun = headerTbl?.rows[0]?.[1]?.richParas?.[0]?.runs[0]
+    expect(qhRun?.text).toBe('CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM')
+    expect(qhRun?.sizeHalfPoints).toBe(24) // 12pt preserved!
+
+    // 4. Verify Budget table is [720, 3740, 900, 700, 1400, 1600] twips
+    expect(rawDocXml).toContain(
+      '<w:tblGrid><w:gridCol w:w="720"/><w:gridCol w:w="3740"/><w:gridCol w:w="900"/><w:gridCol w:w="700"/><w:gridCol w:w="1400"/><w:gridCol w:w="1600"/></w:tblGrid>',
+    )
+    editor.destroy()
   })
 })

@@ -92,4 +92,30 @@ describe('PiiTokenizer', () => {
       'Mọi sự cố khẩn cấp xin liên hệ hotline: 0901234567.'
     )
   })
+
+  it('indexes Party A and Party B MST, Bank Account (STK), and Representative Name distinctly without collision (FX-04)', () => {
+    PiiTokenizer.clearGlobalRegistry()
+    const input = [
+      'Bên A: Công ty TNHH Sao Mai, Mã số thuế: 0101234567, Số tài khoản: 19034567890123, Đại diện: Ông Nguyễn Văn An.',
+      'Bên B: Công ty CP Bình Minh, MST: 0309876543, STK: 0071001234567, Người đại diện: Bà Trần Thị Bình.',
+    ].join('\n')
+
+    const { maskedText, piiMap } = PiiTokenizer.mask(input)
+    expect(maskedText).toContain('[PII_MST_1]')
+    expect(maskedText).toContain('[PII_MST_2]')
+    expect(maskedText).toContain('[PII_BANK_1]')
+    expect(maskedText).toContain('[PII_BANK_2]')
+    expect(maskedText).toContain('[PII_NAME_1]')
+    expect(maskedText).toContain('[PII_NAME_2]')
+
+    const restored = PiiTokenizer.restoreGlobal(maskedText)
+    expect(restored).toBe(input)
+    expect(restored).not.toContain('[PII_')
+    expect(piiMap.get('[PII_MST_1]')).toBe('0101234567')
+    expect(piiMap.get('[PII_MST_2]')).toBe('0309876543')
+    expect(piiMap.get('[PII_BANK_1]')).toBe('19034567890123')
+    expect(piiMap.get('[PII_BANK_2]')).toBe('0071001234567')
+    expect(piiMap.get('[PII_NAME_1]')).toBe('Nguyễn Văn An')
+    expect(piiMap.get('[PII_NAME_2]')).toBe('Trần Thị Bình')
+  })
 })

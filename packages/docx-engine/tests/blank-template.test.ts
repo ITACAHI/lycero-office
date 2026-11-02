@@ -52,11 +52,11 @@ describe('blank document paper size follows the OS region like Word', () => {
     expect(paperSizeForLocale('not a locale !!')).toBe('A4')
   })
 
-  it('writes the matching w:pgSz and keeps 1-inch margins', async () => {
+  it('writes the matching w:pgSz and keeps NĐ30 standard margins (1134/850/1134/1701 twips)', async () => {
     const pgSz = async (paperSize?: 'A4' | 'Letter') => {
       const zip = await JSZip.loadAsync(await buildBlankDocx(paperSize ? { paperSize } : undefined))
       const xml = await zip.file('word/document.xml')!.async('string')
-      expect(xml).toContain('<w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"')
+      expect(xml).toContain('<w:pgMar w:top="1134" w:right="850" w:bottom="1134" w:left="1701"')
       return xml.match(/<w:pgSz [^>]*\/>/)![0]
     }
     expect(await pgSz()).toBe('<w:pgSz w:w="11906" w:h="16838"/>')

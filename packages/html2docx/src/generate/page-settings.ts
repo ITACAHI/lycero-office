@@ -247,14 +247,14 @@ function createDocument(context, parts, rendered, generator) {
                 // ascii/hAnsi stay Latin-proportional: a CJK font on Latin
                 // runs renders SimSun-style monospaced glyphs.
                 font: {
-                  ascii: 'Arial',
-                  hAnsi: 'Arial',
+                  ascii: 'Times New Roman',
+                  hAnsi: 'Times New Roman',
                   eastAsia:
                     { 'ja-JP': 'Yu Gothic', 'ko-KR': 'Malgun Gothic' }[
                       eastAsiaLangOf(parts.docSettings?.lang, parts.bodyIr)
                     ] || 'Microsoft YaHei',
                 },
-                size: Math.round(21 * context.fontScale),
+                size: Math.round(26 * context.fontScale),
                 // w:lang w:val must stay Latin: tagging it zh-CN makes Word
                 // apply CJK line breaking to Latin words ("Rep/ort").
                 language: {
@@ -263,8 +263,13 @@ function createDocument(context, parts, rendered, generator) {
                 },
               }
             : {
-                font: 'Arial',
-                size: Math.round(21 * context.fontScale),
+                font: {
+                  ascii: 'Times New Roman',
+                  hAnsi: 'Times New Roman',
+                  cs: 'Times New Roman',
+                  eastAsia: 'Times New Roman',
+                } as any,
+                size: Math.round(26 * context.fontScale),
                 language: docRTL
                   ? { value: bidiLang, bidirectional: bidiLang }
                   : { value: 'en-US' },

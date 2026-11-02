@@ -88,7 +88,7 @@ for (const file of changed) {
   const alignedToMonorepo = Boolean(rootMonorepoVersion && head.version === rootMonorepoVersion)
   if (cmp < 0 && !alignedToMonorepo)
     problems.push(`${file}: metadata.version went backwards (${prev.version} -> ${head.version})`)
-  else if (cmp === 0 && head.body !== prev.body)
+  else if (cmp === 0 && head.body !== prev.body && !alignedToMonorepo)
     problems.push(`${file}: body changed but metadata.version is still ${prev.version}; bump it`)
 }
 

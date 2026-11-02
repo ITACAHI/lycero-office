@@ -554,4 +554,30 @@ describe('streamHubChat SSE parser', () => {
       },
     ])
   })
+
+  it('bridges WorkBundle Skill Base (## Skills loaded) and [LYCERO_CLOUD_SKILL:...] into activeSkillSlugs', async () => {
+    const fn = mockFetch(makeBody(['data: {"type":"finish","stopReason":"stop"}']))
+    const cb = makeCallbacks({ signal: controller.signal })
+
+    await streamHubChat({
+      url: 'https://hub.lycero.com/api/v1/office',
+      modelId: 'lycero-2.5-auto',
+      system:
+        'Base system prompt\n\n## Skills loaded (1)\n- vn-tax-tt200: Quy tắc thuế\n\n### vn-tax-tt200\n[LYCERO_CLOUD_SKILL:vn-tax-declaration-assistant]',
+      messages: [{ role: 'user', text: 'Tính thuế TNCN', images: [] }],
+      tools: [],
+      cb,
+    })
+
+    const [, init] = fn.mock.calls[0]!
+    const headers = init.headers as Record<string, string>
+    const reqBody = JSON.parse(init.body as string) as { activeSkillSlugs?: string[] }
+
+    expect(headers['X-Lycero-Active-Skills']).toContain('vn-tax-declaration-assistant')
+    expect(headers['X-Lycero-Active-Skills']).toContain('vn-tax-tt200')
+    expect(reqBody.activeSkillSlugs).toEqual([
+      'vn-tax-declaration-assistant',
+      'vn-tax-tt200',
+    ])
+  })
 })

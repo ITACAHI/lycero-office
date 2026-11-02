@@ -3,6 +3,7 @@
  * Copyright © 2026 ITAC AI Heavy Industries.
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
+import { existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -72,13 +73,17 @@ export async function ensureDom(): Promise<void> {
 }
 
 async function loadJsdom(): Promise<typeof import('jsdom')> {
+  // 1. Resolve from packaged cli/node_modules, cli/vendor, or workspace root
   const candidates: string[] = []
   const packaged = packagedResourcesDir()
   if (packaged) {
     candidates.push(join(packaged, 'cli', 'node_modules', 'jsdom', 'package.json'))
-  } else {
-    const root = repoRoot()
-    if (root) candidates.push(join(root, 'package.json'))
+    candidates.push(join(packaged, 'cli', 'vendor', 'jsdom', 'package.json'))
+  }
+  const root = repoRoot()
+  if (root) {
+    candidates.push(join(root, 'package.json'))
+    candidates.push(join(root, 'packages', 'cli', 'dist', 'node_modules', 'jsdom', 'package.json'))
   }
 
   let resolvedEntry: string | null = null
@@ -89,7 +94,21 @@ async function loadJsdom(): Promise<typeof import('jsdom')> {
     } catch {}
   }
 
+  // 2. Fallback to inline bundled jsdom inside lycero-office.cjs unless a packaged
+  //    cli/node_modules folder was explicitly staged without jsdom/vendor
   if (!resolvedEntry) {
+    const hasExplicitEmptyStagedModules =
+      packaged !== null &&
+      existsSync(join(packaged, 'cli', 'node_modules')) &&
+      !existsSync(join(packaged, 'cli', 'vendor'))
+    if (!hasExplicitEmptyStagedModules) {
+      try {
+        const inlineMod = (await import('jsdom')) as typeof import('jsdom')
+        if (inlineMod && typeof inlineMod.JSDOM === 'function') {
+          return inlineMod
+        }
+      } catch {}
+    }
     throw new CliError(
       EXIT.conversion,
       'jsdom not found (needed for Word and Markdown documents)',
