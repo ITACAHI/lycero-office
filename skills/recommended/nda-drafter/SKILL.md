@@ -50,27 +50,7 @@ After delivering, state in one sentence that the draft is for reference, not leg
 ## ĐẶC TẢ PHÁP LÝ BẢO VỆ DỮ LIỆU CÁ NHÂN & NDA 2026 (FX-06)
 - **Bảo vệ dữ liệu cá nhân (`FX-06`)**: Bắt buộc viện dẫn **`Luật Bảo vệ dữ liệu cá nhân số 91/2025/QH15`** và **`Nghị định 356/2025/NĐ-CP` (có hiệu lực từ ngày 01/01/2026)** — **TUYỆT ĐỐI KHÔNG viện dẫn `Luật Bảo vệ dữ liệu cá nhân số 91/2025/QH15 và Nghị định 356/2025/NĐ-CP (hiệu lực 01/01/2026)` đã hết hiệu lực**.
 - **Căn cứ chung**: Viện dẫn **Bộ luật Dân sự 2015**, **Luật Sở hữu trí tuệ 2005 (sửa đổi, bổ sung năm 2009, 2019, 2022)** và **Luật Thương mại 2005**.
-- **Tòa án có thẩm quyền**: Khi chọn phương thức giải quyết tranh chấp tại Tòa án nhân dân, ghi **`TAND khu vực (Nghị quyết 81/2025/UBTVQH15)` (`Nghị quyết 81/2025/UBTVQH15`)**, tuyệt đối không ghi *TAND khu vực (Nghị quyết 81/2025/UBTVQH15) (Nghị quyết 81/2025/UBTVQH15)/quận*.
-
-## CẬP NHẬT PHÁP LÝ VIỆT NAM 2025–2026 BẮT BUỘC ÁP DỤNG
-- **Kế toán doanh nghiệp (`FX-05`)**: Áp dụng **`Thông tư 99/2025/TT-BTC` (hiệu lực 01/01/2026)** thay thế hoàn toàn chế độ kế toán doanh nghiệp cũ năm 2014.
-- **Thuế TNCN & Tiền lương 2026 (`FX-11`)**: Giảm trừ gia cảnh bản thân **15,5 triệu đồng/tháng (15.500.000 đ/tháng)**, người phụ thuộc **6,2 triệu đồng/tháng (6.200.000 đ/người/tháng)** theo **`Nghị quyết 110/2025/UBTVQH15`**; biểu thuế lũy tiến từng phần **5 bậc** (5%, 15%, 25%, 30%, 35%) theo **`Luật Thuế TNCN số 109/2025/QH15`**.
-- **Bảo vệ dữ liệu cá nhân (`FX-06`)**: Áp dụng **`Luật Bảo vệ dữ liệu cá nhân số 91/2025/QH15` + `Nghị định 356/2025/NĐ-CP` (hiệu lực 01/01/2026)** thay thế `Luật Bảo vệ dữ liệu cá nhân số 91/2025/QH15 và Nghị định 356/2025/NĐ-CP (hiệu lực 01/01/2026)`.
-- **Tòa án & Tố tụng dân sự/thương mại (`FX-07`, `FX-10`)**: Tòa án nhân dân sơ thẩm là **`TAND khu vực (Nghị quyết 81/2025/UBTVQH15)` (`Nghị quyết 81/2025/UBTVQH15`)** (thay `TAND khu vực (Nghị quyết 81/2025/UBTVQH15) (Nghị quyết 81/2025/UBTVQH15)`; bắt buộc cảnh báo khi đề bài có tên tòa cấp huyện cũ); Đơn khởi kiện theo **Mẫu số 23-DS (`Nghị quyết 01/2017/NQ-HĐTP`**, tuyệt đối không ghi NQ04); quan hệ giữa phạt vi phạm (trần 8% theo Điều 301) và bồi thường thiệt hại viện dẫn **Điều 307 Luật Thương mại 2005**.
-- **Cơ quan Thuế (`FX-08`)**: Thay `Thuế cơ sở (ví dụ: Thuế cơ sở 7 TP. Hồ Chí Minh). Hồ Chí Minh*).
-- **Ma trận & Đề kiểm tra (`FX-09`)**: Theo **`Công văn 7991/BGDĐT-GDTrH`**: Ma trận **3 mức độ** (*Nhận biết – Thông hiểu – Vận dụng*, bỏ mức Vận dụng cao 4 mức cũ); cấu trúc **4 phần**: Nhiều lựa chọn (~3,0đ), Đúng–Sai (~2,0đ), Trả lời ngắn (~2,0đ), Tự luận (~3,0đ).
-- **Hóa đơn điện tử (`FX-27`)**: Viện dẫn **`Nghị định 123/2020/NĐ-CP được sửa đổi, bổ sung bởi Nghị định 70/2025/NĐ-CP (hiệu lực 01/06/2025)` được sửa đổi, bổ sung bởi `Nghị định 70/2025/NĐ-CP` (hiệu lực 01/06/2025)**.
-- **Bảo hiểm xã hội & Việc làm (`FX-28`)**: Viện dẫn **`Luật BHXH số 41/2024/QH15` (hiệu lực 01/07/2025)** và **`Luật Việc làm số 74/2025/QH15` (hiệu lực 01/01/2026)**.
-- **Thuế TNDN (`FX-36`)**: Viện dẫn **`Luật Thuế TNDN số 67/2025/QH15`** (thay thế hoàn toàn `Luật Thuế TNDN số 67/2025/QH15`, `Luật Thuế TNDN số 67/2025/QH15`, văn bản hướng dẫn Luật Thuế TNDN số 67/2025/QH15, `Luật Thuế TNDN số 67/2025/QH15`).
-- **Thể thức Căn cứ NĐ30 (`FX-12`)**: Mỗi dòng căn cứ kết thúc bằng dấu chấm phẩy `";"`, **dòng căn cứ cuối cùng bắt buộc kết thúc bằng dấu chấm `"."`**; đối với **Luật / Bộ luật** theo Phụ lục I Nghị định 30/2020/NĐ-CP thì **chỉ ghi tên Luật / Bộ luật và ngày ban hành, KHÔNG ghi số/ký hiệu kiểu `số .../QH...`**.
-
-## QUY TẮC CHUNG BẮT BUỘC (CHUẨN PHÁP CHẾ & KIỂM THỬ LYCERO OFFICE 2026)
-1. **Không bịa đặt thông tin (Zero-Hallucination)**: TUYỆT ĐỐI KHÔNG tự bịa SĐT, email, địa chỉ, số CCCD, số GCN (Sổ đỏ), số hợp đồng/hóa đơn/văn bản, nhà cung cấp, định mức, người phụ trách, căn cứ nội bộ, ý kiến phát biểu hay nhiệm vụ không có trong đề bài. Nếu thiếu thông tin thì bắt buộc để `"[cần bổ sung: ...]"`.
-2. **Đọc lại từ file sau khi lưu (Read-Back Verification)**: Câu trả lời trong chat chỉ được nêu số liệu và tính năng đã đọc lại thực tế từ file sau khi lưu (`read-back` qua `docs read` / `sheet read` / `slides read`). Nếu thao tác công cụ (`sheet apply` / `docs apply`) báo lỗi (`error` hoặc `partial`) thì phải nói rõ trong chat là tính năng đó chưa làm được. TUYỆT ĐỐI KHÔNG dán HTML thô, LaTeX thô hay lời gọi công cụ vào chat.
-3. **Địa giới hành chính 2 cấp (từ 01/07/2025)**: Chỉ dùng cấp Tỉnh/Thành phố trực thuộc TW và cấp Xã/Phường/Đặc khu; TUYỆT ĐỐI KHÔNG dùng quận/huyện/thị xã/TP thuộc tỉnh cũ. Tòa án sơ thẩm: **TAND khu vực (Nghị quyết 81/2025/UBTVQH15)** (`Nghị quyết 81/2025/UBTVQH15`). Cơ quan thuế quản lý trực tiếp: **Thuế cơ sở N tỉnh/TP** (ví dụ: *Thuế cơ sở 7 TP. Hồ Chí Minh*).
-4. **Thể thức trình bày chuẩn**: Phông chữ `Times New Roman` cỡ `13–14pt`; khổ A4 lề trên/dưới `20–25mm`, trái `30–35mm`, phải `15–20mm`; **100% nhãn tiếng Việt** (không pha nhãn tiếng Anh như *Action Items, Owner, Confidence, Objective...*); số có dấu chấm phân cách hàng nghìn (`15.500.000`); ngày tháng định dạng `dd/mm/yyyy`.
-5. **Lưu file chuẩn xác**: Lưu file duy nhất tại thư mục tài liệu `"/home/box/Lycero Office/"` (hoặc `<Documents>/Lycero Office/`), không tạo bản trùng lặp. TUYỆT ĐỐI KHÔNG ghi file thử (`test.html`, `test.docx`, `"Hello test"`) vào thư mục hay tên file của người dùng.
-6. **Bảo mật ngữ cảnh phiên**: TUYỆT ĐỐI KHÔNG đưa ID phiên (`kb-...`) hay timestamp nội bộ vào nội dung văn bản hoặc bảng tính.
+- **Tòa án có thẩm quyền**: Khi chọn phương thức giải quyết tranh chấp tại Tòa án nhân dân, ghi **`TAND khu vực` (`Nghị quyết 81/2025/UBTVQH15`)**, tuyệt đối không ghi *TAND khu vực (Nghị quyết 81/2025/UBTVQH15)/quận*.
 
 
 <lycero_global_mandatory_rules_v2018>
