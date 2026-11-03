@@ -413,9 +413,99 @@ export const TOOL_EXECUTION_TIMEOUT_MS = 180_000
 
 const TOOL_ABORTED = Symbol('tool-aborted')
 
+function htmlTableToMarkdown(tableHtml: string): string {
+  const rows: string[][] = []
+  const trRe = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi
+  let trMatch: RegExpExecArray | null
+  while ((trMatch = trRe.exec(tableHtml)) !== null) {
+    const rowHtml = trMatch[1] ?? ''
+    const cells: string[] = []
+    const cellRe = /<t[hd]\b[^>]*>([\s\S]*?)<\/t[hd]>/gi
+    let cellMatch: RegExpExecArray | null
+    while ((cellMatch = cellRe.exec(rowHtml)) !== null) {
+      const cellText = (cellMatch[1] ?? '')
+        .replace(/<br\s*\/?>/gi, ' ')
+        .replace(/<[^>]+>/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\|/g, '\\|')
+      cells.push(cellText)
+    }
+    if (cells.length > 0) rows.push(cells)
+  }
+  if (rows.length === 0) return ''
+  const colCount = Math.max(...rows.map((r) => r.length))
+  const padRow = (r: string[]) => {
+    const out = [...r]
+    while (out.length < colCount) out.push('')
+    return `| ${out.join(' | ')} |`
+  }
+  const header = padRow(rows[0]!)
+  const delim = `| ${Array.from({ length: colCount }, () => '---').join(' | ')} |`
+  const body = rows.slice(1).map(padRow)
+  return `\n\n${[header, delim, ...body].join('\n')}\n\n`
+}
+
+function normalizeLatexAndHtmlInProse(segment: string): string {
+  let out = segment
+  // Convert HTML tables to Markdown pipe tables (FX-34)
+  if (/<table\b/i.test(out)) {
+    out = out.replace(/<table\b[^>]*>[\s\S]*?<\/table>/gi, (m) => htmlTableToMarkdown(m))
+  }
+  // Convert HTML headings, lists, and inline tags outside code fences to Markdown (FX-34)
+  if (/<(?:h[1-6]|p|div|span|strong|b|em|i|u|ul|ol|li|br|hr)\b/i.test(out)) {
+    out = out
+      .replace(/<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1>/gi, (_m, lvl, inner) => {
+        const clean = String(inner).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
+        return `\n\n${'#'.repeat(Number(lvl))} ${clean}\n\n`
+      })
+      .replace(/<li\b[^>]*>([\s\S]*?)<\/li>/gi, (_m, inner) => {
+        const clean = String(inner).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
+        return `\n- ${clean}`
+      })
+      .replace(/<\/?(?:ul|ol)\b[^>]*>/gi, '\n')
+      .replace(/<(?:strong|b)\b[^>]*>([\s\S]*?)<\/(?:strong|b)>/gi, '**$1**')
+      .replace(/<(?:em|i)\b[^>]*>([\s\S]*?)<\/(?:em|i)>/gi, '*$1*')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<hr\s*\/?>/gi, '\n---\n')
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<p\b[^>]*>/gi, '')
+      .replace(/<\/?(?:div|span|u|font|center|section|article|header|footer|tbody|thead|tr|td|th)\b[^>]*>/gi, '')
+  }
+  // Convert raw LaTeX math commands to clean Unicode (FX-21)
+  if (out.includes('\\') || out.includes('$')) {
+    out = out
+      .replace(/\\(?:text|mathrm|textbf|textit)\{([^{}]*)\}/g, '$1')
+      .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, '($1)/($2)')
+      .replace(/\\sqrt\{([^{}]+)\}/g, '√($1)')
+      .replace(/\\times\b/g, '×')
+      .replace(/\\div\b/g, '÷')
+      .replace(/\\cdot\b/g, '·')
+      .replace(/\\pm\b/g, '±')
+      .replace(/\\(?:leq|le)\b/g, '≤')
+      .replace(/\\(?:geq|ge)\b/g, '≥')
+      .replace(/\\(?:neq|ne)\b/g, '≠')
+      .replace(/\\approx\b/g, '≈')
+      .replace(/\\infty\b/g, '∞')
+      .replace(/\\sum\b/g, '∑')
+      .replace(/\\pi\b/g, 'π')
+      .replace(/\\Delta\b/g, 'Δ')
+      .replace(/\\Rightarrow\b/g, '⇒')
+      .replace(/\\(?:rightarrow|to)\b/g, '→')
+      .replace(/\\left\s*([([])/g, '$1')
+      .replace(/\\right\s*([\])])/g, '$1')
+      .replace(/\\,/g, ' ')
+      .replace(/\\\[([\s\S]*?)\\\]/g, '$1')
+      .replace(/\\\(([\s\S]*?)\\\)/g, '$1')
+      .replace(/\$\$([^$]+)\$\$/g, '$1')
+      .replace(/\$([^$\n]+)\$/g, '$1')
+  }
+  return out
+}
+
 /**
- * FX-21 & FX-34: Strip leaked `<tool_call>` XML/special tokens and raw full HTML documents
- * from assistant chat text so internal tool invocations or fallback HTML dumps never appear in chat.
+ * FX-21, FX-34, FX-03: Strip leaked `<tool_call>` XML/special tokens, `create_document` invocations,
+ * raw HTML documents/fragments, raw LaTeX tokens, and internal `kb-ask-*` session IDs from assistant chat text.
  */
 export function sanitizeAssistantText(text: string): string {
   if (!text) return text
@@ -423,6 +513,9 @@ export function sanitizeAssistantText(text: string): string {
     .replace(/<tool_call>[\s\S]*?(?:<\/tool_call>|$)/gi, '')
     .replace(/<\|tool_call_start\|>[\s\S]*?(?:<\|tool_call_end\|>|$)/gi, '')
     .replace(/<function=[a-zA-Z0-9_.-]+>[\s\S]*?(?:<\/function>|$)/gi, '')
+    .replace(/<invoke\b[\s\S]*?(?:<\/invoke>|$)/gi, '')
+    .replace(/(?:^|\n)\s*tool_call\s*:\s*(?:create_document|apply_ops|cli|sheet_apply)\b[^\n]*/gi, '')
+    .replace(/\bkb-ask-\d+(?:-[a-z0-9]+)?\b/gi, '')
   if (
     /(?:```html\s*)?<!DOCTYPE\s+html[\s>][\s\S]*?<\/html>(?:\s*```)?/i.test(cleaned) ||
     /(?:```html\s*)?<html[\s>][\s\S]*?<body[\s>][\s\S]*?<\/html>(?:\s*```)?/i.test(cleaned)
@@ -435,6 +528,12 @@ export function sanitizeAssistantText(text: string): string {
       return 'Đã xảy ra lỗi khi tạo tệp tài liệu. Vui lòng thử lại hoặc kiểm tra cấu hình công cụ.'
     }
   }
+  // Apply HTML-to-Markdown and LaTeX-to-Unicode outside fenced code blocks
+  const parts = cleaned.split(/(```[\s\S]*?```)/g)
+  cleaned = parts
+    .map((part, idx) => (idx % 2 === 1 ? part : normalizeLatexAndHtmlInProse(part)))
+    .join('')
+    .replace(/\n{3,}/g, '\n\n')
   return cleaned
 }
 

@@ -20,17 +20,23 @@ export class PiiTokenizer {
    */
   private static readonly globalRegistry = new Map<string, string>()
 
-  // Vietnamese Tax ID (Mã số thuế / MST: 10 digits or 10-3 digits after MST label)
+  static {
+    if (typeof process !== 'undefined' && process.env?.LYCERO_PII_MAP) {
+      PiiTokenizer.importGlobalRegistry(process.env.LYCERO_PII_MAP)
+    }
+  }
+
+  // Vietnamese Tax ID (Mã số thuế / MST / MSDN: 10 digits or 10-3 digits, including inside Markdown tables or bold labels)
   private static readonly MST_CONTEXT_REGEX =
-    /(?<=(?:Mã số thuế|MST|Tax ID|Mã ĐKKD)\s*[:\-–]?\s*)\b\d{10}(?:-\d{3})?\b/gi
+    /(?<=(?:Mã\s+số\s+thuế(?:\s*\(MST\))?|Mã\s+số\s+doanh\s+nghiệp|MST|MSDN|Tax\s+ID|Mã\s+ĐKKD)[*_)\s|:\-–]{0,12})\b\d{10}(?:-\d{3})?\b/gi
 
-  // Bank account numbers following STK / Số tài khoản / Tài khoản
+  // Bank account numbers following STK / Số tài khoản / Tài khoản (including inside Markdown tables or bold labels)
   private static readonly BANK_CONTEXT_REGEX =
-    /(?<=(?:Số tài khoản|STK|Tài khoản(?:\s+ngân\s+hàng)?(?:\s+số)?|Account(?:\s+No)?)\s*[:\-–]?\s*)\b\d{8,19}\b/gi
+    /(?<=(?:Số\s+tài\s+khoản(?:\s*\(STK\))?|STK|Tài\s+khoản(?:\s+ngân\s+hàng)?(?:\s+số)?|Account(?:\s+No)?)[*_)\s|:\-–]{0,12})\b\d{8,19}\b/gi
 
-  // Signer / Representative names following Đại diện / Người đại diện / Người ký / Chủ tài khoản / Họ và tên
+  // Signer / Representative names following Đại diện / Người đại diện / Người ký / Chủ tài khoản / Họ và tên / Giám đốc
   private static readonly NAME_CONTEXT_REGEX =
-    /((?:Đại diện(?:\s+theo\s+pháp\s+luật)?|Người đại diện|Người ký|Chủ tài khoản|Họ và tên)\s*[:\-–]\s*(?:(?:Ông|Bà|Anh|Chị|Mr\.?|Ms\.?)\s+)?)([A-ZÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ][a-zàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]+(?:\s+[A-ZÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ][a-zàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]+){1,4})/g
+    /((?:Đại\s+diện(?:\s+theo\s+pháp\s+luật)?|Người\s+đại\s+diện|Người\s+ký|Chủ\s+tài\s+khoản|Họ\s+và\s+tên|Giám\s+đốc|Tổng\s+Giám\s+đốc)[*_)\s|:\-–]{1,12}(?:(?:Ông|Bà|Anh|Chị|Mr\.?|Ms\.?)\s+)?)([A-ZÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ][a-zàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]+(?:\s+[A-ZÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ][a-zàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]+){1,4})/g
 
   // Vietnamese phone numbers: 10 digits starting with 03, 05, 07, 08, 09 or +84 (supports 4-3-3 and 3-3-4 dots/spaces/dashes)
   private static readonly PHONE_REGEX =
@@ -51,6 +57,36 @@ export class PiiTokenizer {
   /** Reset cross-turn registry (used by tests) */
   public static clearGlobalRegistry(): void {
     this.globalRegistry.clear()
+  }
+
+  /** Export cross-turn registry for CLI subprocesses or shared turn maps (FX-04) */
+  public static exportGlobalRegistry(): Record<string, string> {
+    const out: Record<string, string> = {}
+    for (const [k, v] of this.globalRegistry.entries()) {
+      out[k] = v
+    }
+    return out
+  }
+
+  /** Return a clone of the cross-turn registry map */
+  public static getGlobalRegistryMap(): Map<string, string> {
+    return new Map<string, string>(this.globalRegistry)
+  }
+
+  /** Import cross-turn registry from JSON string or Record (used by CLI subprocesses, FX-04) */
+  public static importGlobalRegistry(raw: Record<string, string> | string): void {
+    try {
+      const obj = typeof raw === 'string' ? (JSON.parse(raw) as Record<string, string>) : raw
+      if (obj && typeof obj === 'object') {
+        for (const [k, v] of Object.entries(obj)) {
+          if (typeof k === 'string' && typeof v === 'string') {
+            this.globalRegistry.set(k, v)
+          }
+        }
+      }
+    } catch {
+      // ignore malformed env var
+    }
   }
 
   /**
@@ -143,29 +179,46 @@ export class PiiTokenizer {
       }
     }
 
-    // Resolve any remaining [PII_<TYPE>_<N>] token where the LLM re-indexed by party (e.g. [PII_MST_1] when MST was tokenized as CMND/CCCD or vice versa)
-    restored = restored.replace(/\[PII_([A-Z]+)_(\d+)\]/gi, (_full, rawType: string, rawIdx: string) => {
-      const type = rawType.toUpperCase()
+    // Resolve any remaining [PII_<TYPE>_<N>] token (including multi-word types like TAX_ID, BANK_ACC, PERSON_NAME)
+    restored = restored.replace(/\[PII_([A-Z0-9_]+?)_(\d+)\]/gi, (_full, rawType: string, rawIdx: string) => {
+      const upper = rawType.toUpperCase()
+      const type =
+        upper === 'TAX_ID' || upper === 'TAX' || upper === 'MSDN'
+          ? 'MST'
+          : upper === 'BANK_ACC' || upper === 'BANK_ACCOUNT' || upper === 'ACCOUNT' || upper === 'STK'
+            ? 'BANK'
+            : upper === 'PERSON' ||
+                upper === 'PERSON_NAME' ||
+                upper === 'FULL_NAME' ||
+                upper === 'SIGNER' ||
+                upper === 'REP' ||
+                upper === 'REPRESENTATIVE'
+              ? 'NAME'
+              : upper === 'PHONE_NUMBER' || upper === 'TEL' || upper === 'MOBILE'
+                ? 'PHONE'
+                : upper === 'ID_CARD' || upper === 'CITIZEN_ID'
+                  ? 'CCCD'
+                  : upper
       const idx = Math.max(1, Number(rawIdx) || 1) - 1
       const direct = byType.get(type)
       if (direct && direct.length > 0) {
         return direct[Math.min(idx, direct.length - 1)]!
       }
-      // Cross-category fallback for numeric identifiers (MST <-> CMND/CCCD, BANK <-> CARD/CCCD/CMND)
-      if (type === 'MST' || type === 'TAX') {
-        const alt = byType.get('CMND') ?? byType.get('CCCD')
+      // Cross-category fallback for numeric identifiers (MST <-> CMND/CCCD/PHONE, BANK <-> CARD/CCCD/CMND)
+      if (type === 'MST') {
+        const alt = byType.get('CMND') ?? byType.get('CCCD') ?? byType.get('PHONE')
         if (alt && alt.length > 0) return alt[Math.min(idx, alt.length - 1)]!
       }
-      if (type === 'BANK' || type === 'STK' || type === 'ACCOUNT') {
+      if (type === 'BANK') {
         const alt = byType.get('CCCD') ?? byType.get('CMND') ?? byType.get('CARD')
         if (alt && alt.length > 0) return alt[Math.min(idx, alt.length - 1)]!
       }
       return ''
     })
 
-    // Catch any residual [PII_...] placeholder so 0 [PII_ tokens ever reach disk
+    // Catch any residual or truncated [PII_...] placeholder so 0 [PII_ tokens ever reach disk (FX-04)
     if (restored.includes('[PII_')) {
-      restored = restored.replace(/\[PII_[A-Z0-9_]+\]/gi, '')
+      restored = restored.replace(/\[PII_[A-Z0-9_]*\]?/gi, '')
     }
 
     // Single-entity dummy substitution recovery: ONLY when the explicit turn-local piiMap

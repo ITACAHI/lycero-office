@@ -128,7 +128,7 @@ export const WORK_BUNDLES: readonly WorkBundle[] = [
       {
         name: 'vn-tax-tt200',
         description: 'Quy tắc thuế GTGT, kế toán theo Thông tư 99/2025/TT-BTC (hiệu lực 01/01/2026), Luật Thuế TNDN số 67/2025/QH15 và Thuế TNCN 2026',
-        content: 'Khi hạch toán kế toán, áp dụng Thông tư 99/2025/TT-BTC (hiệu lực 01/01/2026). Thuế TNDN áp dụng Luật Thuế TNDN số 67/2025/QH15. Hóa đơn điện tử áp dụng Nghị định 123/2020/NĐ-CP được sửa đổi, bổ sung bởi Nghị định 70/2025/NĐ-CP (hiệu lực 01/06/2025). Thuế TNCN áp dụng quy định 2026: giảm trừ bản thân 15.500.000 đ/tháng, người phụ thuộc 6.200.000 đ/người/tháng (Nghị quyết 110/2025/UBTVQH15), biểu thuế lũy tiến 5 bậc (Luật Thuế TNCN số 109/2025/QH15). Cơ quan thuế gọi là Thuế cơ sở N tỉnh/TP.'
+        content: 'Khi hạch toán kế toán, áp dụng Thông tư 99/2025/TT-BTC (hiệu lực 01/01/2026). Thuế TNDN áp dụng Luật Thuế TNDN số 67/2025/QH15. Hóa đơn điện tử áp dụng Nghị định 254/2026/NĐ-CP (hiệu lực 01/7/2026, Điều 43 thay thế các nghị định về hóa đơn năm 2020 và năm 2025) và Thông tư 91/2026/TT-BTC. Thuế TNCN áp dụng quy định 2026: giảm trừ bản thân 15.500.000 đ/tháng, người phụ thuộc 6.200.000 đ/người/tháng (Nghị quyết 110/2025/UBTVQH15), biểu thuế lũy tiến 5 bậc (Luật Thuế TNCN số 109/2025/QH15). Cơ quan thuế gọi là Thuế cơ sở N tỉnh/TP.'
       },
       {
         name: 'vn-mtt-201-balance',

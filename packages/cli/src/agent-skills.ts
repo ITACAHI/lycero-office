@@ -240,7 +240,7 @@ export function readInstallState(
     return { status: 'occupied', path }
   }
   const fm = parseSkillFrontmatter(text)
-  if (!fm || fm.name !== SKILL_NAME) return { status: 'occupied', path }
+  if (!fm || (fm.name !== SKILL_NAME && fm.name !== 'lycero-office')) return { status: 'occupied', path }
   const installedVersion = fm.version
   const cmp = compareVersions(installedVersion, bundled.version)
   if (cmp > 0) return { status: 'newer', path, installedVersion }

@@ -129,7 +129,8 @@ const stylesXml = (eastAsiaFont?: string): string =>
   `<w:rFonts w:ascii="Times New Roman" w:eastAsia="${eastAsiaFont || 'Times New Roman'}" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:sz w:val="26"/><w:szCs w:val="26"/>` +
   '</w:rPr></w:rPrDefault>' +
   '<w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="276" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>' +
-  '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>' +
+  '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/>' +
+  `<w:rPr><w:rFonts w:ascii="Times New Roman" w:eastAsia="${eastAsiaFont || 'Times New Roman'}" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr></w:style>` +
   headingStyle(1, 32) +
   headingStyle(2, 28) +
   headingStyle(3, 26) +

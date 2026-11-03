@@ -72,9 +72,14 @@ export interface IntegrationsDeps {
 /** Settings → Integrations: probe, install, uninstall, zip. No write happens without a click in that pane. */
 export function registerIntegrationsIpc(deps: IntegrationsDeps): void {
   if (!process.env.VITEST) {
-    // Auto-load and sync all Cloud Skills into <userData>/skills on startup
+    const recDir = deps.recommendedSkillsDir ?? join(deps.skillPath, '..', '..', 'recommended')
+    // Purge any leaked cloud skills and ensure the 51 basic/tool skills are installed locally
     void Promise.resolve().then(() =>
-      syncAllCloudSkillsToUserData(app.getPath('userData'), lyceroAccessToken() ?? undefined),
+      syncAllCloudSkillsToUserData(
+        app.getPath('userData'),
+        lyceroAccessToken() ?? undefined,
+        recDir,
+      ),
     )
   }
   const bundled = (): BundledSkill => bundledSkillFrom(readFileSync(deps.skillPath))
@@ -242,6 +247,9 @@ export function registerIntegrationsIpc(deps: IntegrationsDeps): void {
   )
 
   ipcMain.handle(INTEGRATIONS_CHANNELS.skillBody, (_e, path: string): string => {
+    if (!path || typeof path !== 'string') {
+      return 'Kỹ năng nâng cao chỉ thực thi trực tiếp trên Lycero Cloud (không lưu nội dung trên máy trạm và không khả dụng khi ngoại tuyến).'
+    }
     // the path came from the renderer, so it is only a file we just listed
     const roots = [skillsRoot(app.getPath('userData')), deps.recommendedSkillsDir ?? join(deps.skillPath, '..', '..', 'recommended')]
     if (!roots.some((root) => isKnownSkillPath(path, root))) {

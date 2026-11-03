@@ -115,11 +115,15 @@ export {
   getFieldKey,
 } from './cloud-capabilities'
 export {
+  ADVANCED_CLOUD_SKILL_SLUGS,
+  BASIC_BUNDLED_SKILL_SLUGS,
   DEFAULT_CLOUD_SKILL_CATALOG,
   HIDDEN_OR_MERGED_SKILL_SLUGS,
   NARROW_VERTICAL_SKILL_SLUGS,
   SKILL_SLUG_ALIAS_MAP,
   classifySkillsForContext,
+  isAdvancedCloudSkill,
+  isBasicBundledSkill,
   normalizeSkillMatchText,
   resolveCanonicalSkillSlug,
 } from './skill-classifier'

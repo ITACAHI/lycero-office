@@ -6,10 +6,14 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
+  ADVANCED_CLOUD_SKILL_SLUGS,
+  BASIC_BUNDLED_SKILL_SLUGS,
   CloudCapabilitiesManager,
   DEFAULT_CLOUD_SKILL_CATALOG,
   HIDDEN_OR_MERGED_SKILL_SLUGS,
   classifySkillsForContext,
+  isAdvancedCloudSkill,
+  isBasicBundledSkill,
   parseSkillFrontmatter,
   resolveCanonicalSkillSlug,
 } from '../src/index'
@@ -71,29 +75,34 @@ describe('classifySkillsForContext & CloudCapabilitiesManager', () => {
     expect(examSlugs).toContain('vn-exam-matrix-specification-tt22')
   })
 
-  it('bundles all 206 hybrid local SKILL.md files with full offline rules and [LYCERO_CLOUD_SKILL:...] tag (FX-30)', () => {
+  it('bundles ONLY the 51 basic/tool skills locally and zero of the 155 advanced cloud skills (FX-30, FX-43)', () => {
     const recDir = resolve(__dirname, '../../../skills/recommended')
     expect(existsSync(recDir)).toBe(true)
     const entries = readdirSync(recDir)
-    expect(entries.length).toBeGreaterThanOrEqual(206)
-    for (const slug of [
+    expect(entries.length).toBe(51)
+    expect(BASIC_BUNDLED_SKILL_SLUGS.size).toBe(52) // 51 recommended + genoffice
+    expect(ADVANCED_CLOUD_SKILL_SLUGS.size).toBe(155)
+    for (const slug of entries) {
+      expect(isBasicBundledSkill(slug)).toBe(true)
+      expect(isAdvancedCloudSkill(slug)).toBe(false)
+      const mdPath = resolve(recDir, slug, 'SKILL.md')
+      expect(existsSync(mdPath)).toBe(true)
+      const raw = readFileSync(mdPath, 'utf8')
+      const fm = parseSkillFrontmatter(raw)
+      expect(fm).not.toBeNull()
+      expect(raw).not.toContain('[LYCERO_CLOUD_SKILL:')
+      expect((fm?.body ?? '').trim().length).toBeGreaterThan(200)
+    }
+    for (const cloudSlug of [
       'vn-admin-doc-nd30',
       'vn-gdpt2018-lesson-plan-cv5512',
       'vn-exam-matrix-specification-tt22',
       'vn-corporate-accounting-tt200-tt133',
       'hr-payroll-3p',
       'vn-real-estate-sale-transfer-contract-nd96',
-      'okr-planner',
-      'kpi-dashboard',
     ]) {
-      const mdPath = resolve(recDir, slug, 'SKILL.md')
-      expect(existsSync(mdPath)).toBe(true)
-      const raw = readFileSync(mdPath, 'utf8')
-      const fm = parseSkillFrontmatter(raw)
-      expect(fm).not.toBeNull()
-      expect(raw).toContain(`[LYCERO_CLOUD_SKILL:${slug}]`)
-      const bodyWithoutTag = (fm?.body ?? '').replace(/\[LYCERO_CLOUD_SKILL:[^\]]+\]/g, '').trim()
-      expect(bodyWithoutTag.length).toBeGreaterThan(500)
+      expect(isAdvancedCloudSkill(cloudSlug)).toBe(true)
+      expect(existsSync(resolve(recDir, cloudSlug))).toBe(false)
     }
   })
 

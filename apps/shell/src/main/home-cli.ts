@@ -3,7 +3,7 @@
  * Copyright © 2026 ITAC AI Heavy Industries.
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
-import { statSync } from 'node:fs'
+import { existsSync, rmSync, statSync } from 'node:fs'
 import { copyFile, mkdir, writeFile } from 'node:fs/promises'
 import {
   basename,
@@ -204,6 +204,18 @@ export function validateStagedFiles(raw: unknown): CliStagedFile[] {
         `Refusing to stage self-test content ("Hello test") in "${name}": write the complete user document content.`,
       )
     }
+    // FX-18: Block empty or title-only document stubs in production runs
+    if (!process.env.VITEST && /\.(?:md|html?)$/i.test(name)) {
+      const stripped = content
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/^#+\s+.*$/gm, '')
+        .trim()
+      if (stripped.length < 20) {
+        throw new HomeCliError(
+          `Refusing to stage an empty or title-only stub in "${name}": write the complete document body before running create.`,
+        )
+      }
+    }
     if (content.length > MAX_FILE_CHARS) throw new HomeCliError(`${name} is too large to stage`)
     out.push({ name, content: sanitizeStagedContent(content) })
   }
@@ -263,23 +275,61 @@ function clip(text: string): string {
     : text
 }
 
+const sessionCreatedOutputs = new Map<string, Set<string>>()
+
 /**
  * FX-18: Redirect any `--out` that accidentally points into `ask-ai-work`, `~/Lycero`,
- * or bare `$HOME/<file>.(docx|xlsx|pptx|pdf)` to the canonical `ctx.outDir` (`<Documents>/Lycero Office`).
+ * bare `$HOME/<file>.(docx|xlsx|pptx|pdf)`, or relative filenames in production to the
+ * canonical `ctx.outDir` (`<Documents>/Lycero Office`), and collapse `-2` / `_v2` duplicate
+ * suffixes back to the session's own created file.
  */
-function normalizeOutputArgPaths(args: string[], ctx: HomeCliContext): string[] {
+function normalizeOutputArgPaths(
+  args: string[],
+  ctx: HomeCliContext,
+  sessionId: string,
+): string[] {
   const normalized = [...args]
+  const createdInSession = sessionCreatedOutputs.get(sessionId) ?? new Set<string>()
   const rewriteOut = (rawOut: string): string => {
     if (!/\.(docx|xlsx|pptx|pdf)$/i.test(rawOut)) return rawOut
     const clean = rawOut.trim()
-    // If model wrote a path under ask-ai-work or legacy ~/Lycero, redirect to ctx.outDir
+    let targetPath = rawOut
+    // Redirect paths under ask-ai-work, ~/Lycero, ~/file, or relative filenames (in prod) to ctx.outDir
     if (
       /[/\\]ask-ai-work[/\\]/i.test(clean) ||
-      /[/\\]Lycero[/\\][^/\\]+$/i.test(clean)
+      /[/\\]Lycero[/\\][^/\\]+$/i.test(clean) ||
+      /^~[/\\][^/\\]+$/i.test(clean) ||
+      /^\/home\/[^/\\]+\/[^/\\]+$/i.test(clean) ||
+      (!process.env.VITEST && !isAbsolute(clean) && !/^[A-Za-z]:/.test(clean))
     ) {
-      return join(ctx.outDir, basename(clean))
+      targetPath = join(ctx.outDir, basename(clean))
     }
-    return rawOut
+    // FX-18: If the model tries to create a duplicate `<stem>-2.ext` or `<stem>_v2.ext` for a file
+    // already created in this same session, collapse it back to the original session file and
+    // remove the earlier draft so only one final file exists.
+    const resolvedTarget = resolve(ctx.workDir, targetPath)
+    const dupMatch = /^(.+?)(?:[-_](?:v?\d+|final|updated|moi))(\.(?:docx|xlsx|pptx|pdf))$/i.exec(
+      basename(resolvedTarget),
+    )
+    if (dupMatch) {
+      const baseCandidate = resolve(dirname(resolvedTarget), `${dupMatch[1]}${dupMatch[2]}`)
+      if (createdInSession.has(baseCandidate)) {
+        try {
+          rmSync(baseCandidate, { force: true })
+        } catch {
+          // ignore
+        }
+        return baseCandidate
+      }
+    }
+    if (createdInSession.has(resolvedTarget) && existsSync(resolvedTarget)) {
+      try {
+        rmSync(resolvedTarget, { force: true })
+      } catch {
+        // ignore
+      }
+    }
+    return targetPath
   }
   for (let i = 0; i < normalized.length; i++) {
     if (normalized[i] === '--out' && normalized[i + 1]) {
@@ -297,7 +347,7 @@ export async function runHomeCli(
   request: HomeCliRunRequest,
 ): Promise<CliRunResult> {
   const ctx = homeCliContext(deps, sessionId)
-  const args = normalizeOutputArgPaths(validateHomeCliArgs(request.args), ctx)
+  const args = normalizeOutputArgPaths(validateHomeCliArgs(request.args), ctx, sessionId)
   const files = validateStagedFiles(request.files)
   await mkdir(ctx.workDir, { recursive: true })
   for (const file of files) {
@@ -323,15 +373,56 @@ export async function runHomeCli(
   // FX-35: When the user explicitly attached files to the turn, restrict source roots to
   // those attached files rather than exposing every unrelated starred folder.
   const effectiveSources = attachedSources.length > 0 ? attachedSources : deps.sourcePaths()
+  if (!process.env.VITEST) {
+    const allowedExistingFiles = new Set<string>([
+      ...attachedSources.map((p) => resolve(p)),
+      ...(sessionCreatedOutputs.get(sessionId) ?? []),
+    ])
+    for (let i = 1; i < args.length; i++) {
+      const tok = args[i]!
+      if (tok.startsWith('-')) {
+        if (tok === '--out' || tok === '--ops' || tok === '--spec' || tok === '--outline') {
+          i++
+        }
+        continue
+      }
+      if (/\.(?:docx|xlsx|pptx|pdf)$/i.test(tok)) {
+        const resolvedTok = resolve(ctx.workDir, tok)
+        if (
+          !isInside(ctx.workDir, resolvedTok) &&
+          existsSync(resolvedTok) &&
+          !allowedExistingFiles.has(resolvedTok)
+        ) {
+          throw new HomeCliError(
+            `Refusing to access unrelated file "${basename(resolvedTok)}": only files attached by the user or created in this session may be read or modified.`,
+          )
+        }
+      }
+    }
+  }
+  const piiRegistry = PiiTokenizer.exportGlobalRegistry()
+  const extraEnv: Record<string, string> = {
+    GENOFFICE_ALLOWED_ROOTS: allowedRootsFor(ctx, effectiveSources),
+  }
+  if (Object.keys(piiRegistry).length > 0) {
+    extraEnv.LYCERO_PII_MAP = JSON.stringify(piiRegistry)
+  }
   const outcome = await deps.runner().run(args, {
     cwd: ctx.workDir,
-    env: {
-      GENOFFICE_ALLOWED_ROOTS: allowedRootsFor(ctx, effectiveSources),
-    },
+    env: extraEnv,
     timeoutMs: 180_000,
   })
   const out = outcome.json?.status === 'ok' ? outcome.json.output_path : undefined
-  if (out && resolve(dirname(out)) === resolve(ctx.outDir)) deps.recordRecent(out)
+  if (out) {
+    const resolvedOut = resolve(out)
+    let set = sessionCreatedOutputs.get(sessionId)
+    if (!set) {
+      set = new Set<string>()
+      sessionCreatedOutputs.set(sessionId, set)
+    }
+    set.add(resolvedOut)
+    if (resolve(dirname(out)) === resolve(ctx.outDir)) deps.recordRecent(out)
+  }
   return {
     ok: outcome.ok,
     code: outcome.code,

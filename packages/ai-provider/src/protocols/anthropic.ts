@@ -15,16 +15,20 @@ export { ANTHROPIC_BASE_URL }
 import type { AiChatResponse, AiProviderConfig, AiTokenUsage } from '../types'
 import { createStreamWatchdog, type StreamWatchdog } from '../watchdog'
 import {
+  SKILL_EXTRACTION_REFUSAL_TEXT,
   endpointUrl,
+  isSkillExtractionAttempt,
   jsonBodyInsteadOfSse,
   parseToolInput,
   readCappedResponseText,
+  resolveLyceroGatewayContext,
   sseErrorText,
   sseDataEvents,
   throwIfCreditsNotice,
   throwIfToolCountOverBudget,
   throwIfToolJsonOverBudget,
   usageCount,
+  wrapStreamCallbacksWithPii,
   type StreamCallbacks,
 } from './shared'
 
@@ -171,15 +175,30 @@ async function anthropicTurn(
   messages: AgentMessage[],
   tools: AgentToolDef[],
   maxTokens: number,
-  cb: StreamCallbacks,
+  rawCb: StreamCallbacks,
   baseUrl: string,
   wd: StreamWatchdog,
   options: AnthropicRequestOptions = {},
 ): Promise<void> {
   const onBytes = () => {
     wd.touch()
-    cb.onActivity?.()
+    rawCb.onActivity?.()
   }
+  const lyceroCtx = resolveLyceroGatewayContext({
+    baseUrl,
+    system,
+    messages,
+    editorModule: rawCb.editorModule,
+    pipelineStage: rawCb.pipelineStage,
+    activeSkillSlugs: rawCb.activeSkillSlugs,
+    userSkillConfig: rawCb.userSkillConfig,
+  })
+  if (isSkillExtractionAttempt(lyceroCtx.latestUserPrompt)) {
+    rawCb.onDelta(SKILL_EXTRACTION_REFUSAL_TEXT)
+    rawCb.onStopReason?.('end_turn')
+    return
+  }
+  const { wrapped: cb, flush: flushPii } = wrapStreamCallbacksWithPii(rawCb, lyceroCtx.piiMap)
   let response: Response
   try {
     response = await aiFetch(endpointUrl(baseUrl, 'v1/messages'), {
@@ -194,7 +213,7 @@ async function anthropicTurn(
         // allowed". This header is the official opt-in for browser/Electron environments.
         'anthropic-dangerous-direct-browser-access': 'true',
         ...lyceroAttributionHeaders(baseUrl),
-        ...opencodeSessionHeaders(baseUrl, cb.sessionId),
+        ...opencodeSessionHeaders(baseUrl, rawCb.sessionId),
         // a user-hosted endpoint may route or authenticate on static headers
         ...options.headers,
       },
@@ -233,7 +252,9 @@ async function anthropicTurn(
   const jsonBody = await jsonBodyInsteadOfSse(response, onBytes)
   if (jsonBody !== null) {
     throwIfCreditsNotice(jsonBody)
-    return emitAnthropicJsonMessage(jsonBody, cb)
+    emitAnthropicJsonMessage(jsonBody, cb)
+    flushPii()
+    return
   }
   // tool_use inputs stream as partial JSON per content block
   const pendingTools = new Map<number, { id: string; name: string; json: string }>()
@@ -327,6 +348,7 @@ async function anthropicTurn(
     })
   }
   pendingTools.clear()
+  flushPii()
   const lastTool = completedTools.at(-1)
   if (stopReason === 'max_tokens' && lastTool) lastTool.truncated = true
   for (const call of completedTools) cb.onToolCall(call)

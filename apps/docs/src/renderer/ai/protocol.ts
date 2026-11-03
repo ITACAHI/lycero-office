@@ -105,7 +105,7 @@ export const HTML_RULES = [
   'The html tool input is a restricted HTML fragment. Rules:',
   '- Only these tags are allowed: h1 h2 h3 h4 h5 h6 p ul ol li strong em u s a br table thead tbody tr th td pre code blockquote',
   '- Tables: for data tables, use <th> for the first (header) row; for 2-column Vietnamese administrative header tables (Quốc hiệu - Tiêu ngữ) and signature/footer blocks, use a borderless <table style="width: 100%; border: none; border-collapse: collapse;"> with <td> cells (never <th>) and format cell lines with <p style="text-align: center;">, <strong>, <em>, <u>, or <br>; nested tables are not supported',
-  '- Vietnamese Quốc hiệu - Tiêu ngữ & Document Title standard (Nghị định 30/2020/NĐ-CP for Administrative & Legal docs — STRICTLY EXCLUDING Education Lesson Plans CV 5512/CV 2345, Exam Matrices CV 7991, and Rubrics per FX-40, which must NEVER have Quốc hiệu - Tiêu ngữ, administrative legal bases, or administrative file numbers): (1) 2-column borderless header <table> where both columns start at row 0 top-aligned (Left <td style="width: 40%; text-align: center; vertical-align: top; border: none;">: TÊN CƠ QUAN CHỦ QUẢN in regular upright uppercase 12pt / <strong><u>TÊN CƠ QUAN, TỔ CHỨC BAN HÀNH</u></strong> bold underlined 12pt / Số: [cần bổ sung: số văn bản]; Right <td style="width: 60%; text-align: center; vertical-align: top; border: none;"> wide enough so Quốc hiệu never wraps: <strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong> 12-13pt bold on 1 line / <strong><u>Độc lập - Tự do - Hạnh phúc</u></strong> 13-14pt bold underlined / <em>..., ngày ... tháng ... năm ...</em>), (2) centered Document Title <h1 style="text-align: center;"><strong>TÊN LOẠI VĂN BẢN IN HOA</strong></h1> and centered Subtitle/Trích yếu <p style="text-align: center;"><strong>Về việc ...</strong></p> with an independent horizontal rule 1/3–1/2 width below, (3) each "Căn cứ" line as its own separate <p style="text-align: left;"><em>Căn cứ ...;</em></p> paragraph ending with ";", and the FINAL "Căn cứ" line MUST end with a period "." (FX-12); for Luật / Bộ luật per Phụ lục I NĐ30, write ONLY the Law title without "số .../QH..."; never fabricate internal bases not in the prompt, (4) 6-column budget/cost tables (STT, Nội dung chi, ĐVT, SL, Đơn giá, Thành tiền) with proportional widths (8%, 42%, 10%, 8%, 15%, 17%), right-aligned dot-separated numbers (45.000.000), and bold TỔNG CỘNG row (personnel list tables must NOT have ĐVT/SL columns per FX-14), (5) 2-column borderless signature table (Left 45% Nơi nhận 11pt; Right 55% centered bold uppercase signer title, 3-4 blank lines, and bold signer full name — omit the line "(Ký, ghi rõ...)" per FX-13)',
+  '- Vietnamese Quốc hiệu - Tiêu ngữ & Document Title standard (Nghị định 30/2020/NĐ-CP for Administrative & Legal docs — STRICTLY EXCLUDING Education Lesson Plans CV 5512/CV 2345, Exam Matrices CV 7991, and Rubrics per FX-40, which must NEVER have Quốc hiệu - Tiêu ngữ, administrative legal bases, or administrative file numbers): (1) 2-column borderless header <table> where both columns start at row 0 top-aligned (Left <td style="width: 40%; text-align: center; vertical-align: top; border: none;">: TÊN CƠ QUAN CHỦ QUẢN in regular upright uppercase 12pt / <strong>TÊN CƠ QUAN, TỔ CHỨC BAN HÀNH</strong> bold uppercase 12pt (NO <u> text underline) followed by an independent horizontal rule paragraph 1/3–1/2 width (<p style="text-align: center;">──────────</p>) / Số: [cần bổ sung: số văn bản]; Right <td style="width: 60%; text-align: center; vertical-align: top; border: none;"> wide enough so Quốc hiệu never wraps: <strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong> 12-13pt bold on 1 line / <strong>Độc lập - Tự do - Hạnh phúc</strong> 13-14pt bold (NO <u> text underline) followed by an independent horizontal rule paragraph matching the full width of Tiêu ngữ (<p style="text-align: center;">──────────────────────</p>) / <em>..., ngày ... tháng ... năm ...</em>), (2) centered Document Title <h1 style="text-align: center;"><strong>TÊN LOẠI VĂN BẢN IN HOA</strong></h1> and centered Subtitle/Trích yếu <p style="text-align: center;"><strong>Về việc ...</strong></p> followed by an independent horizontal rule 1/3–1/2 width below (<p style="text-align: center;">──────────────</p>), (3) each "Căn cứ" line as its own separate <p style="text-align: left;"><em>Căn cứ ...;</em></p> paragraph ending with ";", and the FINAL "Căn cứ" line MUST end with a period "." (FX-12); for Luật / Bộ luật per Phụ lục I NĐ30, write ONLY the Law title without "số .../QH..."; never fabricate internal bases not in the prompt, (4) 6-column budget/cost tables (STT, Nội dung chi, ĐVT, SL, Đơn giá, Thành tiền) with proportional widths (8%, 42%, 10%, 8%, 15%, 17%), right-aligned dot-separated numbers (45.000.000), and bold TỔNG CỘNG row (personnel list tables must NOT have ĐVT/SL columns per FX-14), (5) 2-column borderless signature table (Left 45% Nơi nhận 11pt; Right 55% centered bold uppercase signer title, 3-4 blank lines, and bold signer full name — omit the line "(Ký, ghi rõ...)" per FX-13)',
   '- Use <pre> for code samples (monospace font + shading, line breaks preserved); use <blockquote> for quotations (indent + left bar)',
   '- Use <formula>LaTeX</formula> for math (produces native Word equations): as a top-level block it becomes its own centered paragraph; placed inside <p>/<li>/<h*> text it is an inline formula flowing with the text, e.g. <p>From <formula>E = mc^2</formula> we know…</p>; supports the common subset of \\frac \\sqrt super/subscripts \\sum \\int \\lim matrix environments Greek letters etc., the align environment is not supported; invalid LaTeX fails the whole call — fix and retry',
   '- Do not include <html>/<body>, markdown code fences, or explanatory text',
@@ -1149,12 +1149,9 @@ function ensureNd30InlineMarks(nodes: PmNode[], textJoined: string): PmNode[] {
   ) {
     out = ensureMarkOnNodes(out, 'bold')
   }
-  if (
-    /^Độc lập\s*-\s*Tự do\s*-\s*Hạnh phúc$/i.test(trimmed) &&
-    !out.some((n) => n.marks?.some((m) => m.type === 'underline'))
-  ) {
-    // Preserve or apply underline on Tiêu ngữ when no separate separator line is present
-    out = ensureMarkOnNodes(out, 'underline')
+  if (/^Độc lập\s*-\s*Tự do\s*-\s*Hạnh phúc$/i.test(trimmed)) {
+    // FX-14: Never use text underline (<u>) on Tiêu ngữ; an independent horizontal rule is emitted below
+    out = removeMarkFromNodes(out, 'underline')
   }
   if (
     VN_DATE_LINE_RE.test(trimmed) ||
@@ -1746,7 +1743,7 @@ function parseTable(el: Element, docTitleHint?: string): PmNode | null {
               ...cNode.attrs,
               colwidth: null,
               ...(isQuocHieuTable
-                ? { cellMar: quocHieuCellMar, tcPrEdited: true }
+                ? { cellMar: quocHieuCellMar, noWrap: true, tcPrEdited: true }
                 : {}),
             }
           }
@@ -1853,12 +1850,12 @@ function parseTable(el: Element, docTitleHint?: string): PmNode | null {
                 govInline,
               ),
             )
-            // Line 1+: Cơ quan ban hành -> UPPERCASE, BOLD + UNDERLINE (gạch chân ngắn), 12pt
+            // Line 1+: Cơ quan ban hành -> UPPERCASE, BOLD (NO text underline per FX-14; independent rule 1/3-1/2 below), 12pt
             for (let i = 1; i < agencyParas.length; i++) {
               const issText = getParagraphNodeText(agencyParas[i]!).toUpperCase()
               let issInline = uppercaseTextNodes(agencyParas[i]!.content ?? [])
               issInline = ensureMarkOnNodes(issInline, 'bold')
-              issInline = ensureMarkOnNodes(issInline, 'underline')
+              issInline = removeMarkFromNodes(issInline, 'underline')
               issInline = removeMarkFromNodes(issInline, 'italic')
               issInline = applyTextStyleToNodes(
                 issInline,
@@ -1868,16 +1865,50 @@ function parseTable(el: Element, docTitleHint?: string): PmNode | null {
               normalizedLeft.push(
                 blockNode(
                   'docParagraph',
-                  { align: 'center', spaceBefore: 0, spaceAfter: 40, lineSpacing: 1.1 },
+                  { align: 'center', spaceBefore: 0, spaceAfter: 0, lineSpacing: 1.05 },
                   issInline,
                 ),
               )
             }
+            const lastAgencyLen =
+              agencyParas.length > 0
+                ? getParagraphNodeText(agencyParas[agencyParas.length - 1]!).trim().length
+                : 20
+            const agencyRuleText = '─'.repeat(
+              Math.max(8, Math.min(14, Math.round(lastAgencyLen * 0.4))),
+            )
+            normalizedLeft.push(
+              blockNode(
+                'docParagraph',
+                {
+                  align: 'center',
+                  spaceBefore: 0,
+                  spaceAfter: 20,
+                  lineSpacing: 1.0,
+                  borders: 'b',
+                  borderLines: JSON.stringify({
+                    b: { color: '000000', szPt: 0.75, spacePt: 1 },
+                  }),
+                  indentLeft: 1080,
+                  indentRight: 1080,
+                },
+                applyTextStyleToNodes(
+                  [{ type: 'text', text: agencyRuleText }],
+                  {
+                    font: 'Times New Roman',
+                    fontAscii: 'Times New Roman',
+                    eastAsiaFont: 'Times New Roman',
+                    sizeHalfPoints: 16,
+                  },
+                  true,
+                ),
+              ),
+            )
           } else if (agencyParas.length === 1) {
             const issText = getParagraphNodeText(agencyParas[0]!).toUpperCase()
             let issInline = uppercaseTextNodes(agencyParas[0]!.content ?? [])
             issInline = ensureMarkOnNodes(issInline, 'bold')
-            issInline = ensureMarkOnNodes(issInline, 'underline')
+            issInline = removeMarkFromNodes(issInline, 'underline')
             issInline = removeMarkFromNodes(issInline, 'italic')
             issInline = applyTextStyleToNodes(
               issInline,
@@ -1887,8 +1918,38 @@ function parseTable(el: Element, docTitleHint?: string): PmNode | null {
             normalizedLeft.push(
               blockNode(
                 'docParagraph',
-                { align: 'center', spaceBefore: 0, spaceAfter: 40, lineSpacing: 1.1 },
+                { align: 'center', spaceBefore: 0, spaceAfter: 0, lineSpacing: 1.05 },
                 issInline,
+              ),
+            )
+            const agencyRuleText = '─'.repeat(
+              Math.max(8, Math.min(14, Math.round(issText.trim().length * 0.4))),
+            )
+            normalizedLeft.push(
+              blockNode(
+                'docParagraph',
+                {
+                  align: 'center',
+                  spaceBefore: 0,
+                  spaceAfter: 20,
+                  lineSpacing: 1.0,
+                  borders: 'b',
+                  borderLines: JSON.stringify({
+                    b: { color: '000000', szPt: 0.75, spacePt: 1 },
+                  }),
+                  indentLeft: 1080,
+                  indentRight: 1080,
+                },
+                applyTextStyleToNodes(
+                  [{ type: 'text', text: agencyRuleText }],
+                  {
+                    font: 'Times New Roman',
+                    fontAscii: 'Times New Roman',
+                    eastAsiaFont: 'Times New Roman',
+                    sizeHalfPoints: 16,
+                  },
+                  true,
+                ),
               ),
             )
           }
@@ -1960,7 +2021,7 @@ function parseTable(el: Element, docTitleHint?: string): PmNode | null {
             } else if (/Độc lập\s*-\s*Tự do\s*-\s*Hạnh phúc/i.test(t)) {
               let tnInline: PmNode[] = [{ type: 'text', text: 'Độc lập - Tự do - Hạnh phúc' }]
               tnInline = ensureMarkOnNodes(tnInline, 'bold')
-              tnInline = ensureMarkOnNodes(tnInline, 'underline')
+              tnInline = removeMarkFromNodes(tnInline, 'underline')
               tnInline = applyTextStyleToNodes(
                 tnInline,
                 {
@@ -1974,8 +2035,36 @@ function parseTable(el: Element, docTitleHint?: string): PmNode | null {
               normalizedRight.push(
                 blockNode(
                   'docParagraph',
-                  { align: 'center', spaceBefore: 0, spaceAfter: 60, lineSpacing: 1.1 },
+                  { align: 'center', spaceBefore: 0, spaceAfter: 0, lineSpacing: 1.05 },
                   tnInline,
+                ),
+              )
+              // FX-14: Independent horizontal rule matching the full width of Tiêu ngữ
+              normalizedRight.push(
+                blockNode(
+                  'docParagraph',
+                  {
+                    align: 'center',
+                    spaceBefore: 0,
+                    spaceAfter: 40,
+                    lineSpacing: 1.0,
+                    borders: 'b',
+                    borderLines: JSON.stringify({
+                      b: { color: '000000', szPt: 0.75, spacePt: 1 },
+                    }),
+                    indentLeft: 1100,
+                    indentRight: 1100,
+                  },
+                  applyTextStyleToNodes(
+                    [{ type: 'text', text: '─'.repeat(22) }],
+                    {
+                      font: 'Times New Roman',
+                      fontAscii: 'Times New Roman',
+                      eastAsiaFont: 'Times New Roman',
+                      sizeHalfPoints: 16,
+                    },
+                    true,
+                  ),
                 ),
               )
             } else {
@@ -2430,8 +2519,43 @@ export function parseHtmlFragment(raw: string, numIds: NumIds): PmNode[] {
     } else if (!align && isNd30Doc) {
       align = 'justify'
     }
-    if (/^(?:Về việc|V\/v)\s+/i.test(chunkText)) {
-      normalized = ensureMarkOnNodes(normalized, 'bold')
+    const isTrichYeu = /^(?:Về việc|V\/v)\s+/i.test(chunkText)
+    if (SEPARATOR_LINE_RE.test(chunkText)) {
+      const prevBlock = out[out.length - 1]
+      const prevText = prevBlock ? getParagraphNodeText(prevBlock) : ''
+      if (prevText && !SEPARATOR_LINE_RE.test(prevText)) {
+        out.push(
+          blockNode(
+            'docParagraph',
+            {
+              align: 'center',
+              lineSpacing: 1.0,
+              spaceBefore: 0,
+              spaceAfter: 60,
+              borders: 'b',
+              borderLines: JSON.stringify({
+                b: { color: '000000', szPt: 0.75, spacePt: 1 },
+              }),
+              indentLeft: 3120,
+              indentRight: 3120,
+            },
+            applyTextStyleToNodes(
+              [{ type: 'text', text: '─'.repeat(14) }],
+              {
+                font: 'Times New Roman',
+                fontAscii: 'Times New Roman',
+                eastAsiaFont: 'Times New Roman',
+                sizeHalfPoints: 16,
+              },
+              true,
+            ),
+          ),
+        )
+      }
+      return
+    }
+    if (isTrichYeu) {
+      normalized = removeMarkFromNodes(ensureMarkOnNodes(normalized, 'bold'), 'underline')
     }
     if (isNd30Doc) {
       normalized = applyTextStyleToNodes(
@@ -2454,13 +2578,43 @@ export function parseHtmlFragment(raw: string, numIds: NumIds): PmNode[] {
             ? {
                 lineSpacing: 1.15,
                 spaceBefore: CAN_CU_LINE_RE.test(chunkText) ? 20 : 40,
-                spaceAfter: CAN_CU_LINE_RE.test(chunkText) ? 40 : 60,
+                spaceAfter: isTrichYeu ? 0 : CAN_CU_LINE_RE.test(chunkText) ? 40 : 60,
               }
             : {}),
         },
         normalized,
       ),
     )
+    if (isTrichYeu) {
+      // FX-14: Emit independent horizontal rule (1/3–1/2 width) below Trích yếu
+      out.push(
+        blockNode(
+          'docParagraph',
+          {
+            align: 'center',
+            lineSpacing: 1.0,
+            spaceBefore: 0,
+            spaceAfter: 60,
+            borders: 'b',
+            borderLines: JSON.stringify({
+              b: { color: '000000', szPt: 0.75, spacePt: 1 },
+            }),
+            indentLeft: 3120,
+            indentRight: 3120,
+          },
+          applyTextStyleToNodes(
+            [{ type: 'text', text: '─'.repeat(14) }],
+            {
+              font: 'Times New Roman',
+              fontAscii: 'Times New Roman',
+              eastAsiaFont: 'Times New Roman',
+              sizeHalfPoints: 16,
+            },
+            true,
+          ),
+        ),
+      )
+    }
   }
 
   const walkBlockContainer = (container: Node) => {
@@ -2563,7 +2717,7 @@ export function parseHtmlFragment(raw: string, numIds: NumIds): PmNode[] {
           }
         }
       } else if (tag === 'hr') {
-        // Ignore raw <hr> or separator elements outside text
+        pushFormattedParagraph([{ type: 'text', text: '──────────────' }], 'center')
       } else {
         // unknown block-ish tag: salvage the text
         const t = (el.textContent ?? '').trim()

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Lycero Office Desktop
  * Copyright (c) 2026 ITAC AI Heavy Industries. All rights reserved.
  *
@@ -328,7 +328,7 @@ describe('freelance_solo SKILL.md', () => {
     expect(content).toContain('## 3. Thue TNCN')
     expect(content).toContain('Bo luat Dan su 2015')
     expect(content).toContain('Dieu 360')
-    expect(content).toContain('Nghi dinh 123')
+    expect(content).toMatch(/Nghi dinh (?:123|254)/)
     expect(content).toContain('Luat Thue TNCN')
     expect(content).toContain('Bieu thue luy tien')
     expect(content).toContain('## 5. Quy trinh xuat hoa don')

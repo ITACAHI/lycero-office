@@ -92,14 +92,14 @@ export function bundledSkillPath(): string | null {
   const candidates = [
     ...(packaged
       ? [
-          join(packaged, 'cli', 'skills', 'lycero-office', 'SKILL.md'),
           join(packaged, 'cli', 'skills', 'genoffice', 'SKILL.md'),
+          join(packaged, 'cli', 'skills', 'lycero-office', 'SKILL.md'),
         ]
       : []),
     ...(repoRoot()
       ? [
-          join(repoRoot()!, 'skills', 'lycero-office', 'SKILL.md'),
           join(repoRoot()!, 'skills', 'genoffice', 'SKILL.md'),
+          join(repoRoot()!, 'skills', 'lycero-office', 'SKILL.md'),
         ]
       : []),
   ]

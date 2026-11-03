@@ -154,7 +154,103 @@ function parseDelimiterRow(line: string): CellAlign[] | null {
   })
 }
 
+function normalizeChatMarkdownInput(raw: string): string {
+  if (!raw) return raw
+  const parts = raw.split(/(```[\s\S]*?```)/g)
+  return parts
+    .map((part, idx) => {
+      if (idx % 2 === 1) return part
+      let out = part
+        .replace(/<tool_call>[\s\S]*?(?:<\/tool_call>|$)/gi, '')
+        .replace(/<\|tool_call_start\|>[\s\S]*?(?:<\|tool_call_end\|>|$)/gi, '')
+        .replace(/<function=[a-zA-Z0-9_.-]+>[\s\S]*?(?:<\/function>|$)/gi, '')
+        .replace(/<invoke\b[\s\S]*?(?:<\/invoke>|$)/gi, '')
+      if (/<table\b/i.test(out)) {
+        out = out.replace(/<table\b[^>]*>([\s\S]*?)<\/table>/gi, (_m, tableInner) => {
+          const rows: string[][] = []
+          const trRe = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi
+          let trM: RegExpExecArray | null
+          while ((trM = trRe.exec(String(tableInner))) !== null) {
+            const cells: string[] = []
+            const cellRe = /<t[hd]\b[^>]*>([\s\S]*?)<\/t[hd]>/gi
+            let cM: RegExpExecArray | null
+            while ((cM = cellRe.exec(trM[1] ?? '')) !== null) {
+              cells.push(
+                (cM[1] ?? '')
+                  .replace(/<br\s*\/?>/gi, ' ')
+                  .replace(/<[^>]+>/g, '')
+                  .replace(/\s+/g, ' ')
+                  .trim()
+                  .replace(/\|/g, '\\|'),
+              )
+            }
+            if (cells.length > 0) rows.push(cells)
+          }
+          if (rows.length === 0) return ''
+          const cols = Math.max(...rows.map((r) => r.length))
+          const pad = (r: string[]) => {
+            const c = [...r]
+            while (c.length < cols) c.push('')
+            return `| ${c.join(' | ')} |`
+          }
+          const head = pad(rows[0]!)
+          const sep = `| ${Array.from({ length: cols }, () => '---').join(' | ')} |`
+          return `\n\n${[head, sep, ...rows.slice(1).map(pad)].join('\n')}\n\n`
+        })
+      }
+      if (/<(?:h[1-6]|p|div|span|strong|b|em|i|u|ul|ol|li|br|hr)\b/i.test(out)) {
+        out = out
+          .replace(/<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1>/gi, (_m, lvl, inner) => {
+            const clean = String(inner).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
+            return `\n\n${'#'.repeat(Number(lvl))} ${clean}\n\n`
+          })
+          .replace(/<li\b[^>]*>([\s\S]*?)<\/li>/gi, (_m, inner) => {
+            const clean = String(inner).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
+            return `\n- ${clean}`
+          })
+          .replace(/<\/?(?:ul|ol)\b[^>]*>/gi, '\n')
+          .replace(/<(?:strong|b)\b[^>]*>([\s\S]*?)<\/(?:strong|b)>/gi, '**$1**')
+          .replace(/<(?:em|i)\b[^>]*>([\s\S]*?)<\/(?:em|i)>/gi, '*$1*')
+          .replace(/<br\s*\/?>/gi, '\n')
+          .replace(/<hr\s*\/?>/gi, '\n---\n')
+          .replace(/<\/p>/gi, '\n\n')
+          .replace(/<p\b[^>]*>/gi, '')
+          .replace(/<\/?(?:div|span|u|font|center|section|article|header|footer|tbody|thead|tr|td|th)\b[^>]*>/gi, '')
+      }
+      if (out.includes('\\') || out.includes('$')) {
+        out = out
+          .replace(/\\(?:text|mathrm|textbf|textit)\{([^{}]*)\}/g, '$1')
+          .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, '($1)/($2)')
+          .replace(/\\sqrt\{([^{}]+)\}/g, '√($1)')
+          .replace(/\\times\b/g, '×')
+          .replace(/\\div\b/g, '÷')
+          .replace(/\\cdot\b/g, '·')
+          .replace(/\\pm\b/g, '±')
+          .replace(/\\(?:leq|le)\b/g, '≤')
+          .replace(/\\(?:geq|ge)\b/g, '≥')
+          .replace(/\\(?:neq|ne)\b/g, '≠')
+          .replace(/\\approx\b/g, '≈')
+          .replace(/\\infty\b/g, '∞')
+          .replace(/\\sum\b/g, '∑')
+          .replace(/\\pi\b/g, 'π')
+          .replace(/\\Delta\b/g, 'Δ')
+          .replace(/\\Rightarrow\b/g, '⇒')
+          .replace(/\\(?:rightarrow|to)\b/g, '→')
+          .replace(/\\left\s*([([])/g, '$1')
+          .replace(/\\right\s*([\])])/g, '$1')
+          .replace(/\\,/g, ' ')
+          .replace(/\\\[([\s\S]*?)\\\]/g, '$1')
+          .replace(/\\\(([\s\S]*?)\\\)/g, '$1')
+          .replace(/\$\$([^$]+)\$\$/g, '$1')
+          .replace(/\$([^$\n]+)\$/g, '$1')
+      }
+      return out
+    })
+    .join('')
+}
+
 function parseBlocks(text: string): MdBlock[] {
+  const normalizedText = normalizeChatMarkdownInput(text)
   const blocks: MdBlock[] = []
   let cur: MdBlock | null = null
   const flush = (): void => {
@@ -163,7 +259,7 @@ function parseBlocks(text: string): MdBlock[] {
       cur = null
     }
   }
-  const lines = text.split('\n')
+  const lines = normalizedText.split('\n')
   for (let idx = 0; idx < lines.length; idx++) {
     const raw = lines[idx] ?? ''
     const line = raw.trimEnd()

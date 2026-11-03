@@ -18,11 +18,17 @@ import {
   type Dirent,
 } from 'node:fs'
 import { readFile, readdir } from 'node:fs/promises'
+import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path'
 import JSZip from 'jszip'
 import {
+  ADVANCED_CLOUD_SKILL_SLUGS,
+  BASIC_BUNDLED_SKILL_SLUGS,
   DEFAULT_CLOUD_SKILL_CATALOG,
+  HIDDEN_OR_MERGED_SKILL_SLUGS,
   classifySkill,
+  isAdvancedCloudSkill,
+  isBasicBundledSkill,
   parseSkillFrontmatter,
 } from '@lycero/agent-core'
 import type { FoundSkill, RecommendedSkill } from '../shared/found-skill'
@@ -84,6 +90,11 @@ export async function usableSkills(userDataDir: string): Promise<FoundSkill[]> {
   const out: FoundSkill[] = []
   for (const name of entries.sort()) {
     if (name.startsWith('.')) continue
+    if (HIDDEN_OR_MERGED_SKILL_SLUGS.has(name.toLowerCase())) continue
+    if (isAdvancedCloudSkill(name)) {
+      tryRm(join(root, name))
+      continue
+    }
     const path = join(root, name, 'SKILL.md')
     let text: string
     try {
@@ -92,15 +103,24 @@ export async function usableSkills(userDataDir: string): Promise<FoundSkill[]> {
       continue
     }
     const skill = describe(name, path, text)
-    if (skill) out.push(skill)
+    if (!skill) continue
+    if (skill.cloudProtected) {
+      tryRm(join(root, name))
+      continue
+    }
+    out.push(skill)
   }
   return out
 }
 
 /** the body of a skill, for the turn that runs it */
 export function readSkillBody(path: string): string {
+  if (!path) return ''
+  const skillDirName = basename(dirname(path))
+  if (isAdvancedCloudSkill(skillDirName)) return ''
   const fm = parseSkillFrontmatter(readFileSync(path, 'utf8'))
-  return fm?.body ?? ''
+  if (!fm || fm.extra.cloudProtected?.trim() === 'true') return ''
+  return fm.body ?? ''
 }
 
 const MAX_IMPORT_BYTES = 10 * 1024 * 1024
@@ -388,6 +408,8 @@ export async function recommendedSkills(
   }
   const out: RecommendedSkill[] = []
   for (const name of entries.sort()) {
+    if (HIDDEN_OR_MERGED_SKILL_SLUGS.has(name.toLowerCase())) continue
+    if (isAdvancedCloudSkill(name)) continue
     const path = join(recommendedDir, name, 'SKILL.md')
     let text: string
     try {
@@ -421,6 +443,9 @@ export function installRecommendedSkill(
   userDataDir: string,
 ): FoundSkill {
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name)) throw new Error('unknown skill')
+  if (isAdvancedCloudSkill(name) || HIDDEN_OR_MERGED_SKILL_SLUGS.has(name.toLowerCase())) {
+    throw new Error('unknown skill')
+  }
   const src = join(recommendedDir, name)
   if (!existsSync(join(src, 'SKILL.md'))) throw new Error('unknown skill')
   const dest = join(skillsRoot(userDataDir), name)
@@ -456,20 +481,11 @@ function tryRm(path: string): void {
   }
 }
 
-function hasFullLocalSkillBody(filePath: string): boolean {
-  try {
-    if (!existsSync(filePath)) return false
-    const raw = readFileSync(filePath, 'utf8')
-    const fm = parseSkillFrontmatter(raw)
-    if (!fm || !fm.body) return false
-    const bodyWithoutCloudTag = fm.body.replace(/\[LYCERO_CLOUD_SKILL:[^\]]+\]/g, '').trim()
-    return bodyWithoutCloudTag.length >= 200
-  } catch {
-    return false
-  }
-}
-
-function findBundledFullSkillMd(slug: string): string | null {
+/**
+ * Resolves the bundled `skills/recommended` directory containing the 42 basic skills
+ * and 9 `lycero-*` tool skills (51 total).
+ */
+export function defaultRecommendedSkillsDir(): string {
   const resPath =
     typeof (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath === 'string'
       ? (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath!
@@ -477,259 +493,252 @@ function findBundledFullSkillMd(slug: string): string | null {
   const candidates = [
     ...(resPath
       ? [
-          join(resPath, 'cli', 'skills', 'recommended', slug, 'SKILL.md'),
-          join(resPath, 'cli', 'skills', slug, 'SKILL.md'),
-          join(resPath, 'skills', 'recommended', slug, 'SKILL.md'),
-          join(resPath, 'skills', slug, 'SKILL.md'),
+          join(resPath, 'cli', 'skills', 'recommended'),
+          join(resPath, 'skills', 'recommended'),
         ]
       : []),
-    resolve(process.cwd(), 'skills', slug, 'SKILL.md'),
-    resolve(process.cwd(), 'skills', 'recommended', slug, 'SKILL.md'),
-    resolve(__dirname, '../../../../skills', slug, 'SKILL.md'),
-    resolve(__dirname, '../../../../skills/recommended', slug, 'SKILL.md'),
-    resolve(__dirname, '../../../skills', slug, 'SKILL.md'),
-    resolve(__dirname, '../../../skills/recommended', slug, 'SKILL.md'),
+    resolve(process.cwd(), 'skills', 'recommended'),
+    resolve(__dirname, '../../../../skills/recommended'),
+    resolve(__dirname, '../../../skills/recommended'),
   ]
   for (const c of candidates) {
-    if (hasFullLocalSkillBody(c)) {
-      try {
-        return readFileSync(c, 'utf8')
-      } catch {
-        // continue
-      }
-    }
+    if (existsSync(c)) return c
   }
-  return null
-}
-
-function writeCloudProxySkillMd(
-  userDataDir: string,
-  item: {
-    slug: string
-    name: string
-    title?: string
-    description: string
-    category?: string
-    version?: string
-    tier?: string
-  },
-): string {
-  const destDir = join(skillsRoot(userDataDir), item.slug)
-  const destFile = join(destDir, 'SKILL.md')
-  if (hasFullLocalSkillBody(destFile)) {
-    return destFile
-  }
-  const bundled = findBundledFullSkillMd(item.slug)
-  if (bundled) {
-    try {
-      mkdirSync(destDir, { recursive: true })
-      writeFileSync(destFile, bundled, 'utf8')
-      return destFile
-    } catch {
-      /* ignore write errors on read-only disks */
-    }
-  }
-  const version = item.version || '3.3.0'
-  const displayTitle = (item.title || item.name || item.slug).replace(/\r?\n/g, ' ').trim()
-  const desc = item.description.replace(/\r?\n/g, ' ').trim()
-  const category = (item.category || 'other').replace(/\r?\n/g, ' ').trim()
-  const tier = (item.tier || 'pro').replace(/\r?\n/g, ' ').trim()
-  const content = [
-    '---',
-    `name: ${item.slug}`,
-    `title: ${displayTitle}`,
-    `description: ${desc}`,
-    `category: ${category}`,
-    'source: cloud',
-    'cloudProtected: true',
-    `tier: ${tier}`,
-    'metadata:',
-    `  version: ${version}`,
-    '---',
-    '',
-    `# ${displayTitle}`,
-    '',
-    desc,
-    '',
-    '## Quy tắc Thực thi & Pháp chế Bắt buộc (2025–2026)',
-    '1. Không bịa: SĐT, email, địa chỉ, số CCCD, số GCN, số hợp đồng/hóa đơn/văn bản, nhà cung cấp, định mức, người phụ trách, căn cứ nội bộ, ý kiến hay nhiệm vụ không có trong đề. Thiếu thông tin thì để "[cần bổ sung: ...]".',
-    '2. Câu trả lời trong chat chỉ được nêu số liệu và tính năng đã đọc lại từ file sau khi lưu (read-back). Thao tác lỗi (sheet apply/docs apply báo error) thì phải nói rõ là chưa làm được. Không dán HTML thô, LaTeX thô hay lời gọi công cụ vào chat.',
-    '3. Địa giới 2 cấp từ 01/07/2025: không dùng quận/huyện/thị xã/TP thuộc tỉnh. Tòa án: TAND khu vực (Nghị quyết 81/2025/UBTVQH15). Thuế: Thuế cơ sở N tỉnh/TP.',
-    '4. Thể thức: Times New Roman 13–14pt; lề trên/dưới 20–25mm, trái 30–35mm, phải 15–20mm; 100% nhãn tiếng Việt; số có dấu chấm phân cách nghìn; ngày dd/mm/yyyy.',
-    '5. Lưu file duy nhất tại thư mục tài liệu "/home/box/Lycero Office/" (hoặc <Documents>/Lycero Office/), không tạo bản trùng. Không ghi file thử (test.html, test.docx, "Hello test") vào thư mục hay tên file của người dùng.',
-    '6. Không đưa ID phiên (kb-...) hay timestamp nội bộ vào nội dung văn bản.',
-    '7. Cập nhật pháp lý 2025–2026: Kế toán theo Thông tư 99/2025/TT-BTC (hiệu lực 01/01/2026); Thuế TNCN giảm trừ 15,5 triệu/tháng và 6,2 triệu/tháng (Nghị quyết 110/2025/UBTVQH15), biểu 5 bậc (Luật Thuế TNCN số 109/2025/QH15); Bảo vệ dữ liệu cá nhân theo Luật số 91/2025/QH15 + Nghị định 356/2025/NĐ-CP; Hóa đơn điện tử theo Nghị định 123/2020/NĐ-CP sửa đổi bởi Nghị định 70/2025/NĐ-CP; BHXH theo Luật số 41/2024/QH15 và Việc làm theo Luật số 74/2025/QH15; Thuế TNDN theo Luật số 67/2025/QH15; Ma trận đề kiểm tra theo Công văn 7991/BGDĐT-GDTrH (3 mức độ Nhận biết – Thông hiểu – Vận dụng, 4 phần); Giáo án CV 5512 đúng Phụ lục IV (không gắn Quốc hiệu - Tiêu ngữ).',
-    '',
-    `[LYCERO_CLOUD_SKILL:${item.slug}]`,
-    '',
-  ].join('\n')
-  try {
-    mkdirSync(destDir, { recursive: true })
-    writeFileSync(destFile, content, 'utf8')
-  } catch {
-    /* ignore write errors on read-only disks */
-  }
-  return destFile
+  return candidates[0]!
 }
 
 /**
- * Automatically seeds built-in Cloud Skills and syncs all skills from Lycero Cloud Server
- * (`/api/v1/office/skills` and `/api/v1/office/desktop/capabilities`) into `<userData>/skills`.
+ * Purges any previously written files for the 155 advanced cloud skills (or out-of-scope skills)
+ * from `<userData>/skills`, `~/.config/Lycero Office/skills`, and `~/.genoffice/skills` (FX-43).
+ */
+export function purgeLeakedCloudSkillsFromUserData(userDataDir: string): void {
+  const roots = new Set<string>([skillsRoot(userDataDir)])
+  if (!process.env.VITEST) {
+    try {
+      const home = homedir()
+      roots.add(join(home, '.config', 'Lycero Office', 'skills'))
+      roots.add(join(home, '.genoffice', 'skills'))
+    } catch {
+      // ignore
+    }
+  }
+  for (const root of roots) {
+    let entries: string[]
+    try {
+      entries = readdirSync(root)
+    } catch {
+      continue
+    }
+    for (const name of entries) {
+      if (name.startsWith('.')) continue
+      const dir = join(root, name)
+      const lower = name.toLowerCase()
+      if (ADVANCED_CLOUD_SKILL_SLUGS.has(lower) || HIDDEN_OR_MERGED_SKILL_SLUGS.has(lower)) {
+        tryRm(dir)
+        continue
+      }
+      const mdFile = join(dir, 'SKILL.md')
+      try {
+        if (existsSync(mdFile)) {
+          const raw = readFileSync(mdFile, 'utf8')
+          const fm = parseSkillFrontmatter(raw)
+          if (
+            fm?.extra.cloudProtected?.trim() === 'true' ||
+            fm?.extra.source?.trim() === 'cloud' ||
+            raw.includes('[LYCERO_CLOUD_SKILL:')
+          ) {
+            tryRm(dir)
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }
+}
+
+/**
+ * Purges any leaked advanced cloud skills from `<userData>/skills` and ensures the 51 bundled
+ * basic & tool skills (`42 basic + 9 lycero-*`) are installed locally for 100% offline use (FX-30, FX-43).
+ * Never writes any of the 155 advanced cloud skills to disk.
  */
 export async function syncAllCloudSkillsToUserData(
   userDataDir: string,
-  apiKey?: string,
+  _apiKey?: string,
+  recommendedDir?: string,
 ): Promise<FoundSkill[]> {
-  for (const item of DEFAULT_CLOUD_SKILL_CATALOG) {
-    const installedAt = join(skillsRoot(userDataDir), item.slug, 'SKILL.md')
-    if (!hasFullLocalSkillBody(installedAt)) {
-      writeCloudProxySkillMd(userDataDir, {
-        slug: item.slug,
-        name: item.name,
-        title: item.name,
-        description: item.description,
-        category: item.category,
-        version: item.version,
-      })
+  purgeLeakedCloudSkillsFromUserData(userDataDir)
+  const recDir = recommendedDir || defaultRecommendedSkillsDir()
+  if (existsSync(recDir)) {
+    for (const slug of BASIC_BUNDLED_SKILL_SLUGS) {
+      if (slug === 'genoffice') continue
+      const srcDir = join(recDir, slug)
+      const destMd = join(skillsRoot(userDataDir), slug, 'SKILL.md')
+      if (!existsSync(destMd) && existsSync(join(srcDir, 'SKILL.md'))) {
+        try {
+          installRecommendedSkill(slug, recDir, userDataDir)
+        } catch {
+          // ignore read-only or race condition
+        }
+      }
     }
   }
-  await fetchCloudRecommendedSkills(userDataDir, apiKey).catch(() => [])
   return usableSkills(userDataDir)
 }
 
 /**
  * Fetch recommended skills from Lycero Cloud Skills Registry (`/api/v1/office/skills`
- * and `/api/v1/office/desktop/capabilities`). Automatically installs cloud proxy manifests
- * so all Cloud Skills are immediately loaded and ready without manual installation.
+ * and `/api/v1/office/desktop/capabilities`).
+ * Client ONLY keeps `{ id/name, title, description, category, version }` in memory and NEVER
+ * writes advanced cloud skill bodies to disk (FX-43). When offline, advanced cloud skills
+ * are marked as unavailable (`state: 'missing'`, offline notice in description).
  */
 export async function fetchCloudRecommendedSkills(
   userDataDir: string,
   apiKey?: string,
 ): Promise<RecommendedSkill[]> {
+  purgeLeakedCloudSkillsFromUserData(userDataDir)
   if (process.env.VITEST) return []
   const baseUrl = (
     process.env.LYCERO_GATEWAY_URL ||
     process.env.LYCERO_BASE_URL ||
     'https://lycero.com'
   ).replace(/\/$/, '')
+
+  type RawCloudSkill = {
+    slug: string
+    name: string
+    title?: string
+    description: string
+    category?: string
+    version?: string
+    cloudProtected?: boolean
+    tier?: string
+    relevance?: FoundSkill['relevance']
+  }
+
+  const combined = new Map<string, RawCloudSkill>()
+  for (const item of DEFAULT_CLOUD_SKILL_CATALOG) {
+    if (isBasicBundledSkill(item.slug) || HIDDEN_OR_MERGED_SKILL_SLUGS.has(item.slug.toLowerCase())) {
+      continue
+    }
+    combined.set(item.slug, {
+      slug: item.slug,
+      name: item.name,
+      title: item.name,
+      description: item.description,
+      category: item.category,
+      version: item.version,
+      cloudProtected: true,
+      tier: 'pro',
+    })
+  }
+
+  let isOnline = false
   try {
     const headers: Record<string, string> = { Accept: 'application/json' }
     if (apiKey) headers.Authorization = `Bearer ${apiKey}`
-    const [skillsResp, capsResp] = await Promise.allSettled([
-      fetch(`${baseUrl}/api/v1/office/skills`, { headers }),
-      fetch(`${baseUrl}/api/v1/office/desktop/capabilities`, { headers }),
-    ])
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 5000)
+    try {
+      const [skillsResp, capsResp] = await Promise.allSettled([
+        fetch(`${baseUrl}/api/v1/office/skills`, { headers, signal: controller.signal }),
+        fetch(`${baseUrl}/api/v1/office/desktop/capabilities`, { headers, signal: controller.signal }),
+      ])
 
-    type RawCloudSkill = {
-      slug: string
-      name: string
-      title?: string
-      description: string
-      category?: string
-      version?: string
-      cloudProtected?: boolean
-      tier?: string
-      relevance?: FoundSkill['relevance']
-    }
-
-    const combined = new Map<string, RawCloudSkill>()
-    for (const item of DEFAULT_CLOUD_SKILL_CATALOG) {
-      combined.set(item.slug, {
-        slug: item.slug,
-        name: item.name,
-        title: item.name,
-        description: item.description,
-        category: item.category,
-        version: item.version,
-        cloudProtected: true,
-        tier: 'pro',
-      })
-    }
-
-    if (skillsResp.status === 'fulfilled' && skillsResp.value.ok) {
-      const json = (await skillsResp.value.json().catch(() => ({}))) as {
-        skills?: RawCloudSkill[]
-      }
-      if (Array.isArray(json.skills)) {
-        for (const s of json.skills) {
-          if (s?.slug && s?.name && s?.description) combined.set(s.slug, s)
+      if (skillsResp.status === 'fulfilled' && skillsResp.value.ok) {
+        isOnline = true
+        const json = (await skillsResp.value.json().catch(() => ({}))) as {
+          skills?: RawCloudSkill[]
+        }
+        if (Array.isArray(json.skills)) {
+          for (const s of json.skills) {
+            if (
+              s?.slug &&
+              s?.name &&
+              s?.description &&
+              !isBasicBundledSkill(s.slug) &&
+              !HIDDEN_OR_MERGED_SKILL_SLUGS.has(s.slug.toLowerCase())
+            ) {
+              combined.set(s.slug, s)
+            }
+          }
         }
       }
-    }
 
-    if (capsResp.status === 'fulfilled' && capsResp.value.ok) {
-      const json = (await capsResp.value.json().catch(() => ({}))) as {
-        skills?: RawCloudSkill[]
-      }
-      if (Array.isArray(json.skills)) {
-        for (const s of json.skills) {
-          if (s?.slug && s?.name && s?.description) combined.set(s.slug, s)
+      if (capsResp.status === 'fulfilled' && capsResp.value.ok) {
+        isOnline = true
+        const json = (await capsResp.value.json().catch(() => ({}))) as {
+          skills?: RawCloudSkill[]
+        }
+        if (Array.isArray(json.skills)) {
+          for (const s of json.skills) {
+            if (
+              s?.slug &&
+              s?.name &&
+              s?.description &&
+              !isBasicBundledSkill(s.slug) &&
+              !HIDDEN_OR_MERGED_SKILL_SLUGS.has(s.slug.toLowerCase())
+            ) {
+              combined.set(s.slug, s)
+            }
+          }
         }
       }
+    } finally {
+      clearTimeout(timer)
     }
-
-    const out: RecommendedSkill[] = []
-    for (const item of combined.values()) {
-      if (!item.slug || !item.name || !item.description) continue
-      const installedAt = join(skillsRoot(userDataDir), item.slug, 'SKILL.md')
-      const version = item.version || '3.3.0'
-      if (!hasFullLocalSkillBody(installedAt)) {
-        writeCloudProxySkillMd(userDataDir, item)
-      }
-      const state: RecommendedSkill['state'] = existsSync(installedAt) ? 'installed' : 'missing'
-      const displayTitle = item.title || (item.name !== item.slug ? item.name : undefined)
-      out.push({
-        name: item.slug,
-        ...(displayTitle ? { title: displayTitle } : {}),
-        description: item.description,
-        path: installedAt,
-        relevance:
-          item.relevance ?? classifySkill(item.slug, `${displayTitle ?? ''} ${item.description}`),
-        category: item.category || 'other',
-        version,
-        state,
-        cloudProtected: item.cloudProtected ?? true,
-        tier: item.tier || 'pro',
-        source: 'cloud',
-      })
-    }
-    return out
   } catch {
-    return []
+    isOnline = false
   }
+
+  const out: RecommendedSkill[] = []
+  for (const item of combined.values()) {
+    if (!item.slug || !item.name || !item.description) continue
+    if (HIDDEN_OR_MERGED_SKILL_SLUGS.has(item.slug.toLowerCase())) continue
+    if (isBasicBundledSkill(item.slug)) continue
+    const version = item.version || '3.3.0'
+    const displayTitle = item.title || (item.name !== item.slug ? item.name : undefined)
+    const description = isOnline
+      ? item.description
+      : `[Không khả dụng khi ngoại tuyến] ${item.description}`
+    out.push({
+      name: item.slug,
+      ...(displayTitle ? { title: displayTitle } : {}),
+      description,
+      path: '',
+      relevance:
+        item.relevance ?? classifySkill(item.slug, `${displayTitle ?? ''} ${item.description}`),
+      category: item.category || 'other',
+      version,
+      state: isOnline ? 'installed' : 'missing',
+      cloudProtected: true,
+      tier: item.tier || 'pro',
+      source: 'cloud',
+    })
+  }
+  return out
 }
 
 /**
  * Merge local bundled recommended skills with Cloud Skills Registry entries.
- * Cloud entries with matching slugs override/update local entries; new Cloud
- * entries are placed at the front of their category so advanced Cloud Pro skills
- * are immediately visible.
+ * Basic bundled skills always use their local disk state (`installed` / `outdated` / `missing`).
  */
 export function mergeRecommendedSkills(
   localSkills: RecommendedSkill[],
   cloudSkills: RecommendedSkill[],
 ): RecommendedSkill[] {
   if (cloudSkills.length === 0) return localSkills
-  const bySlug = new Map<string, RecommendedSkill>()
-  for (const c of cloudSkills) {
-    bySlug.set(c.name, c)
-  }
-  const mergedLocal = localSkills.map((loc) => {
-    const cloud = bySlug.get(loc.name)
-    if (!cloud) return loc
-    bySlug.delete(loc.name)
-    return {
-      ...loc,
-      ...cloud,
-      // preserve local path if not yet installed and not exclusively cloud-protected
-      path: cloud.cloudProtected ? cloud.path : loc.path,
-    }
-  })
-  return [...bySlug.values(), ...mergedLocal]
+  const localNames = new Set(localSkills.map((s) => s.name))
+  const cloudOnly = cloudSkills.filter(
+    (c) => !localNames.has(c.name) && !HIDDEN_OR_MERGED_SKILL_SLUGS.has(c.name.toLowerCase()),
+  )
+  return [...localSkills, ...cloudOnly]
 }
 
 /**
- * Download and install one skill from Lycero Cloud Skills Registry (`/api/v1/office/skills/[slug]?format=skillmd`).
+ * Cloud-protected skills execute exclusively on the Lycero Cloud server and are NEVER
+ * written to `<userData>/skills` on the client (FX-43).
  */
 export async function installCloudSkill(
   slug: string,
@@ -737,32 +746,25 @@ export async function installCloudSkill(
   apiKey?: string,
 ): Promise<FoundSkill> {
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(slug)) throw new Error('unknown skill')
-  const baseUrl = (
-    process.env.LYCERO_GATEWAY_URL ||
-    process.env.LYCERO_BASE_URL ||
-    'https://lycero.com'
-  ).replace(/\/$/, '')
-  const headers: Record<string, string> = {}
-  if (apiKey) headers.Authorization = `Bearer ${apiKey}`
-  const resp = await fetch(
-    `${baseUrl}/api/v1/office/skills/${encodeURIComponent(slug)}?format=skillmd`,
-    { headers },
-  )
-  if (!resp.ok) throw new Error(`cloud skill fetch failed: HTTP ${resp.status}`)
-  const text = await resp.text()
-  if (!parseSkillFrontmatter(text)) {
-    throw new Error('SKILL.md needs name and description frontmatter')
+  if (HIDDEN_OR_MERGED_SKILL_SLUGS.has(slug.toLowerCase())) throw new Error('unknown skill')
+  purgeLeakedCloudSkillsFromUserData(userDataDir)
+  if (isAdvancedCloudSkill(slug)) {
+    const cloudList = await fetchCloudRecommendedSkills(userDataDir, apiKey)
+    const found = cloudList.find((s) => s.name === slug)
+    if (!found || found.state === 'missing') {
+      throw new Error('Kỹ năng nâng cao không khả dụng khi ngoại tuyến (cần kết nối mạng).')
+    }
+    return {
+      name: found.name,
+      ...(found.title ? { title: found.title } : {}),
+      description: found.description,
+      path: '',
+      relevance: found.relevance,
+      cloudProtected: true,
+      tier: found.tier,
+      source: 'cloud',
+    }
   }
-  const dest = join(skillsRoot(userDataDir), slug)
-  mkdirSync(skillsRoot(userDataDir), { recursive: true })
-  const scratch = mkdtempSync(join(skillsRoot(userDataDir), '.cloud-'))
-  try {
-    writeFileSync(join(scratch, 'SKILL.md'), text, 'utf8')
-    if (existsSync(dest)) rmSync(dest, { recursive: true, force: true })
-    renameSync(scratch, dest)
-  } catch (e) {
-    tryRm(scratch)
-    throw e
-  }
-  return readBack(dest)
+  const recDir = defaultRecommendedSkillsDir()
+  return installRecommendedSkill(slug, recDir, userDataDir)
 }

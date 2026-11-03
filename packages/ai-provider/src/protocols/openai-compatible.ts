@@ -12,7 +12,9 @@ import { modelEchoesReasoning } from '../registry'
 import type { AiChatResponse, AiProviderConfig } from '../types'
 import { createStreamWatchdog, type StreamWatchdog } from '../watchdog'
 import {
+  SKILL_EXTRACTION_REFUSAL_TEXT,
   endpointUrl,
+  isSkillExtractionAttempt,
   jsonBodyInsteadOfSse,
   openAiContentText,
   parseToolInput,
@@ -24,6 +26,7 @@ import {
   throwIfToolCountOverBudget,
   throwIfToolJsonOverBudget,
   usageCount,
+  wrapStreamCallbacksWithPii,
   type StreamCallbacks,
 } from './shared'
 import type { AiTokenUsage } from '../types'
@@ -210,13 +213,13 @@ async function openAiCompatibleTurn(
   messages: AgentMessage[],
   tools: AgentToolDef[],
   maxTokens: number,
-  cb: StreamCallbacks,
+  rawCb: StreamCallbacks,
   wd: StreamWatchdog,
   options: OpenAiRequestOptions & { requestUsage?: boolean | undefined },
 ): Promise<void> {
   const onBytes = () => {
     wd.touch()
-    cb.onActivity?.()
+    rawCb.onActivity?.()
   }
   const isLyceroGateway = Object.keys(lyceroAttributionHeaders(baseUrl)).length > 0
   const clientCompaction = isLyceroGateway ? compactOutboundAgentTurn(messages) : null
@@ -225,12 +228,18 @@ async function openAiCompatibleTurn(
     baseUrl,
     system,
     messages: turnMessages,
-    editorModule: cb.editorModule,
-    pipelineStage: cb.pipelineStage,
-    activeSkillSlugs: cb.activeSkillSlugs,
-    userSkillConfig: cb.userSkillConfig,
+    editorModule: rawCb.editorModule,
+    pipelineStage: rawCb.pipelineStage,
+    activeSkillSlugs: rawCb.activeSkillSlugs,
+    userSkillConfig: rawCb.userSkillConfig,
     forceLyceroHeaders: isLyceroGateway,
   })
+  if (isSkillExtractionAttempt(lyceroCtx.latestUserPrompt)) {
+    rawCb.onDelta(SKILL_EXTRACTION_REFUSAL_TEXT)
+    rawCb.onStopReason?.('stop')
+    return
+  }
+  const { wrapped: cb, flush: flushPii } = wrapStreamCallbacksWithPii(rawCb, lyceroCtx.piiMap)
 
   const response = await aiFetch(endpointUrl(baseUrl, 'chat/completions'), {
     method: 'POST',
@@ -284,7 +293,9 @@ async function openAiCompatibleTurn(
   const jsonBody = await jsonBodyInsteadOfSse(response, onBytes)
   if (jsonBody !== null) {
     throwIfCreditsNotice(jsonBody)
-    return emitOpenAiJsonMessage(jsonBody, cb)
+    emitOpenAiJsonMessage(jsonBody, cb)
+    flushPii()
+    return
   }
   // tool call arguments stream in fragments keyed by index
   const pendingTools = new Map<number, { id: string; name: string; json: string }>()
@@ -418,6 +429,7 @@ async function openAiCompatibleTurn(
       )
     }
   }
+  flushPii()
   flushTools()
   if (!sawFinish && !sawDone && emitted) {
     throw new Error('The model stream ended before a finish_reason or [DONE] marker')

@@ -12,7 +12,7 @@ import {
   parseCsv,
 } from '@lycero/xlsx-gateway/gateway/csv-import'
 import { columnLabel, parseAddress, parseRange } from '@lycero/xlsx-gateway/domain/cell-address'
-import { sanitizeExcelFormula } from '@lycero/xlsx-gateway/domain/workbook-dsl'
+import { isRealExcelFormula, sanitizeExcelFormula } from '@lycero/xlsx-gateway/domain/workbook-dsl'
 import {
   assembleWithJsZip,
   createBufferEntrySource,
@@ -1085,8 +1085,10 @@ export async function blankWorkbook(sheetName = 'Sheet1'): Promise<Buffer> {
 
 const PERCENT_STRING_RE = /^\s*([+-]?\d+(?:[.,]\d+)?)\s*%\s*$/
 const PERCENT_HEADER_RE =
-  /%|tỷ\s*lệ|tỉ\s*lệ|phần\s*trăm|hoàn\s*thành|progress|weight|trọng\s*số|\bconfidence\b|độ\s*tự\s*tin|độ\s*tin\s*cậy/i
-const CONFIDENCE_HEADER_RE = /\bconfidence\b|độ\s*tự\s*tin|độ\s*tin\s*cậy/i
+  /%|tỷ\s*lệ|tỉ\s*lệ|phần\s*trăm|tiến\s*độ|hoàn\s*thành|progress|weight|trọng\s*số/i
+const PROGRESS_HEADER_RE = /tiến\s*độ|hoàn\s*thành|progress|%\s*đạt|tỷ\s*lệ\s*đạt/i
+const CONFIDENCE_HEADER_RE =
+  /\bconfidence\b|độ\s*tự\s*tin|độ\s*tin\s*cậy|điểm\s*tự\s*tin|mức\s*độ\s*tự\s*tin/i
 
 function applyAutoPercentageColumnFormats(
   rows: Scalar[][],
@@ -1096,37 +1098,48 @@ function applyAutoPercentageColumnFormats(
   const width = rows.reduce((max, r) => Math.max(max, r.length), 0)
   for (let c = 0; c < width; c += 1) {
     let headerRow = -1
+    let headerText = ''
     for (let r = 0; r < Math.min(rows.length, 4); r += 1) {
       const h = rows[r]?.[c]
-      if (typeof h === 'string' && PERCENT_HEADER_RE.test(h)) {
+      if (
+        typeof h === 'string' &&
+        PERCENT_HEADER_RE.test(h) &&
+        !CONFIDENCE_HEADER_RE.test(h)
+      ) {
         headerRow = r
+        headerText = h
         break
       }
     }
     if (headerRow < 0) continue
     const dataNums: number[] = []
+    let hasFormula = false
     for (let r = headerRow + 1; r < rows.length; r += 1) {
       const val = rows[r]?.[c]
       if (typeof val === 'number' && Number.isFinite(val)) dataNums.push(val)
+      else if (typeof val === 'string' && isFormulaCellInput(val)) hasFormula = true
     }
     const isRatioColumn =
-      dataNums.length > 0 &&
-      dataNums.every((n) => n >= 0 && n <= 1) &&
-      dataNums.some((n) => n > 0 && n < 1)
+      (dataNums.length > 0 &&
+        dataNums.every((n) => n >= 0 && n <= 1) &&
+        dataNums.some((n) => n > 0 && n < 1)) ||
+      (hasFormula && dataNums.every((n) => n >= 0 && n <= 1))
     if (!isRatioColumn) continue
+    const defaultPctFmt = PROGRESS_HEADER_RE.test(headerText) ? '0%' : '0.0%'
     for (let r = headerRow + 1; r < rows.length; r += 1) {
       const val = rows[r]?.[c]
       const key = `${r}:${c}`
-      if (typeof val === 'number' && val >= 0 && val <= 1 && !formats[key]) {
-        formats[key] = '0.0%'
+      const isTargetCell =
+        (typeof val === 'number' && val >= 0 && val <= 1) ||
+        (typeof val === 'string' && isFormulaCellInput(val))
+      if (isTargetCell && !formats[key]) {
+        formats[key] = defaultPctFmt
       }
     }
   }
 }
 
-const isFormulaCellInput = (s: string): boolean =>
-  (s.startsWith('=') && s.length > 1 && !/^=+$/.test(s)) ||
-  /^'=\s*[A-Za-z0-9($+-]/.test(s.trim())
+const isFormulaCellInput = (s: string): boolean => isRealExcelFormula(s)
 
 /** CSV → table; numeric-looking cells become numbers like the app's importer. */
 export function csvTable(bytes: Uint8Array, name: string, opts: CsvTableOptions = {}): TableInput {
@@ -1281,6 +1294,8 @@ export interface ReadbackVerifiedValues {
     conditional_formats: number
     data_validations: number
     styled_cells: number
+    column_formats?: Record<string, string>
+    validation_ranges?: string[]
   }
 }
 
@@ -1357,17 +1372,31 @@ function buildReadbackVerifiedValues(
       conditional_formats: gateway.cfStates.reduce((n, s) => n + s.rules.length, 0),
       data_validations: gateway.dvStates.reduce((n, s) => n + s.rules.length, 0),
       styled_cells: edits.filter((e) => e.style && Object.keys(e.style).length > 0).length,
+      column_formats: Object.fromEntries(
+        edits
+          .filter((e) => e.style?.numberFormat)
+          .map((e) => [`${e.sheetName}!${columnLabel(e.column)}`, e.style!.numberFormat!]),
+      ),
+      validation_ranges: gateway.dvStates.flatMap((s) =>
+        s.rules.flatMap((r) =>
+          r.ranges.map(
+            (rg) =>
+              `${s.sheetName}!${toA1Address(rg.startRow, rg.startColumn)}:${toA1Address(rg.endRow, rg.endColumn)} (${r.rule.type}:${r.rule.formula1 ?? ''}..${r.rule.formula2 ?? ''})`,
+          ),
+        ),
+      ),
     },
   }
 }
 
 /**
  * Enriches edits and gateway payloads when a sheet contains a `Confidence`
- * column (`FX-41`: Data Validation 1–10) or ratio/percentage columns (`FX-33`: `0.0%`).
+ * column (`FX-41`: Data Validation 1–10) or ratio/percentage columns (`FX-33` / `FX-41`: `0%` / `0.0%`).
  */
 function enrichConfidenceAndPercentageColumns(
   edits: readonly CellEdit[],
   gateway: GatewayPayloads,
+  existingSheets?: ReadonlyMap<string, Record<string, { value: Scalar; formula?: string }>>,
 ): { edits: readonly CellEdit[]; gateway: GatewayPayloads } {
   const bySheet = new Map<string, CellEdit[]>()
   for (const e of edits) {
@@ -1382,6 +1411,25 @@ function enrichConfidenceAndPercentageColumns(
     const cellMap = new Map<string, CellEdit>()
     let maxRow = 0
     let maxCol = 0
+    const existingCells = existingSheets?.get(sheetName)
+    if (existingCells) {
+      for (const [addr, cell] of Object.entries(existingCells)) {
+        try {
+          const coords = parseAddress(addr)
+          cellMap.set(`${coords.row}:${coords.column}`, {
+            sheetName,
+            row: coords.row,
+            column: coords.column,
+            writeValue: false,
+            cell: { value: cell.value, ...(cell.formula ? { formula: cell.formula } : {}) },
+          })
+          if (coords.row > maxRow) maxRow = coords.row
+          if (coords.column > maxCol) maxCol = coords.column
+        } catch {
+          // ignore invalid address
+        }
+      }
+    }
     for (const e of sheetEdits) {
       cellMap.set(`${e.row}:${e.column}`, e)
       if (e.row > maxRow) maxRow = e.row
@@ -1393,45 +1441,77 @@ function enrichConfidenceAndPercentageColumns(
       let headerText = ''
       for (let r = 0; r <= Math.min(maxRow, 4); r += 1) {
         const val = cellMap.get(`${r}:${c}`)?.cell.value
-        if (typeof val === 'string' && PERCENT_HEADER_RE.test(val)) {
+        if (
+          typeof val === 'string' &&
+          (PERCENT_HEADER_RE.test(val) || CONFIDENCE_HEADER_RE.test(val))
+        ) {
           headerRow = r
           headerText = val
           break
         }
       }
       if (headerRow < 0) continue
+      const isConfidenceCol = CONFIDENCE_HEADER_RE.test(headerText)
+      const isPercentCol = !isConfidenceCol && PERCENT_HEADER_RE.test(headerText)
+
       const dataRows: { row: number; num: number }[] = []
+      const formulaRows: number[] = []
+      const populatedRows: number[] = []
       for (let r = headerRow + 1; r <= maxRow; r += 1) {
         const e = cellMap.get(`${r}:${c}`)
-        if (!e || e.cell.formula) continue
+        if (!e) continue
+        if (e.cell.formula) {
+          formulaRows.push(r)
+          populatedRows.push(r)
+          continue
+        }
         if (typeof e.cell.value === 'number' && Number.isFinite(e.cell.value)) {
           dataRows.push({ row: r, num: e.cell.value })
+          populatedRows.push(r)
+        } else if (e.cell.value !== null && e.cell.value !== undefined && e.cell.value !== '') {
+          populatedRows.push(r)
         }
       }
-      // 1. Auto 0.0% formatting for ratio columns (0 <= v <= 1 with at least one < 1)
-      const isRatio =
-        dataRows.length > 0 &&
-        dataRows.every((d) => d.num >= 0 && d.num <= 1) &&
-        dataRows.some((d) => d.num > 0 && d.num < 1)
-      if (isRatio) {
-        for (const d of dataRows) {
-          const key = `${sheetName}|${d.row}|${c}`
+      // 1. Auto 0% / 0.0% formatting for ratio & progress columns (including formula cells, FX-41)
+      const isRatioOrFormula =
+        isPercentCol &&
+        ((dataRows.length > 0 &&
+          dataRows.every((d) => d.num >= 0 && d.num <= 1) &&
+          dataRows.some((d) => d.num > 0 && d.num < 1)) ||
+          (formulaRows.length > 0 && dataRows.every((d) => d.num >= 0 && d.num <= 1)))
+      if (isRatioOrFormula) {
+        const defaultPctFmt = PROGRESS_HEADER_RE.test(headerText) ? '0%' : '0.0%'
+        const targetRows = [...dataRows.map((d) => d.row), ...formulaRows]
+        for (const row of targetRows) {
+          const key = `${sheetName}|${row}|${c}`
           const idx = editIndexByKey.get(key)
           if (idx !== undefined) {
             const current = extraEdits[idx]!
             if (!current.style?.numberFormat) {
               extraEdits[idx] = {
                 ...current,
-                style: { ...current.style, numberFormat: '0.0%' },
+                style: { ...current.style, numberFormat: defaultPctFmt },
               }
+            }
+          } else {
+            const existingEdit = cellMap.get(`${row}:${c}`)
+            if (existingEdit) {
+              const newIdx = extraEdits.length
+              extraEdits.push({
+                ...existingEdit,
+                writeValue: false,
+                style: { numberFormat: defaultPctFmt },
+              })
+              editIndexByKey.set(key, newIdx)
             }
           }
         }
       }
       // 2. Auto Data Validation 1-10 for Confidence column (FX-41)
-      if (CONFIDENCE_HEADER_RE.test(headerText) && dataRows.length > 0) {
+      if (isConfidenceCol && (populatedRows.length > 0 || maxRow > headerRow)) {
         const startRow = headerRow + 1
-        const endRow = Math.max(...dataRows.map((d) => d.row))
+        const endRow =
+          populatedRows.length > 0 ? Math.max(...populatedRows) : Math.max(startRow, maxRow)
         const bounds: Bounds = { startRow, endRow, startColumn: c, endColumn: c }
         let dvSheet = extraDvStates.find((s) => s.sheetName === sheetName)
         const alreadyHasDv = dvSheet?.rules.some((r) =>
@@ -1443,7 +1523,7 @@ function enrichConfidenceAndPercentageColumns(
             rule: {
               allowBlank: true,
               showErrorMessage: true,
-              type: 'decimal' as const,
+              type: 'whole' as const,
               operator: 'between' as const,
               formula1: '1',
               formula2: '10',
@@ -1486,7 +1566,20 @@ export async function writeWorkbook(
   } = {},
 ): Promise<WriteOutcome> {
   const { plan, structuralOps = [], renames = {} } = opts
-  const enriched = enrichConfidenceAndPercentageColumns(edits, opts.gateway ?? EMPTY_PAYLOADS)
+  let existingSheets: Map<string, Record<string, { value: Scalar; formula?: string }>> | undefined
+  if (source.length > 0 && edits.length > 0) {
+    try {
+      const parsedSource = await readBasicWorkbook(source)
+      existingSheets = new Map(parsedSource.snapshot.sheets.map((s) => [s.name, s.cells]))
+    } catch {
+      existingSheets = undefined
+    }
+  }
+  const enriched = enrichConfidenceAndPercentageColumns(
+    edits,
+    opts.gateway ?? EMPTY_PAYLOADS,
+    existingSheets,
+  )
   edits = enriched.edits
   const gateway = enriched.gateway
   const notes: { code: string; message: string }[] = []

@@ -1149,6 +1149,50 @@ const OPERATION_FIELDS = new Map<string, readonly string[]>(
  * 3. When `address` (e.g. `"F10"`) is provided, clamps circular self-referencing ranges
  *    inside aggregate functions (`=SUM(F2:F10)` in `F10` -> `=SUM(F2:F9)`).
  */
+/**
+ * Distinguishes a genuine Excel formula from a prose note or explanation that happens
+ * to start with `=` (e.g. `"= Tổng chi phí phát sinh"`, `"= Số lượng × Đơn giá"`, FX-33).
+ */
+export function isRealExcelFormula(raw: string): boolean {
+  if (typeof raw !== 'string') return false
+  const trimmed = raw.trim()
+  if (
+    !(
+      (trimmed.startsWith('=') && trimmed.length > 1 && !/^=+$/.test(trimmed)) ||
+      /^'=\s*[A-Za-z0-9($+-]/.test(trimmed)
+    )
+  ) {
+    return false
+  }
+  const body = trimmed.replace(/^'?=\s*/, '').trim()
+  if (!body) return false
+  // Strip double-quoted string literals and single-quoted sheet names ('Sheet 1'!)
+  const unquoted = body
+    .replace(/"(?:[^"]|"")*"/g, '""')
+    .replace(/'(?:[^']|'')*'\s*!/g, 'SHEET!')
+  // Any non-ASCII character (Vietnamese diacritics, ×, ÷, –) outside quotes means prose note
+  if (/[^\x00-\x7F]/.test(unquoted)) return false
+  // Two space-separated words outside quotes (e.g. "= Total Cost") means prose note
+  if (/[A-Za-z]{2,}\s+[A-Za-z]{2,}/.test(unquoted)) return false
+  // Every alphabetic token outside quotes must be a function call `NAME(`, `SHEET!`, `TRUE`/`FALSE`, or a cell ref `A1`
+  for (const m of unquoted.matchAll(/(\$?[A-Za-z_][A-Za-z0-9_.]*)\s*(\(|!)?/g)) {
+    const token = m[1]!.replace(/^\$/, '')
+    const suffix = m[2]
+    if (suffix === '(' || suffix === '!') continue
+    if (/^(?:TRUE|FALSE)$/i.test(token)) continue
+    if (/^[A-Za-z]{1,3}\$?[1-9]\d*$/.test(token)) continue
+    return false
+  }
+  return true
+}
+
+/**
+ * Sanitizes an Excel formula string before writing:
+ * 1. Trims whitespace, surrounding backticks, and accidental leading apostrophes (`'=SUM(...)`).
+ * 2. Replaces `;` argument separators outside string literals with `,`.
+ * 3. When `address` (e.g. `"F10"`) is provided, clamps circular self-referencing ranges
+ *    (`=SUM(F2:F10)` in `F10` -> `=SUM(F2:F9)`).
+ */
 export function sanitizeExcelFormula(rawFormula: string, address?: string): string {
   let text = rawFormula.trim()
   if (text.startsWith('`') && text.endsWith('`') && text.length > 2) {
@@ -1178,41 +1222,39 @@ export function sanitizeExcelFormula(rawFormula: string, address?: string): stri
       const self = parseAddress(address.replace(/\$/g, '').toUpperCase())
       const selfCol = columnLabel(self.column)
       const selfRow1 = self.row + 1
+      // Clamp any range (even nested inside ROUND/IFERROR/SUM) on the same sheet that includes `address` (FX-33)
       out = out.replace(
-        /\b(SUM|AVERAGE|MIN|MAX|COUNT|COUNTA|SUBTOTAL)\s*\(([^()]*)\)/gi,
-        (full, fn: string, inner: string) => {
-          const fixedInner = inner.replace(
-            /(\$?)([A-Z]{1,3})(\$?)(\d+):(\$?)([A-Z]{1,3})(\$?)(\d+)/gi,
-            (
-              rangeMatch,
-              d1: string,
-              c1: string,
-              d2: string,
-              r1Str: string,
-              d3: string,
-              c2: string,
-              d4: string,
-              r2Str: string,
-            ) => {
-              const col1 = c1.toUpperCase()
-              const col2 = c2.toUpperCase()
-              const row1 = Number(r1Str)
-              const row2 = Number(r2Str)
-              if (col1 === selfCol && col2 === selfCol && row2 === selfRow1 && row1 < selfRow1) {
-                return `${d1}${col1}${d2}${row1}:${d3}${col2}${d4}${selfRow1 - 1}`
-              }
-              if (
-                row1 === selfRow1 &&
-                row2 === selfRow1 &&
-                col2 === selfCol &&
-                columnIndex(col1) < self.column
-              ) {
-                return `${d1}${col1}${d2}${row1}:${d3}${columnLabel(self.column - 1)}${d4}${row2}`
-              }
-              return rangeMatch
-            },
-          )
-          return `${fn}(${fixedInner})`
+        /(?<![!'])(\$?)([A-Z]{1,3})(\$?)(\d+):(\$?)([A-Z]{1,3})(\$?)(\d+)/gi,
+        (
+          rangeMatch,
+          d1: string,
+          c1: string,
+          d2: string,
+          r1Str: string,
+          d3: string,
+          c2: string,
+          d4: string,
+          r2Str: string,
+        ) => {
+          const col1 = c1.toUpperCase()
+          const col2 = c2.toUpperCase()
+          const row1 = Number(r1Str)
+          const row2 = Number(r2Str)
+          if (col1 === selfCol && col2 === selfCol && row1 < selfRow1 && row2 >= selfRow1) {
+            return `${d1}${col1}${d2}${row1}:${d3}${col2}${d4}${selfRow1 - 1}`
+          }
+          if (col1 === selfCol && col2 === selfCol && row1 === selfRow1 && row2 > selfRow1) {
+            return `${d1}${col1}${d2}${selfRow1 + 1}:${d3}${col2}${d4}${row2}`
+          }
+          if (
+            row1 === selfRow1 &&
+            row2 === selfRow1 &&
+            columnIndex(col1) < self.column &&
+            columnIndex(col2) >= self.column
+          ) {
+            return `${d1}${col1}${d2}${row1}:${d3}${columnLabel(self.column - 1)}${d4}${row2}`
+          }
+          return rangeMatch
         },
       )
     } catch {
@@ -1310,7 +1352,7 @@ export function normalizeWorkbookOperationInput(raw: unknown): unknown {
       op.address = stripSheetPrefixFromRange(op.cell, op)
       delete op.cell
     }
-    if (typeof op.value === 'string' && op.type !== 'text' && /^'?=\s*[A-Za-z0-9($+-]/.test(op.value.trim())) {
+    if (typeof op.value === 'string' && op.type !== 'text' && isRealExcelFormula(op.value)) {
       op.op = 'set_formula'
       op.formula = sanitizeExcelFormula(op.value, typeof op.address === 'string' ? op.address : undefined)
       delete op.value
@@ -1328,10 +1370,16 @@ export function normalizeWorkbookOperationInput(raw: unknown): unknown {
       delete op.value
     }
     if (typeof op.formula === 'string') {
-      op.formula = sanitizeExcelFormula(
-        op.formula,
-        typeof op.address === 'string' ? op.address : undefined,
-      )
+      if (!isRealExcelFormula(op.formula)) {
+        op.op = 'set_cell'
+        op.value = op.formula
+        delete op.formula
+      } else {
+        op.formula = sanitizeExcelFormula(
+          op.formula,
+          typeof op.address === 'string' ? op.address : undefined,
+        )
+      }
     }
   } else if (op.op === 'format_range') {
     if (op.range === undefined && typeof (op.address ?? op.cell) === 'string') {
@@ -2291,11 +2339,7 @@ export function expandToPrimitiveOps(
             origin.startRow + rowOffset,
             origin.startColumn + columnOffset,
           )
-          if (
-            typeof value === 'string' &&
-            ((value.startsWith('=') && value.length > 1 && !/^=+$/.test(value)) ||
-              /^'=\s*[A-Za-z0-9($+-]/.test(value.trim()))
-          ) {
+          if (typeof value === 'string' && isRealExcelFormula(value)) {
             expanded.push({
               op: 'set_formula',
               sheetId: operation.sheetId,

@@ -294,34 +294,55 @@ if (!existsSync(cliBundlePath)) {
   }
 }
 
-// 9. Hybrid Local Skills verification (FX-30):
-// Ensure all 206 recommended SKILL.md files exist with full offline body + [LYCERO_CLOUD_SKILL:...] marker.
+// 9. Basic Offline Skills & Advanced Cloud Skills Security verification (FX-30 & FX-43):
+// Ensure ONLY the 51 basic/tool skills (42 basic + 9 lycero-* tool skills) exist in skills/recommended,
+// and ZERO of the 155 proprietary advanced cloud skills are bundled in the client package.
+const EXPECTED_BASIC_SKILL_SLUGS = new Set([
+  'brand-copy', 'budget-planner', 'business-plan', 'business-report', 'campaign-planner',
+  'contract-drafter', 'course-slides', 'data-analyst', 'data-cleaning', 'deep-research',
+  'email-drafter', 'executive-deck', 'expense-report', 'financial-statement-analysis', 'interview-coach',
+  'invoice-tax-checklist', 'job-description', 'kpi-dashboard', 'labor-contract', 'lesson-plan',
+  'meeting-minutes', 'nda-drafter', 'okr-planner', 'onboarding-plan', 'performance-review',
+  'personal-finance', 'policy-compliance', 'product-launch', 'proposal-writer', 'quiz-maker',
+  'resume-polisher', 'sales-forecast', 'seo-content', 'slide-planner', 'social-media',
+  'sop-writer', 'study-plan', 'survey-analyst', 'swot-strategy', 'terms-of-service',
+  'thesis-advisor', 'weekly-report',
+  'lycero-docs', 'lycero-form-architect', 'lycero-html', 'lycero-markdown', 'lycero-office',
+  'lycero-pdf', 'lycero-sheets', 'lycero-slides', 'lycero-visual-director',
+])
 const recommendedSkillsDir = join(ROOT, 'skills', 'recommended')
 if (!existsSync(recommendedSkillsDir)) {
-  fail('[skills] Missing skills/recommended directory (FX-30)')
+  fail('[skills] Missing skills/recommended directory (FX-30 / FX-43)')
 } else {
   const skillDirs = readdirSync(recommendedSkillsDir, { withFileTypes: true }).filter((d) =>
     d.isDirectory(),
   )
-  if (skillDirs.length < 206) {
+  if (skillDirs.length !== EXPECTED_BASIC_SKILL_SLUGS.size) {
     fail(
-      `[skills] Expected at least 206 hybrid skills in skills/recommended, found ${skillDirs.length} (FX-30)`,
+      `[skills] Expected exactly ${EXPECTED_BASIC_SKILL_SLUGS.size} basic/tool skills in skills/recommended, found ${skillDirs.length} (FX-43)`,
     )
   }
   for (const d of skillDirs) {
+    if (!EXPECTED_BASIC_SKILL_SLUGS.has(d.name)) {
+      fail(
+        `[skills] Unauthorized / proprietary cloud skill "${d.name}" found in skills/recommended (FX-43 leak guard)`,
+      )
+    }
     const skillMdPath = join(recommendedSkillsDir, d.name, 'SKILL.md')
     if (!existsSync(skillMdPath)) {
       fail(`[skills] Missing SKILL.md in skills/recommended/${d.name}`)
       continue
     }
     const content = readFileSync(skillMdPath, 'utf8')
-    const stripped = content
-      .replace(/^---[\s\S]*?---/, '')
-      .replace(/\[LYCERO_CLOUD_SKILL:[^\]]+\]/g, '')
-      .trim()
-    if (stripped.length < 200 || !content.includes('[LYCERO_CLOUD_SKILL:')) {
+    if (content.includes('[LYCERO_CLOUD_SKILL:')) {
       fail(
-        `[skills] skills/recommended/${d.name}/SKILL.md is stub-only or missing [LYCERO_CLOUD_SKILL:...] (${stripped.length} chars)`,
+        `[skills] Basic skill skills/recommended/${d.name}/SKILL.md must not contain [LYCERO_CLOUD_SKILL:...] proxy tag (FX-30)`,
+      )
+    }
+    const stripped = content.replace(/^---[\s\S]*?---/, '').trim()
+    if (stripped.length < 200) {
+      fail(
+        `[skills] Basic skill skills/recommended/${d.name}/SKILL.md is stub-only (${stripped.length} chars) and cannot run offline (FX-30)`,
       )
     }
   }

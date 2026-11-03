@@ -13,6 +13,36 @@ import { CliError, EXIT } from './result'
 export const MAX_OPS_BYTES = MAX_TRANSFER_BYTES
 const STDIN_CHUNK_BYTES = 1024 * 1024
 
+/**
+ * Restores any `[PII_...]` placeholders from `LYCERO_PII_MAP` (`FX-04`) and
+ * strips internal session IDs (`kb-ask-...`, `FX-03`) before building or mutating
+ * Office documents via the CLI.
+ */
+export function sanitizeCliTextInput(raw: string, env?: NodeJS.ProcessEnv): string {
+  if (!raw) return raw
+  let out = raw
+  const mapJson = env?.LYCERO_PII_MAP || process.env.LYCERO_PII_MAP
+  const isJsonPayload = /^\s*[[{]/.test(out)
+  if (mapJson) {
+    try {
+      const parsed = JSON.parse(mapJson) as Record<string, string>
+      for (const [token, original] of Object.entries(parsed)) {
+        if (!token || typeof original !== 'string') continue
+        const safeVal = isJsonPayload
+          ? original.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+          : original
+        out = out.split(token).join(safeVal)
+      }
+    } catch {
+      // ignore invalid JSON
+    }
+  }
+  // Never allow unreplaced [PII_...] placeholders or internal kb-ask-* IDs into output files (FX-04, FX-03)
+  out = out.replace(/\[PII_[A-Z0-9_]+(?:\]|\b)/g, '')
+  out = out.replace(/\bkb-(?:ask-)?\d{8,}(?:-[a-z0-9]+)*\b/gi, '')
+  return out
+}
+
 function throwIfOpsOverBudget(bytes: number, source: string): void {
   if (bytes > MAX_OPS_BYTES) {
     throw new CliError(
@@ -49,9 +79,11 @@ export function readOpsInput(args: ParsedArgs, ctx: PathContext): { text: string
     throw new CliError(EXIT.usage, 'missing --ops <file|->', undefined, {
       reason: 'missing_argument',
     })
-  if (spec === '-') return { text: readOpsStream(0, 'stdin'), source: 'stdin' }
+  if (spec === '-') {
+    return { text: sanitizeCliTextInput(readOpsStream(0, 'stdin'), ctx.env), source: 'stdin' }
+  }
   const path = resolveInput(spec, ctx)
   const size = statSync(path).size
   throwIfOpsOverBudget(size, path)
-  return { text: readFileSync(path, 'utf-8'), source: path }
+  return { text: sanitizeCliTextInput(readFileSync(path, 'utf-8'), ctx.env), source: path }
 }

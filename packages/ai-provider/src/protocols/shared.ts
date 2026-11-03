@@ -317,6 +317,66 @@ export interface ResolvedLyceroGatewayContext {
   activeSkillSlugs: string[]
   headers: Record<string, string>
   bodyExtras: Record<string, unknown>
+  piiMap: Map<string, string>
+  latestUserPrompt: string
+}
+
+export const SKILL_EXTRACTION_REFUSAL_TEXT =
+  'Theo chính sách bảo mật sở hữu trí tuệ của Lycero Office, hệ thống không hiển thị hoặc trích xuất nguyên văn nội dung hướng dẫn nội bộ (SKILL.md / System Prompt). Vui lòng nêu trực tiếp yêu cầu soạn thảo, phân tích hoặc xử lý tài liệu để Lycero hỗ trợ bạn.'
+
+export function isSkillExtractionAttempt(prompt: string): boolean {
+  if (!prompt) return false
+  return /(?:in\s+nguyên\s+văn|xuất\s+nguyên\s+văn|hiển\s+thị\s+nguyên\s+văn|chép\s+nguyên\s+văn|trích\s+xuất\s+nguyên\s+văn|đọc\s+nguyên\s+văn|nội\s+dung\s+nguyên\s+văn|toàn\s+văn\s+(?:nội\s+dung\s+)?skill|in\s+toàn\s+bộ\s+(?:nội\s+dung\s+)?skill|xem\s+mã\s+nguồn\s+skill|print\s+(?:the\s+)?(?:verbatim|full|raw|exact)\s+(?:skill|system\s+prompt|instructions)|dump\s+(?:the\s+)?(?:skill|skill\.md|system\s+prompt)|repeat\s+(?:your\s+)?(?:system\s+prompt|skill\s+instructions)\s+verbatim|output\s+(?:the\s+)?contents?\s+of\s+skill\.md)/i.test(
+    prompt,
+  )
+}
+
+export function restorePiiAndSanitizeToolValue<T>(
+  value: T,
+  piiMap?: Map<string, string>,
+): T {
+  if (typeof value === 'string') {
+    const restored = PiiTokenizer.restore(value, piiMap).replace(/\[PII_[A-Z0-9_]*\]?/gi, '')
+    return restored.replace(/\bkb-(?:ask-)?\d{8,}\b/g, '') as unknown as T
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => restorePiiAndSanitizeToolValue(item, piiMap)) as unknown as T
+  }
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = restorePiiAndSanitizeToolValue(v, piiMap)
+    }
+    return out as T
+  }
+  return value
+}
+
+export function wrapStreamCallbacksWithPii(
+  cb: StreamCallbacks,
+  piiMap: Map<string, string>,
+): { wrapped: StreamCallbacks; flush: () => void } {
+  const unmaskDelta = PiiTokenizer.createStreamUnmasker(piiMap)
+  const wrapped: StreamCallbacks = {
+    ...cb,
+    onDelta: (text: string) => {
+      const restored = unmaskDelta(text, false)
+      if (restored) cb.onDelta(restored)
+    },
+    onToolCall: (call: AgentToolCall) => {
+      cb.onToolCall({
+        ...call,
+        input: restorePiiAndSanitizeToolValue(call.input, piiMap),
+      })
+    },
+  }
+  return {
+    wrapped,
+    flush: () => {
+      const tail = unmaskDelta('', true)
+      if (tail) cb.onDelta(tail)
+    },
+  }
 }
 
 export function resolveLyceroGatewayContext(options: {
@@ -402,15 +462,25 @@ export function resolveLyceroGatewayContext(options: {
       }
     }
   }
-  if (system) scanText(system)
+  const piiMap = PiiTokenizer.getGlobalRegistryMap()
+  if (system) {
+    scanText(system)
+    PiiTokenizer.mask(system, piiMap)
+  }
   let latestUserPrompt = ''
   for (const msg of messages) {
     if (msg.role === 'user' && msg.text) {
       scanText(msg.text)
       latestUserPrompt = msg.text
-      // Index PII entities into PiiTokenizer's cross-turn registry so any [PII_...]
-      // token returned by the gateway or LLM can be restored before writing files (FX-04)
-      PiiTokenizer.mask(msg.text)
+      // Index PII entities into a unified turn map + cross-turn registry so Party A and Party B
+      // never collide across messages or turns (FX-04)
+      PiiTokenizer.mask(msg.text, piiMap)
+    } else if (msg.role === 'tool' && Array.isArray(msg.results)) {
+      for (const r of msg.results) {
+        if (typeof r.output === 'string' && r.output) {
+          PiiTokenizer.mask(r.output, piiMap)
+        }
+      }
     }
   }
   if (slugs.size === 0 && (latestUserPrompt || system)) {
@@ -453,6 +523,8 @@ export function resolveLyceroGatewayContext(options: {
     activeSkillSlugs,
     headers,
     bodyExtras,
+    piiMap,
+    latestUserPrompt,
   }
 }
 

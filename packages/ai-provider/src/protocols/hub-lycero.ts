@@ -11,7 +11,14 @@ import { PiiTokenizer } from '../pii-tokenizer'
 import { compactOutboundAgentTurn } from '../token-compactor'
 import type { LyceroEditorModule, LyceroPipelineStage } from '../types'
 import { AiTimeoutError, createStreamWatchdog } from '../watchdog'
-import { resolveLyceroGatewayContext, sseLines, type StreamCallbacks } from './shared'
+import {
+  SKILL_EXTRACTION_REFUSAL_TEXT,
+  isSkillExtractionAttempt,
+  resolveLyceroGatewayContext,
+  restorePiiAndSanitizeToolValue,
+  sseLines,
+  type StreamCallbacks,
+} from './shared'
 import type { AgentMessage, AgentToolDef } from '@lycero/agent-core'
 
 export const MAX_HUB_RECONNECT_ATTEMPTS = 10
@@ -69,16 +76,7 @@ type HubPayload =
   | HubStartPayload
 
 function restorePiiInValue(val: unknown, piiMap: Map<string, string>): unknown {
-  if (typeof val === 'string') return PiiTokenizer.restore(val, piiMap)
-  if (Array.isArray(val)) return val.map((item) => restorePiiInValue(item, piiMap))
-  if (val && typeof val === 'object') {
-    const out: Record<string, unknown> = {}
-    for (const [k, v] of Object.entries(val as Record<string, unknown>)) {
-      out[k] = restorePiiInValue(v, piiMap)
-    }
-    return out
-  }
-  return val
+  return restorePiiAndSanitizeToolValue(val, piiMap)
 }
 
 function buildMessages(
@@ -224,14 +222,6 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
     throw new Error(deviceBlockError)
   }
 
-  // Client-side PII Masking
-  const piiMap = new Map<string, string>()
-  const maskText = (txt: string): string => {
-    if (!enablePiiMasking || !txt) return txt
-    const { maskedText } = PiiTokenizer.mask(txt, piiMap)
-    return maskedText
-  }
-
   // Tier-1 Client Pre-Flight Token Compaction (Delta Deduplication + AST Viewport Slicing)
   const clientCompaction = compactOutboundAgentTurn(messages)
   const hasImages = clientCompaction.messages.some(
@@ -248,6 +238,19 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
     userSkillConfig: userSkillConfig ?? cb.userSkillConfig,
     forceLyceroHeaders: true,
   })
+  if (isSkillExtractionAttempt(lyceroCtx.latestUserPrompt)) {
+    cb.onDelta(SKILL_EXTRACTION_REFUSAL_TEXT)
+    cb.onStopReason?.('stop')
+    return
+  }
+
+  // Client-side PII Masking (seeded from cross-turn globalRegistry via lyceroCtx.piiMap)
+  const piiMap = lyceroCtx.piiMap
+  const maskText = (txt: string): string => {
+    if (!enablePiiMasking || !txt) return txt
+    const { maskedText } = PiiTokenizer.mask(txt, piiMap)
+    return maskedText
+  }
 
   const deviceId =
     ('lyceroDeviceId' in lyceroAuth ? lyceroAuth.lyceroDeviceId?.() : '') || ''

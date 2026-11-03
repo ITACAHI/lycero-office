@@ -32,7 +32,7 @@ import { markdownToDocx } from '../formats/markdown'
 import { runWorkbookDsl } from '../formats/xlsx-dsl'
 import { columnLabel } from '@lycero/xlsx-gateway/domain/cell-address'
 import { sheetNameFromStem } from '../formats/csv'
-import { readOpsInput } from '../ops-input'
+import { readOpsInput, sanitizeCliTextInput } from '../ops-input'
 import type { CommandContext, CommandDef } from '../registry'
 import type { TxnResult } from '@lycero/pptx-ops'
 import { CliError, EXIT, type CommandResult } from '../result'
@@ -262,7 +262,8 @@ async function createPptxFromSpec(
       reason: 'invalid_argument',
     })
   const source = spec === '-' ? 'stdin' : resolveInput(spec, ctx)
-  const text = spec === '-' ? readFileSync(0, 'utf-8') : readFileSync(source, 'utf-8')
+  const rawText = spec === '-' ? readFileSync(0, 'utf-8') : readFileSync(source, 'utf-8')
+  const text = sanitizeCliTextInput(rawText, ctx.env)
   const built = await buildDeckFromSpec(
     text,
     source,
@@ -299,7 +300,7 @@ async function createXlsx(
       reason: 'invalid_argument',
     })
   }
-  const tables = readTables(source, basename(source, extname(source)), { decimal })
+  const tables = readTables(source, basename(source, extname(source)), { decimal }, ctx.env)
   const [first, ...rest] = tables
   if (!first)
     throw new CliError(EXIT.usage, `${from}: no sheets`, undefined, { reason: 'invalid_argument' })
@@ -356,14 +357,27 @@ function readTables(
   source: string,
   fallbackName: string,
   opts: CsvTableOptions = {},
+  env?: NodeJS.ProcessEnv,
 ): TableInput[] {
   const sheetName = sheetNameFromStem(fallbackName)
   if (extname(source).toLowerCase() === '.csv') {
-    return [csvTable(readFileSync(source), sheetName, opts)]
+    const rawBuf = readFileSync(source)
+    const isUtf16 =
+      rawBuf.length >= 2 &&
+      ((rawBuf[0] === 0xff && rawBuf[1] === 0xfe) || (rawBuf[0] === 0xfe && rawBuf[1] === 0xff))
+    if (!isUtf16) {
+      const asUtf8 = rawBuf.toString('utf-8')
+      if (/\[PII_|kb-(?:ask-)?\d{8,}/i.test(asUtf8)) {
+        return [
+          csvTable(Buffer.from(sanitizeCliTextInput(asUtf8, env), 'utf-8'), sheetName, opts),
+        ]
+      }
+    }
+    return [csvTable(rawBuf, sheetName, opts)]
   }
   let parsed: unknown
   try {
-    parsed = JSON.parse(readFileSync(source, 'utf-8'))
+    parsed = JSON.parse(sanitizeCliTextInput(readFileSync(source, 'utf-8'), env))
   } catch (err) {
     throw new CliError(
       EXIT.usage,
@@ -401,7 +415,7 @@ async function createDocx(
       reason: 'missing_argument',
     })
   const source = resolveInput(from, ctx)
-  const text = readFileSync(source, 'utf-8')
+  const text = sanitizeCliTextInput(readFileSync(source, 'utf-8'), ctx.env)
   if (/^\s*hello\s+test[.!]*\s*$/i.test(text.replace(/<[^>]+>/g, '').trim())) {
     throw new CliError(
       EXIT.usage,

@@ -20,7 +20,7 @@ import { executeFreelanceTool } from './tools'
  *   sheets.invoice_tracker   -- Theo doi hoa don (create / list / mark_paid)
  *
  * Skills:
- *   freelance-invoice-vn     -- Huong dan xuat hoa don dich vu tu xuat theo ND 123/2020
+ *   freelance-invoice-vn     -- Huong dan xuat hoa don dich vu tu xuat theo ND 254/2026
  */
 export const freelanceSoloSkill: AgentSkill = {
   id: 'freelance_solo',
