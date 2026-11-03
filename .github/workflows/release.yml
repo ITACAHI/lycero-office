@@ -128,6 +128,22 @@ jobs:
           Copy-Item -Path "apps/shell/release-ia32/*.exe.blockmap" -Destination "apps/shell/release/" -Force
           Get-ChildItem -Path "apps/shell/release"
 
+      - name: Scan with Windows Defender & Auto-Submit .exe to Microsoft WDSI (SmartScreen Whitelist)
+        continue-on-error: true
+        env:
+          WDSI_STORAGE_STATE_JSON: ${{ secrets.WDSI_STORAGE_STATE_JSON }}
+        run: node tools/submit-wdsi.mjs --ci
+
+      - name: Upload WDSI & Defender Verification Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-wdsi-defender-report
+          if-no-files-found: ignore
+          path: |
+            apps/shell/release/SHA256SUMS.txt
+            apps/shell/release/wdsi-submission-report.json
+
       - name: Upload Windows Release Artifacts (x64 & 32-bit ia32)
         uses: actions/upload-artifact@v4
         with:

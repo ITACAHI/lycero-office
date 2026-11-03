@@ -48,7 +48,10 @@
     "dist:win": "npm run notices && npm run build:all && npm run dist:win -w @lycero/shell",
     "dist:win:ia32": "npm run native:build:ia32 -w @lycero/sheets && npm run dist:win:ia32 -w @lycero/shell",
     "dist:linux": "npm run notices && npm run build:all && npm run dist:linux -w @lycero/shell",
-    "release:deploy": "node tools/release-deploy.mjs"
+    "release:deploy": "node tools/release-deploy.mjs",
+    "release:wdsi": "node tools/submit-wdsi.mjs",
+    "release:wdsi:headed": "node tools/submit-wdsi.mjs --headed",
+    "release:wdsi:login": "node tools/submit-wdsi.mjs --login"
   },
   "dependencies": {
     "ws": "^8.21.1"

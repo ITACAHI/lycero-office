@@ -2,6 +2,11 @@ node_modules
 out/
 dist/
 release/
+release-ia32/
+.wdsi-auth.json
+.wdsi-profile/
+.wdsi-submitted.json
+.wdsi-captcha-answer.txt
 *.log
 .DS_Store
 .refs/
