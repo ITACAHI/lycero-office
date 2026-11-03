@@ -81,6 +81,8 @@ export interface AgentLoopOptions<TSnapshot = unknown> {
   bundlesRef?: { current: WorkBundle[] }
   /** hard cap on model round-trips per run (default DEFAULT_MAX_TURNS) */
   maxTurns?: number
+  /** hard wall-clock cap on total run duration across all turns in ms (default DEFAULT_RUN_TOTAL_TIMEOUT_MS = 20 min) */
+  maxRunMs?: number
   /** history cap in messages, trimmed at user-turn boundaries (default 40) */
   maxHistory?: number
   /** Context compaction; false disables it (enabled by default with default thresholds) */
@@ -110,6 +112,8 @@ const STALE_TOOL_OUTPUT_MAX = 1_000
 
 /** Unified turn budget across the suite's chat panels (apps may still override per loop) */
 export const DEFAULT_MAX_TURNS = 100
+/** FX-62: Total wall-clock cap (20 minutes) across an entire multi-turn agent run */
+export const DEFAULT_RUN_TOTAL_TIMEOUT_MS = 20 * 60_000
 
 /** Cap on consecutive turns whose tool input was all unusable (a turn that executes a call resets it); abort beyond it (keeps the model from burning turns on bad JSON) */
 const MAX_INPUT_PARSE_RETRIES = 3
@@ -386,17 +390,22 @@ const EMPTY_STREAM_RETRY_DELAYS_MS = [1_000, 3_000]
 const TOOL_ARGS_DROP_MARK = 'while sending tool arguments'
 const TOOL_ARGS_DROP_RETRIES = 1
 /**
- * Auto-reconnect schedule (up to 10 attempts) when a turn encounters a transient
- * network connectivity drop, premature stream close, or gateway timeout before
- * any tool call is delivered.
+ * FX-63: Retry at most 1 time when a turn encounters a transient network connectivity
+ * failure before any byte (text, reasoning, or tool call) has been received.
+ * Never retry on 'Stream closed without a finish event' or timeouts.
  */
-export const MAX_TURN_RECONNECT_RETRIES = 10
-const TURN_RECONNECT_DELAYS_MS = [
-  1_000, 1_500, 2_000, 3_000, 4_000, 5_000, 5_000, 6_000, 7_000, 8_000,
-]
+export const MAX_TURN_RECONNECT_RETRIES = 1
+const TURN_RECONNECT_DELAYS_MS = [1_000]
 
 function isRetryableTurnNetworkError(error: string): boolean {
-  return /Stream closed without a finish event|stream ended before a (?:finish_reason|stop_reason|finishReason)|Sự cố mạng|không thể kết nối tới dịch vụ AI|Network issue:\s*could not connect|hết thời gian chờ|AI request timed out|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|UND_ERR_|ERR_NETWORK|ERR_CONNECTION_|socket hang up/i.test(
+  if (
+    /Stream closed without a finish event|stream ended before a (?:finish_reason|stop_reason|finishReason)|Máy chủ không phản hồi|Yêu cầu chạy quá lâu|hết thời gian chờ|AI request timed out/i.test(
+      error,
+    )
+  ) {
+    return false
+  }
+  return /Sự cố mạng|không thể kết nối tới dịch vụ AI|Network issue:\s*could not connect|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|UND_ERR_|ERR_NETWORK|ERR_CONNECTION_|socket hang up/i.test(
     error,
   )
 }
@@ -685,6 +694,7 @@ export class AgentLoop<TSnapshot = unknown> {
   private turnText = ''
   private turnReasoning = ''
   private retryTimer: ReturnType<typeof setTimeout> | null = null
+  private runTotalTimer: ReturnType<typeof setTimeout> | null = null
   private toolCalls: AgentToolCall[] = []
   /** tools actually executed during this run, fed to skill.verifyResponse */
   private executedCalls: ExecutedToolCall[] = []
@@ -848,6 +858,7 @@ export class AgentLoop<TSnapshot = unknown> {
     this.runUserMsg = userMsg
     this.history.push(userMsg)
     this.runUsage = null
+    this.armRunTotalTimer(generation)
     this.startTurn()
   }
 
@@ -1010,6 +1021,7 @@ export class AgentLoop<TSnapshot = unknown> {
     if (!this.running) return
     this.cancelled = true
     this.turnUsage = null
+    this.clearRunTotalTimer()
     // abort lets long tools mid-execution (internal LLM loops etc.) stop promptly
     this.abortController?.abort()
     // Waiting out a retry backoff: finalize here. A run that already committed
@@ -1040,6 +1052,7 @@ export class AgentLoop<TSnapshot = unknown> {
   reset(): void {
     this.generation++
     this.clearRetryTimer()
+    this.clearRunTotalTimer()
     this.abortController?.abort()
     this.handle?.cancel()
     this.handle = null
@@ -1065,6 +1078,23 @@ export class AgentLoop<TSnapshot = unknown> {
     this.retryTimer = null
   }
 
+  private clearRunTotalTimer(): void {
+    if (this.runTotalTimer) clearTimeout(this.runTotalTimer)
+    this.runTotalTimer = null
+  }
+
+  private armRunTotalTimer(generation: number): void {
+    this.clearRunTotalTimer()
+    const maxRunMs = this.options.maxRunMs ?? DEFAULT_RUN_TOTAL_TIMEOUT_MS
+    if (typeof maxRunMs !== 'number' || !Number.isFinite(maxRunMs) || maxRunMs <= 0) return
+    this.runTotalTimer = setTimeout(() => {
+      this.runTotalTimer = null
+      if (generation !== this.generation || !this.running) return
+      const minutes = Math.max(1, Math.round(maxRunMs / 60_000))
+      this.failRun(`Yêu cầu chạy quá lâu (đã vượt giới hạn ${minutes} phút).`)
+    }, maxRunMs)
+  }
+
   /**
    * Terminal failure path for the callback guard sites: clear `running` (or
    * every later message is silently dropped, and even cancel() no-ops), roll
@@ -1077,6 +1107,7 @@ export class AgentLoop<TSnapshot = unknown> {
     // cancel it so a later run() cannot overlap with it
     this.generation++
     this.clearRetryTimer()
+    this.clearRunTotalTimer()
     this.abortController?.abort()
     this.handle?.cancel()
     this.handle = null
@@ -1256,6 +1287,8 @@ export class AgentLoop<TSnapshot = unknown> {
             const retryNetwork =
               reconnectDelay !== undefined &&
               isRetryableTurnNetworkError(error) &&
+              !this.turnText &&
+              !this.turnReasoning &&
               this.toolCalls.length === 0
             const delay = retryEmpty
               ? emptyDelay
@@ -1263,14 +1296,6 @@ export class AgentLoop<TSnapshot = unknown> {
                 ? reconnectDelay
                 : EMPTY_STREAM_RETRY_DELAYS_MS[0]
             if ((retryEmpty || retryDrop || retryNetwork) && !this.cancelled) {
-              if (retryNetwork && this.turnText) {
-                this.turnText = ''
-                try {
-                  this.options.events?.onText?.('')
-                } catch {
-                  // ignore UI reset failure before retry
-                }
-              }
               this.retryTimer = setTimeout(() => {
                 this.retryTimer = null
                 if (generation !== this.generation) return
@@ -1278,6 +1303,7 @@ export class AgentLoop<TSnapshot = unknown> {
               }, delay)
               return
             }
+            this.clearRunTotalTimer()
             this.running = false
             this.rollbackFailedRun()
             this.options.events?.onError?.(error)
@@ -1287,6 +1313,7 @@ export class AgentLoop<TSnapshot = unknown> {
     } catch (err) {
       // A skill's tools getter (a duplicate name in a composed skill) can throw
       // before any callback runs: this keeps the run from staying busy forever.
+      this.clearRunTotalTimer()
       this.running = false
       this.rollbackFailedRun()
       this.options.events?.onError?.(err instanceof Error ? err.message : String(err))
@@ -1341,6 +1368,7 @@ export class AgentLoop<TSnapshot = unknown> {
       // instead of surfacing this English placeholder.
       const cleanedTurnText = sanitizeAssistantText(this.turnText)
       this.history.push({ role: 'assistant', text: cleanedTurnText || COMPLETED_VIA_TOOLS_TEXT })
+      this.clearRunTotalTimer()
       this.running = false
       this.runUserMsg = null
       this.mergeRunUsage()
@@ -1504,6 +1532,7 @@ export class AgentLoop<TSnapshot = unknown> {
 
     // Cancelled while tools were executing: finish immediately, no further model request
     if (this.cancelled) {
+      this.clearRunTotalTimer()
       this.running = false
       this.runUserMsg = null
       events?.onDone?.({ text: this.turnText, cancelled: true, turnLimit: false })
@@ -1512,6 +1541,7 @@ export class AgentLoop<TSnapshot = unknown> {
 
     // Bad-input retries hit the cap: abort instead of burning more turns
     if (this.inputParseFails >= MAX_INPUT_PARSE_RETRIES) {
+      this.clearRunTotalTimer()
       this.running = false
       this.rollbackFailedRun()
       events?.onError?.(
@@ -1525,6 +1555,7 @@ export class AgentLoop<TSnapshot = unknown> {
     // would otherwise burn the whole turn budget re-erroring.
     this.allErrorTurns = results.every((r) => r.isError) ? this.allErrorTurns + 1 : 0
     if (this.allErrorTurns >= MAX_ALL_ERROR_TURNS) {
+      this.clearRunTotalTimer()
       this.running = false
       this.rollbackFailedRun()
       events?.onError?.(
@@ -1534,6 +1565,7 @@ export class AgentLoop<TSnapshot = unknown> {
     }
 
     if (this.redundantReadTurns >= MAX_REDUNDANT_READ_TURNS) {
+      this.clearRunTotalTimer()
       this.running = false
       this.rollbackFailedRun()
       events?.onError?.(
@@ -1554,6 +1586,7 @@ export class AgentLoop<TSnapshot = unknown> {
     ])
     if (turnSig === this.lastTurnSig && !turnMutated) {
       if (++this.identicalTurns >= MAX_IDENTICAL_TURNS) {
+        this.clearRunTotalTimer()
         this.running = false
         this.rollbackFailedRun()
         events?.onError?.(

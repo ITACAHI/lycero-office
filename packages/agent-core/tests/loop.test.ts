@@ -1053,24 +1053,16 @@ describe('AgentLoop', () => {
     }
   })
 
-  it('auto-reconnects up to 10 times on localized network errors and recovers cleanly', async () => {
+  it('FX-63: retries at most 1 time on pre-byte network errors and never retries on Stream closed without a finish event', async () => {
     vi.useFakeTimers()
     try {
+      // 1. Pre-byte network failure: retries 1 time and recovers
       const netErr = (cb: AgentStreamCallbacks) =>
         cb.onError('Sự cố mạng: không thể kết nối tới dịch vụ AI. Kiểm tra kết nối của bạn và thử lại')
       const transport = scriptedTransport([
         netErr,
-        netErr,
-        netErr,
-        netErr,
-        netErr,
-        netErr,
-        netErr,
-        netErr,
-        netErr,
-        netErr,
         (cb) => {
-          cb.onDelta('Đã kết nối lại thành công sau 10 lần thử')
+          cb.onDelta('Đã kết nối lại thành công sau 1 lần thử')
           cb.onDone()
         },
       ])
@@ -1078,14 +1070,57 @@ describe('AgentLoop', () => {
       const onDone = vi.fn()
       const loop = new AgentLoop({ transport, skill: makeSkill(), events: { onError, onDone } })
       loop.run('tạo hợp đồng lao động')
-      await vi.advanceTimersByTimeAsync(60_000)
-      expect(transport.requests).toHaveLength(11)
+      await vi.advanceTimersByTimeAsync(5_000)
+      expect(transport.requests).toHaveLength(2)
       expect(onError).not.toHaveBeenCalled()
       expect(onDone).toHaveBeenCalledWith({
-        text: 'Đã kết nối lại thành công sau 10 lần thử',
+        text: 'Đã kết nối lại thành công sau 1 lần thử',
         cancelled: false,
         turnLimit: false,
       })
+
+      // 2. Stream closed without a finish event: MUST NOT retry silently
+      const transportDrop = scriptedTransport([
+        (cb) => cb.onError('Stream closed without a finish event (requestId: req-123)'),
+      ])
+      const onDropError = vi.fn()
+      const loopDrop = new AgentLoop({
+        transport: transportDrop,
+        skill: makeSkill(),
+        events: { onError: onDropError },
+      })
+      loopDrop.run('tạo hợp đồng lao động')
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(transportDrop.requests).toHaveLength(1)
+      expect(onDropError).toHaveBeenCalledWith(
+        'Stream closed without a finish event (requestId: req-123)',
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('FX-62: aborts with "Yêu cầu chạy quá lâu" when a run exceeds maxRunMs', async () => {
+    vi.useFakeTimers()
+    try {
+      const transport = scriptedTransport([
+        (_cb) => {
+          // hangs forever across turns/tools
+        },
+      ])
+      const onError = vi.fn()
+      const loop = new AgentLoop({
+        transport,
+        skill: makeSkill(),
+        maxRunMs: 60_000,
+        events: { onError },
+      })
+      loop.run('long lesson plan')
+      await vi.advanceTimersByTimeAsync(59_000)
+      expect(onError).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(1_000)
+      expect(onError).toHaveBeenCalledWith(expect.stringContaining('Yêu cầu chạy quá lâu'))
+      expect(loop.busy).toBe(false)
     } finally {
       vi.useRealTimers()
     }

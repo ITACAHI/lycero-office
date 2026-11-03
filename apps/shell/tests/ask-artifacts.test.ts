@@ -102,4 +102,35 @@ describe('ask task card', () => {
     expect(out[1]).toMatchObject({ status: 'done', path: '/o/b.html' })
     expect(settleArtifact([a], run('9', []), { output: 'x' })).toEqual([a])
   })
+
+  it('FX-64: marks an earlier failed artifact as retried when a later create succeeds in the same turn', () => {
+    const first = run('1', ['create', '--type', 'docx', '--from', 'baocao.md', '--out', '/o/baocao.docx'])
+    const second = run('2', [
+      'create',
+      '--type',
+      'docx',
+      '--from',
+      'Bao_Cao_Ra_Soat_Hop_Dong_Mua_Ban.md',
+      '--out',
+      '/o/Bao_Cao_Ra_Soat_Hop_Dong_Mua_Ban.docx',
+    ])
+    let cards = [artifactFromCall(first, '/o')!]
+    cards = settleArtifact(cards, first, {
+      output: 'exit 2\nsummary: empty or title-only stub in baocao.md',
+      isError: true,
+    })
+    expect(cards[0]).toMatchObject({ status: 'failed' })
+    expect(cards[0]!.retried).toBeUndefined()
+
+    cards = [...cards, artifactFromCall(second, '/o')!]
+    cards = settleArtifact(cards, second, {
+      output: 'exit 0\nsummary: created\noutput_path: /o/Bao_Cao_Ra_Soat_Hop_Dong_Mua_Ban.docx',
+    })
+    expect(cards[0]).toMatchObject({ status: 'failed', retried: true })
+    expect(cards[1]).toMatchObject({
+      status: 'done',
+      name: 'Bao_Cao_Ra_Soat_Hop_Dong_Mua_Ban.docx',
+      path: '/o/Bao_Cao_Ra_Soat_Hop_Dong_Mua_Ban.docx',
+    })
+  })
 })

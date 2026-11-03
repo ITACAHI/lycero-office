@@ -140,10 +140,11 @@ export {
   AI_CHAT_RESPONSE_TIMEOUT_MS,
   AI_CONNECT_TIMEOUT_MS,
   AI_IDLE_TIMEOUT_MS,
+  AI_TOTAL_TIMEOUT_MS,
   AiTimeoutError,
   createStreamWatchdog,
 } from './watchdog'
-export type { StreamWatchdog } from './watchdog'
+export type { AiTimeoutKind, StreamWatchdog } from './watchdog'
 
 export { AiQuotaExhaustedError, isAiQuotaExhaustedError } from './quota-error'
 export { PiiTokenizer } from './pii-tokenizer'

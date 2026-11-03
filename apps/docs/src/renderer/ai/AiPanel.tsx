@@ -1836,7 +1836,18 @@ export function AiPanel({
                 />
               )}
               {entry.error && (
-                <div className="ai-msg-error">{t('aiErrorPrefix', { error: entry.error })}</div>
+                <div className="ai-msg-error">
+                  <span>{t('aiErrorPrefix', { error: entry.error })}</span>
+                  {isLast && !busy && lastInstructionRef.current && (
+                    <button
+                      type="button"
+                      className="ai-continue-btn"
+                      onClick={retry}
+                    >
+                      {lang === 'vi' ? 'Thử lại' : t('aiRegenerateTitle')}
+                    </button>
+                  )}
+                </div>
               )}
               {entry.loginRequired && (
                 <button className="ai-login-btn" onClick={() => void window.desktop.aiGskLogin()}>

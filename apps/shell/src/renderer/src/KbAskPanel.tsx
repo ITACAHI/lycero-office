@@ -217,31 +217,6 @@ export function KbAskPanel({
   const scrollRef = useRef<HTMLDivElement>(null)
   /** bumped by Stop: an ask still refreshing the corpus must not start its run */
   const askSeqRef = useRef(0)
-  const watchdogTimerRef = useRef<number | null>(null)
-  const clearWatchdog = (): void => {
-    if (watchdogTimerRef.current !== null) {
-      window.clearTimeout(watchdogTimerRef.current)
-      watchdogTimerRef.current = null
-    }
-  }
-  const touchWatchdog = (): void => {
-    clearWatchdog()
-    watchdogTimerRef.current = window.setTimeout(() => {
-      watchdogTimerRef.current = null
-      askSeqRef.current++
-      loopRef.current?.cancel()
-      const timeoutMsg =
-        lang === 'vi'
-          ? 'Phiên xử lý đã quá thời gian chờ phản hồi (180 giây) và được dừng tự động. Vui lòng thử lại hoặc chia nhỏ yêu cầu.'
-          : 'The session timed out after 180 seconds of inactivity and was stopped automatically. Please retry.'
-      patchLast((last) => ({
-        text: last.text ? `${last.text}\n\n⚠️ ${timeoutMsg}` : timeoutMsg,
-        streaming: false,
-        isError: !last.text,
-      }))
-      setBusy(false)
-    }, 180_000)
-  }
   /** tokens billed so far in the in-flight answer (summed across turns) */
   const runUsageRef = useRef<AiTokenUsageView | undefined>(undefined)
   /** tokens billed across the panel's session (the composer chip) */
@@ -472,19 +447,15 @@ export function KbAskPanel({
       ]),
       events: {
         onText: (text) => {
-          touchWatchdog()
           patchLast({ text })
         },
         onReasoning: (reasoning) => {
-          touchWatchdog()
           patchLast({ reasoning })
         },
         onToolExecuted: ({ call, execution }) => {
-          touchWatchdog()
           patchLast((last) => ({ artifacts: settleArtifact(last.artifacts, call, execution) }))
         },
         onToolStart: (call) => {
-          touchWatchdog()
           patchLast((last) => ({
             artifacts: (() => {
               const started = artifactFromCall(call, cliContextRef.current?.outDir)
@@ -503,7 +474,6 @@ export function KbAskPanel({
           }))
         },
         onDone: () => {
-          clearWatchdog()
           finishLast()
         },
         onUsage: (usage) => {
@@ -512,17 +482,16 @@ export function KbAskPanel({
           patchLast({ usage: runUsageRef.current })
         },
         onError: (error) => {
-          clearWatchdog()
+          setBusy(false)
           patchLast((last) => ({
-            text: last.text || error,
+            text: last.text ? `${last.text}\n\n⚠️ ${error}` : error,
             streaming: false,
-            isError: !last.text,
+            isError: true,
           }))
         },
       },
     })
     return () => {
-      clearWatchdog()
       loopRef.current?.cancel()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only; the loop reads live refs
@@ -549,7 +518,6 @@ export function KbAskPanel({
   }
 
   const finishLast = (): void => {
-    clearWatchdog()
     // The answer is whole for the first time here; streaming it as it grows
     // would store every intermediate state. The `streaming` guard is what
     // keeps a second finish (Stop, then the loop's own onDone) from storing
@@ -756,7 +724,6 @@ export function KbAskPanel({
     ])
     persist({ role: 'user', text: instruction })
     try {
-      touchWatchdog()
       const [text, images] = await Promise.all([
         withSkillBodies(instruction, skills),
         collectImages(files),
@@ -766,9 +733,9 @@ export function KbAskPanel({
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : t('askUnknownError')
       patchLast((last) => ({
-        text: last.text || errMsg,
+        text: last.text ? `${last.text}\n\n⚠️ ${errMsg}` : errMsg,
         streaming: false,
-        isError: !last.text,
+        isError: true,
       }))
       finishLast()
     }
@@ -944,47 +911,57 @@ export function KbAskPanel({
             )}
             {m.role === 'assistant' && m.artifacts.length > 0 && (
               <div className="kb-ask-card" role="list">
-                {m.artifacts.map((a) => (
-                  <div
-                    key={a.callId}
-                    className={`kb-ask-card-row kb-ask-card-${a.status}`}
-                    role="listitem"
-                  >
-                    {a.status === 'done' && a.path ? (
-                      <button
-                        type="button"
-                        className="kb-ask-card-name"
-                        onClick={() => onOpenPath(a.path!)}
-                      >
-                        <IconFileText />
-                        {a.name}
-                      </button>
-                    ) : (
-                      <span className="kb-ask-card-name">
-                        <IconFileText />
-                        {a.name}
-                      </span>
-                    )}
-                    {a.status === 'building' && (
-                      <span className="kb-ask-card-status">{t('askArtifactBuilding')}…</span>
-                    )}
-                    {a.status === 'failed' && (
-                      <>
-                        <span className="kb-ask-card-status kb-ask-card-error" title={a.error}>
-                          {t('askArtifactFailed')}
-                        </span>
+                {m.artifacts.map((a) => {
+                  const retriedOk =
+                    a.retried === true ||
+                    (a.status === 'failed' && m.artifacts.some((other) => other.status === 'done'))
+                  return (
+                    <div
+                      key={a.callId}
+                      className={`kb-ask-card-row kb-ask-card-${retriedOk ? 'retried' : a.status}`}
+                      role="listitem"
+                    >
+                      {a.status === 'done' && a.path ? (
                         <button
                           type="button"
-                          className="kb-ask-action"
-                          disabled={busy}
-                          onClick={() => void askWith(retryInstruction(a))}
+                          className="kb-ask-card-name"
+                          onClick={() => onOpenPath(a.path!)}
                         >
-                          {t('askArtifactRetry')}
+                          <IconFileText />
+                          {a.name}
                         </button>
-                      </>
-                    )}
-                  </div>
-                ))}
+                      ) : (
+                        <span className="kb-ask-card-name">
+                          <IconFileText />
+                          {a.name}
+                        </span>
+                      )}
+                      {a.status === 'building' && (
+                        <span className="kb-ask-card-status">{t('askArtifactBuilding')}…</span>
+                      )}
+                      {a.status === 'failed' &&
+                        (retriedOk ? (
+                          <span className="kb-ask-card-status" title={a.error}>
+                            Đã thử lại thành công
+                          </span>
+                        ) : (
+                          <>
+                            <span className="kb-ask-card-status kb-ask-card-error" title={a.error}>
+                              {t('askArtifactFailed')}
+                            </span>
+                            <button
+                              type="button"
+                              className="kb-ask-action"
+                              disabled={busy}
+                              onClick={() => void askWith(retryInstruction(a))}
+                            >
+                              {t('askArtifactRetry')}
+                            </button>
+                          </>
+                        ))}
+                    </div>
+                  )
+                })}
               </div>
             )}
             {m.text ? (
@@ -996,6 +973,25 @@ export function KbAskPanel({
             ) : m.streaming ? (
               <AiTypingIndicator label={t('askHintBusy')} />
             ) : null}
+            {m.role === 'assistant' && m.isError && !m.streaming && (
+              <div className="kb-ask-actions">
+                <button
+                  type="button"
+                  className="kb-ask-action"
+                  disabled={busy}
+                  onClick={() => {
+                    const prevUser = [...messages.slice(0, i)]
+                      .reverse()
+                      .find((msg) => msg.role === 'user')
+                    if (prevUser) {
+                      void askWith(prevUser.text, prevUser.skills ?? [], prevUser.attachments ?? [])
+                    }
+                  }}
+                >
+                  {lang === 'vi' ? 'Thử lại' : t('askArtifactRetry')}
+                </button>
+              </div>
+            )}
             {m.role === 'assistant' && m.usage && (
               <div className="ai-message-usage">
                 <AiUsageChip usage={m.usage} lang={lang} />

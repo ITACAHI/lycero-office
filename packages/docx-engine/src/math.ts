@@ -457,7 +457,66 @@ const LATEX_FUNCTIONS = new Set([
   'dim',
   'ker',
   'mod',
+  'lg',
+  'arccot',
+  'arcsec',
+  'arccsc',
+  'lcm',
+  'sgn',
+  'rank',
+  'tr',
+  'diag',
+  'Pr',
+  'Cov',
+  'Var',
 ])
+
+const EXTRA_LATEX_SYMBOLS: Record<string, string> = {
+  dots: '…',
+  setminus: '∖',
+  backslash: '∖',
+  square: '□',
+  blacksquare: '■',
+  diamond: '◊',
+  ni: '∋',
+  owns: '∋',
+  nexists: '∄',
+  subsetneq: '⊊',
+  supsetneq: '⊋',
+  nsubseteq: '⊈',
+  nsupseteq: '⊉',
+  land: '∧',
+  lor: '∨',
+  lnot: '¬',
+  not: '¬',
+  uparrow: '↑',
+  downarrow: '↓',
+  updownarrow: '↕',
+  Uparrow: '⇑',
+  Downarrow: '⇓',
+  Updownarrow: '⇕',
+  nearrow: '↗',
+  searrow: '↘',
+  swarrow: '↙',
+  nwarrow: '↖',
+  hookrightarrow: '↪',
+  hookleftarrow: '↩',
+  langle: '⟨',
+  rangle: '⟩',
+  lfloor: '⌊',
+  rfloor: '⌋',
+  lceil: '⌈',
+  rceil: '⌉',
+  vert: '|',
+  lvert: '|',
+  rvert: '|',
+  Vert: '‖',
+  lVert: '‖',
+  rVert: '‖',
+  colon: ':',
+  enspace: ' ',
+  thinspace: ' ',
+}
 
 const NARY_OPS: Record<string, { chr: string; limLoc: 'undOvr' | 'subSup' }> = {
   sum: { chr: '∑', limLoc: 'undOvr' },
@@ -498,6 +557,13 @@ const MATRIX_DELIMS: Record<string, { beg: string; end: string } | null> = {
   vmatrix: { beg: '|', end: '|' },
   Vmatrix: { beg: '‖', end: '‖' },
   cases: { beg: '{', end: '' },
+  'cases*': { beg: '{', end: '' },
+  aligned: null,
+  align: null,
+  'align*': null,
+  gathered: null,
+  array: null,
+  smallmatrix: null,
 }
 
 class LatexError extends Error {}
@@ -550,7 +616,9 @@ const delimTokens = lazyMap(() => {
 const matrixEnvs = lazyMap(() => {
   const map = new Map<string, string>()
   for (const [env, delims] of Object.entries(MATRIX_DELIMS)) {
-    if (env !== 'matrix' && delims) map.set(`${delims.beg} ${delims.end}`, env)
+    if (env !== 'matrix' && delims && !map.has(`${delims.beg} ${delims.end}`)) {
+      map.set(`${delims.beg} ${delims.end}`, env)
+    }
   }
   return map
 })
@@ -1039,6 +1107,7 @@ function readDelimiter(p: LatexParser): string {
 function parseControl(p: LatexParser): string {
   const name = readControlName(p)
   if (name in LATEX_SYMBOLS) return mathRun(LATEX_SYMBOLS[name])
+  if (name in EXTRA_LATEX_SYMBOLS) return mathRun(EXTRA_LATEX_SYMBOLS[name])
   if (name in NARY_OPS) return naryOmml(p, NARY_OPS[name].chr, NARY_OPS[name].limLoc)
   if (name in ACCENT_CHARS) {
     const base = parseGroup(p)
@@ -1094,6 +1163,40 @@ function parseControl(p: LatexParser): string {
         '<m:groupChr><m:groupChrPr><m:chr m:val="⏞"/><m:pos m:val="top"/></m:groupChrPr>' +
         `<m:e>${parseGroup(p)}</m:e></m:groupChr>`
       )
+    case 'boxed':
+      return `<m:borderBox><m:e>${parseGroup(p)}</m:e></m:borderBox>`
+    case 'phantom':
+    case 'hphantom':
+    case 'vphantom':
+      return `<m:phant><m:e>${parseGroup(p)}</m:e></m:phant>`
+    case 'cancel':
+    case 'bcancel':
+    case 'xcancel':
+    case 'sout':
+      return parseGroup(p)
+    case 'color':
+      readBraceText(p)
+      return ''
+    case 'textcolor':
+      readBraceText(p)
+      return parseGroup(p)
+    case 'hspace':
+    case 'vspace':
+      readBraceText(p)
+      return mathRun(' ')
+    case 'big':
+    case 'Big':
+    case 'bigg':
+    case 'Bigg':
+    case 'bigl':
+    case 'bigr':
+    case 'Bigl':
+    case 'Bigr':
+    case 'biggl':
+    case 'biggr':
+    case 'Biggl':
+    case 'Biggr':
+      return mathRun(readDelimiter(p))
     case 'text':
     case 'textbf':
     case 'textit':
@@ -1140,6 +1243,10 @@ function parseControl(p: LatexParser): string {
     case 'begin': {
       const env = readBraceText(p)
       if (!(env in MATRIX_DELIMS)) throw new LatexError(`Unsupported environment: \\begin{${env}}`)
+      if (env === 'array') {
+        skipSpaces(p)
+        if (peek(p) === '{') readBraceText(p)
+      }
       return matrixOmml(p, env)
     }
     case ',':

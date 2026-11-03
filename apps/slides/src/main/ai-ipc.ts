@@ -284,7 +284,14 @@ export function registerAiIpc(): void {
       } else {
         // an expired/revoked key drops to signed-out so the inline sign-in button shows
         noteGskCallFailure(gskKey, err)
-        const msg = err instanceof Error ? err.message : String(err)
+        const rawMsg = err instanceof Error ? err.message : String(err)
+        const msg =
+          rawMsg === 'Stream closed without a finish event' ||
+          /stream ended before a (?:finish_reason|stop_reason|finishReason)/i.test(rawMsg)
+            ? `Stream closed without a finish event (requestId: ${requestId}). Máy chủ đã ngắt luồng phản hồi sớm.`
+            : err instanceof AiTimeoutError && !rawMsg.includes(requestId)
+              ? `${rawMsg} (requestId: ${requestId})`
+              : rawMsg
         console.error(`[ai-stream] ${requestId} (${provider}/${config.model}) failed:`, msg)
         send({
           requestId,

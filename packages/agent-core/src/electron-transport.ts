@@ -115,7 +115,17 @@ export interface IpcTransportOptions<S> {
  * Each app wires in its own preload bridge and i18n via the options.
  */
 export function createIpcTransport<S>(options: IpcTransportOptions<S>): AgentTransport {
-  const timeoutText = () => options.timeoutErrorText?.() ?? options.unknownErrorText()
+  const timeoutText = (detail?: string) => {
+    if (
+      detail &&
+      (detail.includes('Máy chủ không phản hồi') ||
+        detail.includes('Yêu cầu chạy quá lâu') ||
+        detail.includes('Stream closed without a finish event'))
+    ) {
+      return detail
+    }
+    return options.timeoutErrorText?.() ?? detail ?? 'Máy chủ không phản hồi'
+  }
   const sessionId = crypto.randomUUID()
   return {
     stream(request: AgentStreamRequest, cb) {
@@ -142,19 +152,18 @@ export function createIpcTransport<S>(options: IpcTransportOptions<S>): AgentTra
       }
       const unsubscribe = options.onStream((chunk) => {
         if (chunk.requestId !== requestId || settled) return
+        if (chunk.type !== 'done' && chunk.type !== 'error') {
+          armSilence()
+        }
         if (chunk.type === 'ping') {
-          armSilence()
+          // silence timer already re-armed above
         } else if (chunk.type === 'delta') {
-          armSilence()
           cb.onDelta(chunk.text ?? '')
         } else if (chunk.type === 'reasoning') {
-          armSilence()
           if (chunk.text) cb.onReasoning?.(chunk.text)
         } else if (chunk.type === 'tool-call') {
-          armSilence()
           if (chunk.toolCall) cb.onToolCall(chunk.toolCall)
         } else if (chunk.type === 'usage') {
-          armSilence()
           if (chunk.usage) cb.onUsage?.(chunk.usage)
         } else if (chunk.type === 'done') {
           settle()
@@ -164,7 +173,7 @@ export function createIpcTransport<S>(options: IpcTransportOptions<S>): AgentTra
           settle()
           cb.onError(
             chunk.errorCode === 'timeout'
-              ? timeoutText()
+              ? timeoutText(chunk.error)
               : chunk.errorCode === 'credits'
                 ? (options.creditsErrorText?.() ?? chunk.error ?? options.unknownErrorText())
                 : chunk.errorCode === 'network'

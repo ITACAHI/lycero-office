@@ -54,6 +54,157 @@ const CODE_FILL = 'F2F3F5'
 
 // ── inline content → Run[] ──
 
+const BARE_LATEX_SYMBOL_MAP: Record<string, string> = {
+  alpha: 'α',
+  beta: 'β',
+  gamma: 'γ',
+  delta: 'δ',
+  epsilon: 'ε',
+  varepsilon: 'ε',
+  zeta: 'ζ',
+  eta: 'η',
+  theta: 'θ',
+  vartheta: 'ϑ',
+  iota: 'ι',
+  kappa: 'κ',
+  lambda: 'λ',
+  mu: 'μ',
+  nu: 'ν',
+  xi: 'ξ',
+  pi: 'π',
+  rho: 'ρ',
+  sigma: 'σ',
+  tau: 'τ',
+  upsilon: 'υ',
+  phi: 'φ',
+  varphi: 'φ',
+  chi: 'χ',
+  psi: 'ψ',
+  omega: 'ω',
+  Gamma: 'Γ',
+  Delta: 'Δ',
+  Theta: 'Θ',
+  Lambda: 'Λ',
+  Xi: 'Ξ',
+  Pi: 'Π',
+  Sigma: 'Σ',
+  Phi: 'Φ',
+  Psi: 'Ψ',
+  Omega: 'Ω',
+  times: '×',
+  div: '÷',
+  cdot: '·',
+  pm: '±',
+  mp: '∓',
+  leq: '≤',
+  le: '≤',
+  geq: '≥',
+  ge: '≥',
+  neq: '≠',
+  ne: '≠',
+  approx: '≈',
+  equiv: '≡',
+  sim: '∼',
+  simeq: '≃',
+  cong: '≅',
+  propto: '∝',
+  infty: '∞',
+  partial: '∂',
+  nabla: '∇',
+  forall: '∀',
+  exists: '∃',
+  nexists: '∄',
+  in: '∈',
+  notin: '∉',
+  ni: '∋',
+  subset: '⊂',
+  supset: '⊃',
+  subseteq: '⊆',
+  supseteq: '⊇',
+  cup: '∪',
+  cap: '∩',
+  setminus: '∖',
+  emptyset: '∅',
+  varnothing: '∅',
+  to: '→',
+  rightarrow: '→',
+  leftarrow: '←',
+  leftrightarrow: '↔',
+  Rightarrow: '⇒',
+  Leftarrow: '⇐',
+  Leftrightarrow: '⇔',
+  iff: '⇔',
+  implies: '⇒',
+  mapsto: '↦',
+  uparrow: '↑',
+  downarrow: '↓',
+  perp: '⊥',
+  parallel: '∥',
+  angle: '∠',
+  measuredangle: '∡',
+  triangle: '△',
+  bigtriangleup: '△',
+  degree: '°',
+  circ: '°',
+  dots: '…',
+  ldots: '…',
+  cdots: '⋯',
+  therefore: '∴',
+  because: '∵',
+}
+
+function normalizeBrAndMarkers(text: string): string {
+  return text
+    .replace(/\[PII_[A-Z0-9_]+(?:\]|\b)/g, '')
+    .replace(/\[LYCERO_[A-Z0-9_]+\]/g, '')
+    .replace(/\bkb-(?:ask-)?\d{8,}(?:-[a-z0-9]+)*\b/gi, '')
+    .replace(/\bkb-ask-[a-z0-9_-]*\d[a-z0-9_-]*\b/gi, '')
+    .replace(/&amp;lt;br\s*\/?&amp;gt;/gi, '\n')
+    .replace(/&lt;br\s*\/?&gt;/gi, '\n')
+    .replace(/\\<br\s*\/?\\?>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+}
+
+function cleanBareLatexInText(text: string): string {
+  if (!text.includes('\\') && !text.includes('^')) return text
+  let s = text
+  s = s.replace(/\^\{\\circ\}/g, '°').replace(/\^\\circ\b/g, '°')
+  for (let i = 0; i < 3; i++) {
+    s = s.replace(/\\(?:d|t)?frac\{([^{}]*)\}\{([^{}]*)\}/g, '($1)/($2)')
+    s = s.replace(/\\sqrt\[([^{}[\]]*)\]\{([^{}]*)\}/g, '√($2)')
+    s = s.replace(/\\sqrt\{([^{}]*)\}/g, '√($1)')
+    s = s.replace(/\\(?:widehat|hat)\{([^{}]*)\}/g, '∠$1')
+    s = s.replace(/\\(?:overline|bar|overrightarrow|vec)\{([^{}]*)\}/g, '$1')
+    s = s.replace(/\\(?:text|textbf|textit|textrm|mathrm|mathbf|mathit|mathbb|mathcal)\{([^{}]*)\}/g, '$1')
+  }
+  s = s.replace(/\\([a-zA-Z]+)(?![a-zA-Z])/g, (match, cmd: string) => BARE_LATEX_SYMBOL_MAP[cmd] ?? match)
+  return s
+}
+
+const LEFTOVER_INLINE_MATH_RE =
+  /\$\$([^\n$]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([^\n]+?)\\\)|(?<!\\|\$)\$(?!\$)([^$\n]+?)\$(?!\$|\d)/g
+
+function isFormulaCandidate(inner: string): boolean {
+  if (inner.includes('^') || inner.includes('_') || inner.includes('=')) return true
+  if (/\\[a-zA-Z]+/.test(inner)) return true
+  if (/\d\s*[+\-*/<>|±×÷]|[+\-*/<>|±×÷]\s*\d/.test(inner)) return true
+  return false
+}
+
+function applyInlineMarks(base: Run, marks: JSONContent['marks']): Run {
+  const run: Run = { ...base }
+  for (const mark of marks ?? []) {
+    if (mark.type === 'bold') run.bold = true
+    else if (mark.type === 'italic') run.italic = true
+    else if (mark.type === 'strike') run.strike = true
+    else if (mark.type === 'code') run.font = CODE_FONT
+    else if (mark.type === 'link' && typeof mark.attrs?.href === 'string') {
+      run.link = { href: mark.attrs.href }
+    }
+  }
+  return run
+}
+
 function runsFromInline(content: JSONContent[] | undefined): Run[] {
   const runs: Run[] = []
   for (const child of content ?? []) {
@@ -87,23 +238,59 @@ function runsFromInline(content: JSONContent[] | undefined): Run[] {
       continue
     }
     if (child.type !== 'text' || !child.text) continue
-    const run: Run = { text: child.text.replace(/<br\s*\/?>/gi, '\n') }
-    for (const mark of child.marks ?? []) {
-      if (mark.type === 'bold') run.bold = true
-      else if (mark.type === 'italic') run.italic = true
-      else if (mark.type === 'strike') run.strike = true
-      else if (mark.type === 'code') run.font = CODE_FONT
-      else if (mark.type === 'link' && typeof mark.attrs?.href === 'string') {
-        run.link = { href: mark.attrs.href }
-      }
+    const rawText = normalizeBrAndMarkers(child.text)
+    if (!rawText) continue
+    const hasCodeMark = (child.marks ?? []).some((m) => m.type === 'code')
+    if (hasCodeMark) {
+      runs.push(applyInlineMarks({ text: rawText }, child.marks))
+      continue
     }
-    runs.push(run)
+    LEFTOVER_INLINE_MATH_RE.lastIndex = 0
+    let lastIdx = 0
+    let m: RegExpExecArray | null
+    while ((m = LEFTOVER_INLINE_MATH_RE.exec(rawText)) !== null) {
+      const candidate = (m[1] ?? m[2] ?? m[3] ?? m[4] ?? '').trim()
+      const isSingleDollar = m[4] !== undefined
+      if (
+        !candidate ||
+        (isSingleDollar &&
+          (!isFormulaCandidate(candidate) ||
+            (/^\d[\d.,]*\s+\S/.test(candidate) && !/[\\^_=<>±×÷]/.test(candidate))))
+      ) {
+        continue
+      }
+      if (m.index > lastIdx) {
+        const plainSeg = cleanBareLatexInText(rawText.slice(lastIdx, m.index))
+        if (plainSeg) runs.push(applyInlineMarks({ text: plainSeg }, child.marks))
+      }
+      try {
+        const inner = latexToOmml(candidate)
+        runs.push(
+          applyInlineMarks(
+            {
+              text: `$${candidate}$`,
+              font: CODE_FONT,
+              math: { omml: `<m:oMath>${inner}</m:oMath>` },
+            },
+            child.marks,
+          ),
+        )
+      } catch {
+        const cleaned = cleanBareLatexInText(candidate)
+        runs.push(applyInlineMarks({ text: cleaned, font: CODE_FONT }, child.marks))
+      }
+      lastIdx = m.index + m[0].length
+    }
+    if (lastIdx < rawText.length) {
+      const tail = cleanBareLatexInText(rawText.slice(lastIdx))
+      if (tail) runs.push(applyInlineMarks({ text: tail }, child.marks))
+    }
   }
   return runs
 }
 
 function plainText(node: JSONContent): string {
-  if (node.type === 'text') return (node.text ?? '').replace(/<br\s*\/?>/gi, '\n')
+  if (node.type === 'text') return normalizeBrAndMarkers(node.text ?? '')
   if (node.type === 'hardBreak') return '\n'
   if (node.type === 'inlineMath') return String(node.attrs?.latex ?? '')
   return (node.content ?? []).map(plainText).join('')

@@ -1099,8 +1099,20 @@ function formatVnThousandDots(rawText: string): string {
 
 function sanitizeNd30Placeholders(rawHtml: string): string {
   let out = rawHtml
-  // FX-34: Unescape literal &lt;br&gt; / &lt;br/&gt; so line breaks in Markdown/HTML cells become real <br> tags
+  // FX-34: Strip leaked internal reasoning, tool_call, skill, and session markers
+  out = out.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
+  out = out.replace(/<think>[\s\S]*?<\/think>/gi, '')
+  out = out.replace(/<tool_call\b[^>]*>[\s\S]*?<\/tool_call>/gi, '')
+  out = out.replace(/<\|tool_call_start\|>[\s\S]*?<\|tool_call_end\|>/gi, '')
+  out = out.replace(/<lycero_global_mandatory_rules>[\s\S]*?<\/lycero_global_mandatory_rules>/gi, '')
+  out = out.replace(/<lycero_internal>[\s\S]*?<\/lycero_internal>/gi, '')
+  out = out.replace(/<skill\s+name="[^"]*">[\s\S]*?<\/skill>/gi, '')
+  out = out.replace(/\[LYCERO_[A-Z0-9_]+\]/g, '')
+  out = out.replace(/\[PII_[A-Z0-9_]+(?:\]|\b)/g, '')
+  // FX-46: Unescape literal &amp;lt;br&amp;gt; / &lt;br&gt; / \<br\> so line breaks in Markdown/HTML cells become real <br> tags
+  out = out.replace(/&amp;lt;br\s*\/?&amp;gt;/gi, '<br>')
   out = out.replace(/&lt;br\s*\/?&gt;/gi, '<br>')
+  out = out.replace(/\\<br\s*\/?\\?>/gi, '<br>')
   // FX-03: Strip leaked internal session IDs (kb-ask-..., kb-...) from document content
   out = out.replace(/\bkb-(?:ask-)?[a-z0-9_-]*\d[a-z0-9_-]*\b/gi, '')
   // Replace {{PLACEHOLDER}} tokens only when the model emitted UPPERCASE NĐ30 template variables (1h);
@@ -1180,6 +1192,44 @@ const INLINE_MATH_TOKEN_RE =
   /\$\$([\s\S]+?)\$\$|\\\(([^\n]+?)\\\)|\\\[([\s\S]+?)\\\]|\$(?!\s)([^$\n]*[^\\\s$])\$(?![$\d])/g
 const CURRENCY_SPAN_RE = /^\d[\d.,]*(?:\s+[\p{L}\p{N}]+)*\s+\d[\d.,]*$/u
 
+const UNICODE_SUPERSCRIPTS: Record<string, string> = {
+  '0': '⁰',
+  '1': '¹',
+  '2': '²',
+  '3': '³',
+  '4': '⁴',
+  '5': '⁵',
+  '6': '⁶',
+  '7': '⁷',
+  '8': '⁸',
+  '9': '⁹',
+  '+': '⁺',
+  '-': '⁻',
+  '=': '⁼',
+  '(': '⁽',
+  ')': '⁾',
+  n: 'ⁿ',
+  i: 'ⁱ',
+}
+
+const UNICODE_SUBSCRIPTS: Record<string, string> = {
+  '0': '₀',
+  '1': '₁',
+  '2': '₂',
+  '3': '₃',
+  '4': '₄',
+  '5': '₅',
+  '6': '₆',
+  '7': '₇',
+  '8': '₈',
+  '9': '₉',
+  '+': '₊',
+  '-': '₋',
+  '=': '₌',
+  '(': '₍',
+  ')': '₎',
+}
+
 const UNICODE_MATH_SYMBOLS: Record<string, string> = {
   times: '×',
   div: '÷',
@@ -1215,6 +1265,10 @@ const UNICODE_MATH_SYMBOLS: Record<string, string> = {
   supseteq: '⊇',
   cup: '∪',
   cap: '∩',
+  bigcup: '⋃',
+  bigcap: '⋂',
+  setminus: '∖',
+  backslash: '∖',
   emptyset: '∅',
   varnothing: '∅',
   therefore: '∴',
@@ -1223,18 +1277,84 @@ const UNICODE_MATH_SYMBOLS: Record<string, string> = {
   measuredangle: '∡',
   perp: '⊥',
   parallel: '∥',
+  nparallel: '∦',
+  mid: '∣',
+  nmid: '∤',
   triangle: '△',
+  square: '□',
+  blacksquare: '■',
+  diamond: '◊',
+  bullet: '•',
   circ: '°',
   degree: '°',
+  prime: '′',
+  dots: '…',
+  ldots: '…',
+  cdots: '⋯',
+  vdots: '⋮',
+  ddots: '⋱',
+  sum: '∑',
+  prod: '∏',
+  int: '∫',
+  oint: '∮',
+  sin: 'sin',
+  cos: 'cos',
+  tan: 'tan',
+  cot: 'cot',
+  arcsin: 'arcsin',
+  arccos: 'arccos',
+  arctan: 'arctan',
+  ln: 'ln',
+  log: 'log',
+  lg: 'lg',
+  lim: 'lim',
+  max: 'max',
+  min: 'min',
+  sup: 'sup',
+  inf: 'inf',
+  langle: '⟨',
+  rangle: '⟩',
+  lfloor: '⌊',
+  rfloor: '⌋',
+  lceil: '⌈',
+  rceil: '⌉',
+  vert: '|',
+  lvert: '|',
+  rvert: '|',
+  Vert: '‖',
+  lVert: '‖',
+  rVert: '‖',
+  neg: '¬',
+  lnot: '¬',
+  land: '∧',
+  wedge: '∧',
+  lor: '∨',
+  vee: '∨',
+  quad: ' ',
+  qquad: '  ',
+  enspace: ' ',
+  thinspace: ' ',
+  colon: ':',
   to: '→',
   rightarrow: '→',
   leftarrow: '←',
   leftrightarrow: '↔',
+  uparrow: '↑',
+  downarrow: '↓',
+  updownarrow: '↕',
   Rightarrow: '⇒',
   Leftarrow: '⇐',
   Leftrightarrow: '⇔',
+  Uparrow: '⇑',
+  Downarrow: '⇓',
+  longrightarrow: '⟶',
+  longleftarrow: '⟵',
+  Longrightarrow: '⟹',
+  Longleftarrow: '⟸',
+  Longleftrightarrow: '⟺',
   iff: '⇔',
   mapsto: '↦',
+  longmapsto: '⟼',
   alpha: 'α',
   beta: 'β',
   gamma: 'γ',
@@ -1274,13 +1394,46 @@ const UNICODE_MATH_SYMBOLS: Record<string, string> = {
   Omega: 'Ω',
 }
 
+function normalizeSpacedDollarMath(text: string): string {
+  if (!text.includes('$')) return text
+  return text.replace(
+    /(?<!\$)\$(?!\d[\d.,]*\s+[\p{L}])\s*([^$\n]+?)\s*\$(?![$\d])/gu,
+    (full, innerRaw: string) => {
+      const inner = innerRaw.trim()
+      if (!inner || inner.length === innerRaw.length || CURRENCY_SPAN_RE.test(inner)) return full
+      const hasLatexCmdOrSubSup = /\\[a-zA-Z]+|[_^]/.test(inner)
+      const isSimpleEquation =
+        !inner.startsWith('\\') &&
+        /^[A-Za-z0-9()[\]+\-*/=<>.,:\s]+$/.test(inner) &&
+        /[=<>+\-*/]/.test(inner) &&
+        !/\b[A-Za-z]{4,}\b/.test(inner)
+      return hasLatexCmdOrSubSup || isSimpleEquation ? `$${inner}$` : full
+    },
+  )
+}
+
 export function cleanLatexToUnicode(latex: string): string {
   let out = latex.trim()
-  out = out.replace(/^\$\$?|\$\$?$/g, '').trim()
+  out = out.replace(/^\$\$?|\$\$?$/g, '').replace(/^\\\[|\\\]$|^\\\(|\\\)$/g, '').trim()
+  out = out.replace(
+    /\\begin\{(?:cases|aligned|align\*?|array|matrix|pmatrix|bmatrix|vmatrix|Bmatrix)\}(?:\{[^{}]*\})?/g,
+    '',
+  )
+  out = out.replace(
+    /\\end\{(?:cases|aligned|align\*?|array|matrix|pmatrix|bmatrix|vmatrix|Bmatrix)\}/g,
+    '',
+  )
+  out = out.replace(/\\\\/g, '; ')
+  out = out.replace(/\s*&\s*/g, ' ')
+  out = out.replace(
+    /\\(?:left|right|[bB]ig[lr]?)\s*([()[\]|.{]|\\[{}|])/g,
+    (_m, d: string) => (d === '.' ? '' : d.replace(/^\\/, '')),
+  )
+  out = out.replace(/\^\s*\{\s*\\(?:circ|degree)\s*\}|\^\s*\\(?:circ|degree)\b/g, '°')
   // Unwrap \text{...}, \textbf{...}, \mathrm{...}, etc.
   for (let i = 0; i < 4; i++) {
     out = out.replace(
-      /\\(?:text|textbf|textit|textrm|mathbf|mathit|mathrm|mathsf|mathtt|mathcal|mathbb|operatorname)\s*\{([^{}]*)\}/g,
+      /\\(?:text|textbf|textit|textrm|mathbf|mathit|mathrm|mathsf|mathtt|mathcal|mathbb|operatorname|underline)\s*\{([^{}]*)\}/g,
       '$1',
     )
     out = out.replace(/\\(?:d?t?frac)\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, '($1)/($2)')
@@ -1291,23 +1444,47 @@ export function cleanLatexToUnicode(latex: string): string {
     out = out.replace(/\\(?:overline|bar)\s*\{([^{}]*)\}/g, '$1\u0304')
     out = out.replace(/\\(?:overrightarrow|vec)\s*\{([^{}]*)\}/g, '$1\u20D7')
   }
+  out = out.replace(/\^\{([0-9+\-=()ni]+)\}|\^([0-9ni])/g, (full, braced?: string, single?: string) => {
+    const raw = braced ?? single ?? ''
+    const mapped = [...raw].map((ch) => UNICODE_SUPERSCRIPTS[ch]).join('')
+    return mapped.length === raw.length ? mapped : full
+  })
+  out = out.replace(/_\{([0-9+\-=()]+)\}|_([0-9])/g, (full, braced?: string, single?: string) => {
+    const raw = braced ?? single ?? ''
+    const mapped = [...raw].map((ch) => UNICODE_SUBSCRIPTS[ch]).join('')
+    return mapped.length === raw.length ? mapped : full
+  })
   out = out.replace(/\\([a-zA-Z]+)\b/g, (full, cmd: string) => UNICODE_MATH_SYMBOLS[cmd] ?? full)
+  out = out.replace(/\\[,;:!]/g, ' ')
   out = out.replace(/\\([{}%$&_#])/g, '$1')
   out = out.replace(/\{([^{}]*)\}/g, '$1')
   return out.replace(/\s+/g, ' ').trim()
 }
 
-function cleanBareLatexInPlainText(text: string): string {
-  if (!text.includes('\\')) return text
+export function cleanBareLatexInPlainText(text: string): string {
+  if (!text.includes('\\') && !text.includes('^')) return text
   let out = text
-  out = out.replace(/\\(?:d?t?frac)\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, '($1)/($2)')
-  out = out.replace(/\\sqrt\s*\{([^{}]*)\}/g, '√($1)')
-  out = out.replace(/\\(?:widehat|hat)\s*\{([^{}]*)\}/g, '$1\u0302')
-  out = out.replace(/\\(?:widetilde|tilde)\s*\{([^{}]*)\}/g, '$1\u0303')
-  out = out.replace(/\\(?:overline|bar)\s*\{([^{}]*)\}/g, '$1\u0304')
-  out = out.replace(/\\(?:overrightarrow|vec)\s*\{([^{}]*)\}/g, '$1\u20D7')
+  out = out.replace(/\^\s*\{\s*\\(?:circ|degree)\s*\}|\^\s*\\(?:circ|degree)\b/g, '°')
+  if (!out.includes('\\')) return out
   out = out.replace(
-    /(?<![A-Za-z]:)\\(times|div|pm|mp|cdot|le|leq|ge|geq|ne|neq|approx|equiv|sim|simeq|cong|propto|infty|partial|nabla|forall|exists|in|notin|subset|supset|subseteq|supseteq|cup|cap|emptyset|varnothing|therefore|because|angle|measuredangle|perp|parallel|triangle|circ|degree|Rightarrow|Leftarrow|Leftrightarrow|rightarrow|leftarrow|leftrightarrow|alpha|beta|gamma|delta|epsilon|varepsilon|theta|lambda|mu|pi|sigma|omega|Delta|Omega|Pi|Sigma)\b/g,
+    /\\(?:left|right|[bB]ig[lr]?)\s*([()[\]|.{]|\\[{}|])/g,
+    (_m, d: string) => (d === '.' ? '' : d.replace(/^\\/, '')),
+  )
+  for (let i = 0; i < 3; i++) {
+    out = out.replace(
+      /\\(?:text|textbf|textit|textrm|mathbf|mathit|mathrm|mathsf|mathtt|mathcal|mathbb|operatorname|underline)\s*\{([^{}]*)\}/g,
+      '$1',
+    )
+    out = out.replace(/\\(?:d?t?frac)\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, '($1)/($2)')
+    out = out.replace(/\\sqrt\s*\[([^\]]*)\]\s*\{([^{}]*)\}/g, '√[$1]($2)')
+    out = out.replace(/\\sqrt\s*\{([^{}]*)\}/g, '√($1)')
+    out = out.replace(/\\(?:widehat|hat)\s*\{([^{}]*)\}/g, '$1\u0302')
+    out = out.replace(/\\(?:widetilde|tilde)\s*\{([^{}]*)\}/g, '$1\u0303')
+    out = out.replace(/\\(?:overline|bar)\s*\{([^{}]*)\}/g, '$1\u0304')
+    out = out.replace(/\\(?:overrightarrow|vec)\s*\{([^{}]*)\}/g, '$1\u20D7')
+  }
+  out = out.replace(
+    /(?<![A-Za-z]:)\\(times|div|pm|mp|cdot|ast|star|le|leq|ge|geq|ne|neq|approx|equiv|sim|simeq|cong|propto|infty|partial|nabla|forall|exists|nexists|in|notin|ni|subset|supset|subseteq|supseteq|cup|cap|bigcup|bigcap|setminus|emptyset|varnothing|therefore|because|angle|measuredangle|perp|parallel|nparallel|mid|nmid|triangle|square|blacksquare|diamond|bullet|circ|degree|prime|dots|ldots|cdots|vdots|ddots|sum|prod|int|oint|Rightarrow|Leftarrow|Leftrightarrow|Longrightarrow|Longleftarrow|Longleftrightarrow|rightarrow|leftarrow|leftrightarrow|longrightarrow|longleftarrow|uparrow|downarrow|mapsto|longmapsto|iff|alpha|beta|gamma|delta|epsilon|varepsilon|zeta|eta|theta|vartheta|iota|kappa|lambda|mu|nu|xi|pi|rho|sigma|tau|upsilon|phi|varphi|chi|psi|omega|Gamma|Delta|Theta|Lambda|Xi|Pi|Sigma|Upsilon|Phi|Psi|Omega)\b/g,
     (_m, cmd: string) => UNICODE_MATH_SYMBOLS[cmd] ?? _m,
   )
   return out
@@ -1317,7 +1494,16 @@ function parseTextWithMathNodes(
   rawText: string,
   effectiveMarks: PmMark[],
 ): PmNode[] {
-  const normalized = rawText.replace(/\s+/g, ' ')
+  if (/\\?<br\s*\/?\\?>/i.test(rawText)) {
+    const parts = rawText.split(/\\?<br\s*\/?\\?>/gi)
+    const nodes: PmNode[] = []
+    parts.forEach((part, idx) => {
+      if (idx > 0) nodes.push({ type: 'hardBreak' })
+      nodes.push(...parseTextWithMathNodes(part, effectiveMarks))
+    })
+    return nodes
+  }
+  const normalized = normalizeSpacedDollarMath(rawText.replace(/\s+/g, ' '))
   if (!normalized) return []
   const out: PmNode[] = []
   const pushPlain = (segment: string) => {
@@ -1512,7 +1698,7 @@ function cellParas(cell: Element): string[] {
   const paras: string[] = []
   let current = ''
   const push = () => {
-    paras.push(current.replace(/\s+/g, ' ').trim())
+    paras.push(cleanBareLatexInPlainText(current).replace(/\s+/g, ' ').trim())
     current = ''
   }
   const walk = (node: Node) => {
@@ -1530,7 +1716,7 @@ function cellParas(cell: Element): string[] {
         el.getAttribute('data-type') === 'inline-math' ||
         el.getAttribute('data-type') === 'block-math'
       ) {
-        current += el.getAttribute('data-latex') ?? el.textContent ?? ''
+        current += cleanLatexToUnicode(el.getAttribute('data-latex') ?? el.textContent ?? '')
       } else if (tag === 'p' || tag === 'div') {
         if (current.trim()) push()
         walk(el)
@@ -1648,7 +1834,11 @@ function parseCellParagraphNodes(
         flush()
         return
       }
-      if (tag === 'p' || tag === 'div') {
+      if (
+        (tag === 'p' || tag === 'div') &&
+        el.getAttribute('data-type') !== 'block-math' &&
+        el.getAttribute('data-type') !== 'inline-math'
+      ) {
         if (currentInline.length > 0) flush()
         const pAlign = extractTextAlign(el) ?? defaultAlign
         const parsed = parseInline(el, baseMarks, fallbackInvalidFormula)
@@ -2967,7 +3157,7 @@ export function parseHtmlFragment(
       } else {
         // unknown block-ish tag: salvage the text
         const t = (el.textContent ?? '').trim()
-        if (t) pushFormattedParagraph([{ type: 'text', text: t }])
+        if (t) pushFormattedParagraph(parseTextWithMathNodes(t, []))
       }
     })
   }
@@ -3265,6 +3455,7 @@ export function parseInlineFragment(raw: string): PmNode[] {
   let text = raw.trim()
   const fence = /```(?:html)?\s*([\s\S]*?)```/.exec(text)
   if (fence) text = fence[1].trim()
+  text = sanitizeNd30Placeholders(text)
   const single = /^<p(?:\s[^>]*)?>([\s\S]*)<\/p>$/i.exec(text)
   if (single) text = single[1]
   if (BLOCK_TAG.test(text)) {

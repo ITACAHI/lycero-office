@@ -34,14 +34,26 @@ async function runWithNetworkReconnect(
   const totalAttempts = Math.max(1, maxAttempts)
   for (let attempt = 1; attempt <= totalAttempts; attempt++) {
     let emitted = false
+    let receivedAnyByte = false
     const trackedCb: StreamCallbacks = {
       ...cb,
+      onActivity: () => {
+        receivedAnyByte = true
+        cb.onActivity?.()
+      },
       onDelta: (text) => {
         emitted = true
+        receivedAnyByte = true
         cb.onDelta(text)
+      },
+      onReasoningDelta: (text) => {
+        emitted = true
+        receivedAnyByte = true
+        cb.onReasoningDelta?.(text)
       },
       onToolCall: (call) => {
         emitted = true
+        receivedAnyByte = true
         cb.onToolCall(call)
       },
     }
@@ -49,12 +61,12 @@ async function runWithNetworkReconnect(
       await runAttempt(trackedCb)
       return
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      const isTransient =
+      const isPreByteNetworkFailure =
+        !receivedAnyByte &&
         !emitted &&
         !cb.signal?.aborted &&
-        (isAiNetworkError(err) || /^HTTP (502|503|504|520|521|522|523|524)\b/.test(msg))
-      if (isTransient && attempt < totalAttempts) {
+        isAiNetworkError(err)
+      if (isPreByteNetworkFailure && attempt < totalAttempts) {
         const delayMs =
           retryBaseDelayMs <= 0 ? 0 : Math.min(attempt * retryBaseDelayMs, retryBaseDelayMs * 6)
         if (delayMs > 0) {

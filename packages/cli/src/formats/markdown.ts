@@ -8,6 +8,7 @@ import { dirname, isAbsolute, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ensureDom } from '../dom'
 import { assertAllowed, type PathContext } from '../fs'
+import { sanitizeCliTextInput } from '../ops-input'
 import { imageSize } from './image-size'
 import { blankDocument, closeDocument, fillFromHtml, saveDocument } from './docx'
 
@@ -61,12 +62,101 @@ export interface MarkdownImageSource {
   ctx: PathContext
 }
 
+function isLatexFormulaLike(inner: string): boolean {
+  if (inner.includes('^') || inner.includes('_') || inner.includes('=')) return true
+  if (/\\[a-zA-Z]+/.test(inner)) return true
+  if (/\d\s*[+\-*/<>|±×÷]|[+\-*/<>|±×÷]\s*\d/.test(inner)) return true
+  return false
+}
+
+function normalizeMarkdownSegmentForDocx(text: string): string {
+  // FX-46: Normalize escaped <br> variants to <br> so Tiptap / HTML parser converts them to line breaks
+  let out = text
+    .replace(/&amp;lt;br\s*\/?&amp;gt;/gi, '<br>')
+    .replace(/&lt;br\s*\/?&gt;/gi, '<br>')
+    .replace(/\\<br\s*\/?\\?>/gi, '<br>')
+
+  // FX-46: Normalize \[...\] display/inline math delimiters
+  out = out.replace(
+    /\\\[([\s\S]+?)\\\]/g,
+    (match: string, latex: string, offset: number, full: string) => {
+      const inner = latex.trim()
+      if (!inner || !isLatexFormulaLike(inner)) return match
+      const before = full.slice(0, offset)
+      const after = full.slice(offset + match.length)
+      const lineStart = before.lastIndexOf('\n') + 1
+      const beforeOnLine = before.slice(lineStart, offset)
+      const nextNl = after.indexOf('\n')
+      const afterOnLine = nextNl === -1 ? after : after.slice(0, nextNl)
+      if (beforeOnLine.trim() === '' && afterOnLine.trim() === '') {
+        return `\n\n$$\n${inner}\n$$\n\n`
+      }
+      return `$${inner.replace(/\r?\n/g, ' ').trim()}$`
+    },
+  )
+
+  // FX-46: Convert inline $$...$$ (on a line with other text, e.g. table cells or list items) to $...$
+  out = out.replace(
+    /\$\$([^\n$]+?)\$\$/g,
+    (match: string, latex: string, offset: number, full: string) => {
+      const inner = latex.trim()
+      if (!inner) return match
+      const before = full.slice(0, offset)
+      const after = full.slice(offset + match.length)
+      const lineStart = before.lastIndexOf('\n') + 1
+      const beforeOnLine = before.slice(lineStart, offset)
+      const nextNl = after.indexOf('\n')
+      const afterOnLine = nextNl === -1 ? after : after.slice(0, nextNl)
+      if (beforeOnLine.trim() !== '' || afterOnLine.trim() !== '') {
+        return `$${inner}$`
+      }
+      return match
+    },
+  )
+
+  // FX-46: Convert \(...\) inline math and trim spaced $ ... $ outside display $$...$$ blocks
+  return out
+    .split(/(\$\$[\s\S]*?\$\$)/)
+    .map((segment, index) => {
+      if (index % 2 === 1) return segment
+      let s = segment.replace(/\\\(([^\n]+?)\\\)/g, (match: string, latex: string) => {
+        const inner = latex.trim()
+        if (!inner || !isLatexFormulaLike(inner)) return match
+        return `$${inner}$`
+      })
+      s = s.replace(
+        /(?<!\\|\$)\$(?:\s+([^$\n]+?)\s*|\s*([^$\n]+?)\s+)\$(?!\$|\d)/g,
+        (match: string, a?: string, b?: string) => {
+          const inner = (a ?? b ?? '').trim()
+          if (!inner || !isLatexFormulaLike(inner)) return match
+          if (/^\d[\d.,]*\s+\S/.test(inner) && !/[\\^_=<>±×÷]/.test(inner)) return match
+          return `$${inner}$`
+        },
+      )
+      return s
+    })
+    .join('')
+}
+
+function normalizeMarkdownForDocx(markdown: string): string {
+  const cleaned = sanitizeCliTextInput(markdown).replace(
+    /\bkb-(?:ask-)?[a-z0-9_-]*\d[a-z0-9_-]*\b/gi,
+    '',
+  )
+  return cleaned
+    .split(
+      /(^[ \t]*`{3,}[^\n]*\n[\s\S]*?^[ \t]*`{3,}[ \t]*$|^[ \t]*~{3,}[^\n]*\n[\s\S]*?^[ \t]*~{3,}[ \t]*$|`+[^`]*`+)/m,
+    )
+    .map((part, index) => (index % 2 ? part : normalizeMarkdownSegmentForDocx(part)))
+    .join('')
+}
+
 export async function markdownToDocx(
   markdown: string,
   images?: MarkdownImageSource,
 ): Promise<Uint8Array> {
-  // FX-03: Strip leaked internal session IDs (kb-ask-..., kb-...) from document content
-  const cleaned = markdown.replace(/\bkb-(?:ask-)?[a-z0-9_-]*\d[a-z0-9_-]*\b/gi, '')
+  // FX-03 / FX-34 / FX-46: Strip leaked internal markers and normalize math/<br> before parsing
+  const cleaned = normalizeMarkdownForDocx(markdown)
   const hasLocalImages = /!\[[^\]]*\]\((?!(?:https?|data|blob):)[^)]+\)/i.test(cleaned)
   const isVnStructuredDoc =
     !hasLocalImages &&

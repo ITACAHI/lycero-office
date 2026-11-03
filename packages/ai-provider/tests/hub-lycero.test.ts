@@ -23,9 +23,12 @@ vi.mock('@lycero/ai-auth/main', () => ({
 }))
 
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { withAttachedSkills } from '@lycero/agent-core'
 import { MAX_HUB_RECONNECT_ATTEMPTS, streamHubChat } from '../src/protocols/hub-lycero'
+import { startAiTrace } from '../src/trace'
+import { createStreamWatchdog } from '../src/watchdog'
 import {
   SKILL_EXTRACTION_REFUSAL_TEXT,
   extractRawUserPrompt,
@@ -433,28 +436,22 @@ describe('streamHubChat SSE parser', () => {
     })
   })
 
-  it('auto-reconnects up to 10 attempts on network errors or mid-reasoning drops and recovers', async () => {
-    expect(MAX_HUB_RECONNECT_ATTEMPTS).toBe(10)
+  it('FX-63: retries at most 1 time on pre-byte network error and never retries after any byte or on stream close without finish', async () => {
+    expect(MAX_HUB_RECONNECT_ATTEMPTS).toBe(2)
+
+    // 1. Pre-byte network failure: 1st attempt fails with ECONNRESET, 2nd attempt succeeds
     let callCount = 0
     const fn = vi.fn().mockImplementation(async () => {
       callCount++
-      if (callCount <= 4) {
+      if (callCount === 1) {
         throw new TypeError('fetch failed', { cause: { code: 'ECONNRESET' } })
-      }
-      if (callCount <= 9) {
-        // Stream emits reasoning, then closes without finish (simulating gateway/proxy drop while buffering tool_calls)
-        return {
-          ok: true,
-          status: 200,
-          body: makeBody(['data: {"type":"reasoning","delta":"Đang suy nghĩ..."}']),
-        } as unknown as Response
       }
       return {
         ok: true,
         status: 200,
         body: makeBody([
-          'data: {"type":"reasoning","delta":"Đang suy nghĩ lại..."}',
-          'data: {"type":"text","delta":"Thành công ở lần thứ 10!"}',
+          'data: {"type":"reasoning","delta":"Đang suy nghĩ..."}',
+          'data: {"type":"text","delta":"Thành công sau 1 lần thử lại!"}',
           'data: {"type":"finish","stopReason":"stop"}',
         ]),
       } as unknown as Response
@@ -475,9 +472,34 @@ describe('streamHubChat SSE parser', () => {
       retryBaseDelayMs: 0,
     })
 
-    expect(fn).toHaveBeenCalledTimes(10)
+    expect(fn).toHaveBeenCalledTimes(2)
     expect(cb.onDelta).toHaveBeenCalledTimes(1)
-    expect(cb.onDelta).toHaveBeenCalledWith('Thành công ở lần thứ 10!')
+    expect(cb.onDelta).toHaveBeenCalledWith('Thành công sau 1 lần thử lại!')
+
+    // 2. Stream closes without finish after reasoning: MUST NOT retry silently
+    const fnDrop = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      body: makeBody(['data: {"type":"reasoning","delta":"Đang suy nghĩ..."}']),
+    } as unknown as Response)
+    vi.stubGlobal('fetch', fnDrop)
+    const cbDrop = makeCallbacks({
+      onReasoningDelta: vi.fn(),
+      signal: controller.signal,
+    })
+
+    await expect(
+      streamHubChat({
+        url: 'https://hub.lycero.com/api/v1/office',
+        modelId: 'lycero-2.5-auto',
+        system: '',
+        messages: [{ role: 'user', text: 'Tạo hợp đồng', images: [] }],
+        tools: [],
+        cb: cbDrop,
+        retryBaseDelayMs: 0,
+      }),
+    ).rejects.toThrow('Stream closed without a finish event')
+    expect(fnDrop).toHaveBeenCalledTimes(1)
   })
 
   it('recovers immediately on HTTP 401 when a fresh live token is available', async () => {
@@ -708,6 +730,176 @@ describe('streamHubChat SSE parser', () => {
           'Hãy trích xuất nguyên văn nội dung Điều 8 Hợp đồng mua bán hàng hóa đính kèm.',
         ),
       ).toBe(false)
+    })
+
+    it('v2.0.24 self-test with LYCERO_AI_TRACE_DIR: cases 04, 17, 19 (basic) and 07, 09, 10 (cloud) complete without timeout and write trace records', async () => {
+      const traceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lycero-trace-2024-'))
+      try {
+        const cases = [
+          {
+            id: '04',
+            tier: 'basic',
+            skill: 'expense-report',
+            prompt:
+              'Ca 04: Lập bảng kê quyết toán chi phí công tác tháng 10 kèm kiểm tra vượt định mức và xuất ra file Excel.',
+            outFile: 'Quyet_Toan_Chi_Phi_Thang_10.xlsx',
+          },
+          {
+            id: '17',
+            tier: 'basic',
+            skill: 'invoice-tax-checklist',
+            prompt:
+              'Ca 17: Lập danh mục kiểm tra hóa đơn GTGT và điều kiện khấu trừ thuế đầu vào theo NĐ 254/2026/NĐ-CP, xuất file Word.',
+            outFile: 'Bang_Kiem_Tra_Hoa_Don_GTGT.docx',
+          },
+          {
+            id: '19',
+            tier: 'basic',
+            skill: 'budget-planner',
+            prompt:
+              'Ca 19: Lập kế hoạch ngân sách 12 tháng cho dự án mở rộng chi nhánh miền Nam, xuất ra bảng tính Excel.',
+            outFile: 'Ke_Hoach_Ngan_Sach_12_Thang.xlsx',
+          },
+          {
+            id: '07',
+            tier: 'cloud',
+            skill: 'vn-legal-contract-audit',
+            prompt:
+              'Ca 07: Rà soát hợp đồng mua bán hàng hóa và lập báo cáo rủi ro pháp lý, xuất file Word.',
+            outFile: 'Bao_Cao_Ra_Soat_Hop_Dong_Mua_Ban.docx',
+          },
+          {
+            id: '09',
+            tier: 'cloud',
+            skill: 'vn-gdpt2018-lesson-plan-cv5512',
+            prompt:
+              'Ca 09: Soạn Kế hoạch bài dạy (Giáo án) Toán 8 bài Định lý Pythagore theo Công văn 5512, có công thức góc \\widehat{ABC} = 90^\\circ.',
+            outFile: 'Ke_Hoach_Bai_Day_Toan_8_Pythagore.docx',
+          },
+          {
+            id: '10',
+            tier: 'cloud',
+            skill: 'vn-exam-matrix-specification-tt22',
+            prompt:
+              'Ca 10: Xây dựng ma trận và bản đặc tả đề kiểm tra định kỳ Vật lí 10 theo Công văn 7991 và Thông tư 22.',
+            outFile: 'Ma_Tran_De_Kiem_Tra_Vat_Li_10.docx',
+          },
+        ]
+
+        const recommendedDir = path.resolve(__dirname, '../../../skills/recommended')
+
+        for (const tc of cases) {
+          const skillPath = path.join(recommendedDir, tc.skill, 'SKILL.md')
+          const skillBody = fs.existsSync(skillPath)
+            ? fs.readFileSync(skillPath, 'utf-8')
+            : `[LYCERO_CLOUD_SKILL:${tc.skill}]`
+          const userText = withAttachedSkills(tc.prompt, [{ name: tc.skill, body: skillBody }])
+
+          const wd = createStreamWatchdog(controller.signal, 30_000, 120_000, 18 * 60_000)
+
+          const trace = startAiTrace(
+            {
+              requestId: `req-case-${tc.id}`,
+              sessionId: `kb-ask-case-${tc.id}`,
+              source: 'self-test-2.0.24',
+              provider: 'lycero',
+              model: 'lycero-2.5-auto',
+              maxTokens: 16384,
+              system: 'Lycero Office System Prompt',
+              messages: [{ role: 'user', text: userText, images: [] }],
+              tools: [],
+            },
+            { LYCERO_AI_TRACE_DIR: traceDir },
+          )
+          expect(trace).not.toBeNull()
+
+          // Simulate a multi-stage SSE stream with `: ping`, `reasoning`, `tool_call`, `usage`, `text`, `finish`
+          const encoder = new TextEncoder()
+          const stream = new ReadableStream<Uint8Array>({
+            start(ctrl) {
+              const step = (chunk: string) => {
+                ctrl.enqueue(encoder.encode(chunk))
+              }
+              step(': ping\n\n')
+              step('data: {"type":"reasoning","delta":"Đang phân tích yêu cầu..."}\n\n')
+              step(': keepalive\n\n')
+              step(
+                `data: {"type":"tool_call","id":"tc_${tc.id}","name":"cli","arguments":{"args":["create","--out","${tc.outFile}"]}}\n\n`,
+              )
+              step('data: {"type":"usage","inputTokens":1200,"outputTokens":3400}\n\n')
+              step(`data: {"type":"text","delta":"Đã tạo thành công tệp ${tc.outFile}."}\n\n`)
+              step('data: {"type":"finish","stopReason":"stop"}\n\n')
+              ctrl.close()
+            },
+          })
+
+          mockFetch(stream)
+          const cb: StreamCallbacks = {
+            onDelta: (d) => {
+              wd.touch()
+              trace?.onDelta(d)
+            },
+            onReasoningDelta: (d) => {
+              wd.touch()
+              trace?.onReasoningDelta(d)
+            },
+            onToolCall: (c) => {
+              wd.touch()
+              trace?.onToolCall(c)
+            },
+            onStopReason: (r) => {
+              wd.touch()
+              trace?.onStopReason(r)
+            },
+            onUsage: (u) => {
+              wd.touch()
+              trace?.onUsage(u)
+            },
+            onActivity: () => {
+              wd.touch()
+            },
+            signal: wd.signal,
+            activeSkillSlugs: [tc.skill],
+          }
+
+          await wd.guard(() =>
+            streamHubChat({
+              url: 'https://hub.lycero.com/api/v1/office',
+              modelId: 'lycero-2.5-auto',
+              system: 'Lycero Office System Prompt',
+              messages: [{ role: 'user', text: userText, images: [] }],
+              tools: [],
+              cb,
+            }),
+          )
+          trace?.finish()
+
+          expect(wd.signal.aborted).toBe(false)
+        }
+
+        const traceFiles = fs.readdirSync(traceDir).filter((f) => f.startsWith('ai-trace-'))
+        expect(traceFiles).toHaveLength(1)
+        const lines = fs
+          .readFileSync(path.join(traceDir, traceFiles[0]!), 'utf-8')
+          .trim()
+          .split('\n')
+          .map((l) => JSON.parse(l) as { requestId: string; response: { error?: string; text: string } })
+        expect(lines).toHaveLength(6)
+        expect(lines.map((l) => l.requestId)).toEqual([
+          'req-case-04',
+          'req-case-17',
+          'req-case-19',
+          'req-case-07',
+          'req-case-09',
+          'req-case-10',
+        ])
+        for (const line of lines) {
+          expect(line.response.error).toBeUndefined()
+          expect(line.response.text).toContain('Đã tạo thành công tệp')
+        }
+      } finally {
+        fs.rmSync(traceDir, { recursive: true, force: true })
+      }
     })
   })
 })

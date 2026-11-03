@@ -37,9 +37,18 @@ export function sanitizeCliTextInput(raw: string, env?: NodeJS.ProcessEnv): stri
       // ignore invalid JSON
     }
   }
-  // Never allow unreplaced [PII_...] placeholders or internal kb-ask-* IDs into output files (FX-04, FX-03)
+  // Never allow unreplaced [PII_...] placeholders or internal kb-ask-* / tool_call / thinking tags into output files (FX-04, FX-03, FX-34)
   out = out.replace(/\[PII_[A-Z0-9_]+(?:\]|\b)/g, '')
   out = out.replace(/\bkb-(?:ask-)?\d{8,}(?:-[a-z0-9]+)*\b/gi, '')
+  out = out.replace(/\bkb-ask-[a-z0-9_-]*\d[a-z0-9_-]*\b/gi, '')
+  out = out.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
+  out = out.replace(/<think>[\s\S]*?<\/think>/gi, '')
+  out = out.replace(/<tool_call\b[^>]*>[\s\S]*?<\/tool_call>/gi, '')
+  out = out.replace(/<\|tool_call_start\|>[\s\S]*?<\|tool_call_end\|>/gi, '')
+  out = out.replace(/<lycero_global_mandatory_rules>[\s\S]*?<\/lycero_global_mandatory_rules>/gi, '')
+  out = out.replace(/<lycero_internal>[\s\S]*?<\/lycero_internal>/gi, '')
+  out = out.replace(/<skill\s+name="[^"]*">[\s\S]*?<\/skill>/gi, '')
+  out = out.replace(/\[LYCERO_[A-Z0-9_]+\]/g, '')
   return out
 }
 

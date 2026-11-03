@@ -88,6 +88,20 @@ describe('staging', () => {
     expect(validateStagedFiles([{ name: 'a.md', content: '#' }])).toEqual([
       { name: 'a.md', content: '#' },
     ])
+    expect(
+      validateStagedFiles([
+        {
+          name: 'doc.md',
+          content:
+            '# Title\n<thinking>secret thought</thinking><tool_call>{"name":"cli"}</tool_call>[LYCERO_INTERNAL_TAG] Body kb-ask-1760000000000 text [PII_PERSON_1]',
+        },
+      ]),
+    ).toEqual([
+      {
+        name: 'doc.md',
+        content: '# Title\n Body  text ',
+      },
+    ])
     expect(() => validateStagedFiles([{ name: 'a.md' }])).toThrow(HomeCliError)
     expect(() => validateStagedFiles('x')).toThrow(HomeCliError)
   })
@@ -237,5 +251,45 @@ describe('runHomeCli', () => {
       resolve('/o'),
       resolve('/s'),
     ])
+  })
+
+  it('FX-50: appends " (1)" instead of overwriting a pre-existing file in the output directory, and redirects same-session edits to it', async () => {
+    const outDir = join(root, 'Documents')
+    await mkdir(outDir, { recursive: true })
+    const existing = join(outDir, 'report.docx')
+    await writeFile(existing, 'pre-existing user file')
+
+    const expectedSuffixed = join(outDir, 'report (1).docx')
+    outcome.json = {
+      status: 'ok',
+      command: 'create',
+      summary: 'ok',
+      output_path: expectedSuffixed,
+    }
+    await runHomeCli(deps, 'kb-ask-fx50', {
+      args: ['create', '--type', 'docx', '--from', 'report.md', '--out', existing],
+      files: [{ name: 'report.md', content: '# New Report' }],
+    })
+
+    // Pre-existing file must NOT be deleted or overwritten
+    expect(await readFile(existing, 'utf8')).toBe('pre-existing user file')
+    // CLI must have received the suffixed " (1)" output path
+    expect(runs[0]!.args).toEqual([
+      'create',
+      '--type',
+      'docx',
+      '--from',
+      'report.md',
+      '--out',
+      expectedSuffixed,
+    ])
+
+    // Simulate the CLI having written the suffixed file, then running an in-place apply on the original name in the same session
+    await writeFile(expectedSuffixed, 'new session content')
+    await runHomeCli(deps, 'kb-ask-fx50', {
+      args: ['docs', 'apply', existing, '--ops', 'ops.json'],
+      files: [{ name: 'ops.json', content: '[]' }],
+    })
+    expect(runs[1]!.args).toEqual(['docs', 'apply', resolve(expectedSuffixed), '--ops', 'ops.json'])
   })
 })

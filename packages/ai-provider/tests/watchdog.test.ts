@@ -9,6 +9,7 @@ import { streamForProvider } from '../src/stream'
 import {
   AI_CONNECT_TIMEOUT_MS,
   AI_IDLE_TIMEOUT_MS,
+  AI_TOTAL_TIMEOUT_MS,
   AiTimeoutError,
   createStreamWatchdog,
 } from '../src/watchdog'
@@ -80,6 +81,32 @@ describe('createStreamWatchdog', () => {
   it('non-timeout errors pass through unchanged', async () => {
     const wd = createStreamWatchdog(undefined, 1_000, 1_000)
     await expect(wd.guard(() => Promise.reject(new Error('boom')))).rejects.toThrow('boom')
+  })
+
+  it('FX-62: uses 120s idle timeout ("Máy chủ không phản hồi") and 15-min total cap ("Yêu cầu chạy quá lâu")', async () => {
+    expect(AI_IDLE_TIMEOUT_MS).toBe(120_000)
+    expect(AI_TOTAL_TIMEOUT_MS).toBe(15 * 60_000)
+
+    // 1. Idle timeout surfaces "Máy chủ không phản hồi"
+    const wdIdle = createStreamWatchdog(undefined, 2_000, 5_000, 60_000)
+    const runIdle = wdIdle.guard(() => abortable(wdIdle.signal))
+    const idleResult = expect(runIdle).rejects.toThrow(/Máy chủ không phản hồi/)
+    wdIdle.touch()
+    await vi.advanceTimersByTimeAsync(5_000)
+    await idleResult
+
+    // 2. Total timeout fires even when touch() is called repeatedly (e.g. pings)
+    const wdTotal = createStreamWatchdog(undefined, 3_000, 5_000, 10_000)
+    const runTotal = wdTotal.guard(() => abortable(wdTotal.signal))
+    const totalResult = expect(runTotal).rejects.toThrow(/Yêu cầu chạy quá lâu/)
+    for (let i = 0; i < 4; i++) {
+      await vi.advanceTimersByTimeAsync(2_000)
+      wdTotal.touch()
+    }
+    expect(wdTotal.signal.aborted).toBe(false)
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(wdTotal.signal.aborted).toBe(true)
+    await totalResult
   })
 })
 

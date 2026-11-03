@@ -229,4 +229,54 @@ describe('legacy HTML content degrades to plain runs in docx export', () => {
     expect(runs.every((r) => !r.color && !r.highlight)).toBe(true)
     expect(parsed.blocks.every((b) => b.format?.align !== 'center')).toBe(true)
   })
+
+  it('FX-34 & FX-46: converts escaped <br>, leftover inline math, and bare LaTeX while stripping internal markers', async () => {
+    const doc = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'Dòng 1&lt;br&gt;Dòng 2&amp;lt;br/&amp;gt;Dòng 3 kb-ask-1776240000-abc [PII_EMAIL_1] [LYCERO_INTERNAL]',
+            },
+          ],
+        },
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'Phương trình $$x^2 + 1 = 0$$ và \\(y = \\sqrt{x}\\) cùng góc \\widehat{ABC} = 90^\\circ trong \\triangle ABC.',
+            },
+          ],
+        },
+      ],
+    }
+    const mapping = await mapDocToSaveBlocks(doc, noImages)
+    const p0Runs =
+      mapping.blocks[0]?.kind === 'generated' ? mapping.blocks[0].block.runs : []
+    const p0Text = p0Runs.map((r) => r.text).join('')
+    expect(p0Text).toContain('Dòng 1\nDòng 2\nDòng 3')
+    expect(p0Text).not.toContain('&lt;br')
+    expect(p0Text).not.toContain('kb-ask-')
+    expect(p0Text).not.toContain('PII_')
+    expect(p0Text).not.toContain('LYCERO_')
+
+    const p1Runs =
+      mapping.blocks[1]?.kind === 'generated' ? mapping.blocks[1].block.runs : []
+    const mathRuns = p1Runs.filter((r) => r.math?.omml)
+    expect(mathRuns).toHaveLength(2)
+    expect(mathRuns[0]!.math!.omml).toContain('<m:oMath>')
+    expect(mathRuns[1]!.math!.omml).toContain('<m:oMath>')
+    const plainRunsText = p1Runs
+      .filter((r) => !r.math)
+      .map((r) => r.text)
+      .join('')
+    expect(plainRunsText).toContain('∠ABC = 90°')
+    expect(plainRunsText).toContain('△ ABC')
+    expect(plainRunsText).not.toContain('\\widehat')
+    expect(plainRunsText).not.toContain('\\triangle')
+  })
 })

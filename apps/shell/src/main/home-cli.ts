@@ -65,8 +65,11 @@ const SESSION_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/
 const JUNK_TEST_FILENAME_RE = /^test(?:[._-].*)?\.(?:docx|html?|md|xlsx|pptx)$/i
 /** FX-02: Block trivial self-test content ("Hello test") from overwriting or polluting user folders */
 const JUNK_TEST_CONTENT_RE = /^(?:#+\s*)?hello\s+test[.!]*$/i
-/** FX-03: Strip leaked internal session IDs (kb-ask-..., kb-...) from document content */
+/** FX-03 & FX-34: Strip leaked internal session IDs, thinking/tool tags, and system markers from document content */
 const LEAKED_SESSION_ID_RE = /\bkb-(?:ask-)?\d{8,}\b/g
+const LEAKED_INTERNAL_BLOCKS_RE =
+  /<(?:thinking|think|tool_call|lycero_global_mandatory_rules|lycero_internal)\b[^>]*>[\s\S]*?<\/(?:thinking|think|tool_call|lycero_global_mandatory_rules|lycero_internal)>|<\|tool_call_start\|>[\s\S]*?<\|tool_call_end\|>|<function=[^>]+>[\s\S]*?<\/function>|<skill\s+name="[^"]*"[^>]*>[\s\S]*?<\/skill>/gi
+const LEAKED_INTERNAL_MARKERS_RE = /\[LYCERO_[A-Z0-9_]+(?::[^\]]*)?\]|\[PII_[A-Z0-9_]+\]/g
 
 export function isJunkTestFilename(nameOrPath: string): boolean {
   const base = basename(nameOrPath.trim())
@@ -75,7 +78,10 @@ export function isJunkTestFilename(nameOrPath: string): boolean {
 
 export function sanitizeStagedContent(content: string): string {
   const restored = PiiTokenizer.restoreGlobal(content)
-  return restored.replace(LEAKED_SESSION_ID_RE, '')
+  return restored
+    .replace(LEAKED_SESSION_ID_RE, '')
+    .replace(LEAKED_INTERNAL_BLOCKS_RE, '')
+    .replace(LEAKED_INTERNAL_MARKERS_RE, '')
 }
 
 export class HomeCliError extends Error {}
@@ -276,12 +282,42 @@ function clip(text: string): string {
 }
 
 const sessionCreatedOutputs = new Map<string, Set<string>>()
+const sessionOutputRedirects = new Map<string, Map<string, string>>()
 
 /**
- * FX-18: Redirect any `--out` that accidentally points into `ask-ai-work`, `~/Lycero`,
+ * FX-50: Compute a non-colliding path with a `" (1)"`, `" (2)"`, ... suffix before the
+ * extension when `targetPath` already exists on disk and was not created in this session.
+ */
+export function uniqueOutputPathWithSuffix(
+  targetPath: string,
+  createdInSession?: ReadonlySet<string>,
+): string {
+  const resolved = resolve(targetPath)
+  if (!existsSync(resolved) || createdInSession?.has(resolved)) {
+    return targetPath
+  }
+  const dir = dirname(targetPath)
+  const base = basename(targetPath)
+  const dotIdx = base.lastIndexOf('.')
+  const rawStem = dotIdx > 0 ? base.slice(0, dotIdx) : base
+  const ext = dotIdx > 0 ? base.slice(dotIdx) : ''
+  const stem = rawStem.replace(/\s+\(\d+\)$/, '')
+  for (let n = 1; n < 10_000; n++) {
+    const candidate = join(dir, `${stem} (${n})${ext}`)
+    const resolvedCandidate = resolve(candidate)
+    if (!existsSync(resolvedCandidate) || createdInSession?.has(resolvedCandidate)) {
+      return candidate
+    }
+  }
+  return join(dir, `${stem} (${Date.now()})${ext}`)
+}
+
+/**
+ * FX-18 & FX-50: Redirect any `--out` that accidentally points into `ask-ai-work`, `~/Lycero`,
  * bare `$HOME/<file>.(docx|xlsx|pptx|pdf)`, or relative filenames in production to the
- * canonical `ctx.outDir` (`<Documents>/Lycero Office`), and collapse `-2` / `_v2` duplicate
- * suffixes back to the session's own created file.
+ * canonical `ctx.outDir` (`<Documents>/Lycero Office`), collapse `-2` / `_v2` duplicate
+ * suffixes back to the session's own created file, and append `" (1)"` instead of silently
+ * overwriting pre-existing files in `ctx.outDir`.
  */
 function normalizeOutputArgPaths(
   args: string[],
@@ -289,7 +325,16 @@ function normalizeOutputArgPaths(
   sessionId: string,
 ): string[] {
   const normalized = [...args]
-  const createdInSession = sessionCreatedOutputs.get(sessionId) ?? new Set<string>()
+  let createdInSession = sessionCreatedOutputs.get(sessionId)
+  if (!createdInSession) {
+    createdInSession = new Set<string>()
+    sessionCreatedOutputs.set(sessionId, createdInSession)
+  }
+  let redirects = sessionOutputRedirects.get(sessionId)
+  if (!redirects) {
+    redirects = new Map<string, string>()
+    sessionOutputRedirects.set(sessionId, redirects)
+  }
   const rewriteOut = (rawOut: string): string => {
     if (!/\.(docx|xlsx|pptx|pdf)$/i.test(rawOut)) return rawOut
     const clean = rawOut.trim()
@@ -304,15 +349,16 @@ function normalizeOutputArgPaths(
     ) {
       targetPath = join(ctx.outDir, basename(clean))
     }
+    const resolvedTarget = resolve(ctx.workDir, targetPath)
     // FX-18: If the model tries to create a duplicate `<stem>-2.ext` or `<stem>_v2.ext` for a file
     // already created in this same session, collapse it back to the original session file and
     // remove the earlier draft so only one final file exists.
-    const resolvedTarget = resolve(ctx.workDir, targetPath)
     const dupMatch = /^(.+?)(?:[-_](?:v?\d+|final|updated|moi))(\.(?:docx|xlsx|pptx|pdf))$/i.exec(
       basename(resolvedTarget),
     )
     if (dupMatch) {
-      const baseCandidate = resolve(dirname(resolvedTarget), `${dupMatch[1]}${dupMatch[2]}`)
+      const rawBase = resolve(dirname(resolvedTarget), `${dupMatch[1]}${dupMatch[2]}`)
+      const baseCandidate = redirects.get(rawBase) ?? rawBase
       if (createdInSession.has(baseCandidate)) {
         try {
           rmSync(baseCandidate, { force: true })
@@ -322,15 +368,36 @@ function normalizeOutputArgPaths(
         return baseCandidate
       }
     }
-    // FX-50: If the target output file inside ctx.outDir or ctx.workDir already exists
-    // (either from an earlier step in this session or a previous test/user run),
-    // remove it before running create/convert so the CLI never fails with `output_exists`
-    // and never silently points to a stale file from a previous session.
+    // FX-50: If this session already redirected `resolvedTarget` to a `" (1)"` path, reuse it.
+    const existingRedirect = redirects.get(resolvedTarget)
+    if (existingRedirect) {
+      if (existsSync(existingRedirect)) {
+        try {
+          rmSync(existingRedirect, { force: true })
+        } catch {
+          // ignore
+        }
+      }
+      return existingRedirect
+    }
+    // FX-50: If the file already exists in ctx.outDir and was NOT created in this session,
+    // do not overwrite it — add a `" (1)"` (or `" (2)"`, ...) suffix instead.
     if (
       existsSync(resolvedTarget) &&
-      (createdInSession.has(resolvedTarget) ||
-        isInside(ctx.outDir, resolvedTarget) ||
-        isInside(ctx.workDir, resolvedTarget))
+      isInside(ctx.outDir, resolvedTarget) &&
+      !isInside(ctx.workDir, resolvedTarget) &&
+      !createdInSession.has(resolvedTarget)
+    ) {
+      const suffixed = uniqueOutputPathWithSuffix(targetPath, createdInSession)
+      const resolvedSuffixed = resolve(ctx.workDir, suffixed)
+      redirects.set(resolvedTarget, resolvedSuffixed)
+      createdInSession.add(resolvedSuffixed)
+      return suffixed
+    }
+    // Same-session output revision or scratch file in ctx.workDir: safe to replace before regeneration
+    if (
+      existsSync(resolvedTarget) &&
+      (createdInSession.has(resolvedTarget) || isInside(ctx.workDir, resolvedTarget))
     ) {
       try {
         rmSync(resolvedTarget, { force: true })
@@ -345,6 +412,15 @@ function normalizeOutputArgPaths(
       normalized[i + 1] = rewriteOut(normalized[i + 1]!)
     } else if (normalized[i]!.startsWith('--out=')) {
       normalized[i] = `--out=${rewriteOut(normalized[i]!.slice(6))}`
+    } else if (i > 0 && !normalized[i]!.startsWith('-') && /\.(docx|xlsx|pptx|pdf)$/i.test(normalized[i]!)) {
+      const prev = normalized[i - 1]
+      if (prev !== '--out' && prev !== '--ops' && prev !== '--spec' && prev !== '--outline') {
+        const resolvedArg = resolve(ctx.workDir, normalized[i]!)
+        const redirected = redirects.get(resolvedArg)
+        if (redirected) {
+          normalized[i] = redirected
+        }
+      }
     }
   }
   return normalized

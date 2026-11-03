@@ -24,6 +24,8 @@ export interface Artifact {
   status: ArtifactStatus
   /** the CLI's one-line reason when status is 'failed' */
   error?: string
+  /** FX-64: set when a failed artifact was later superseded by a successful create in the same turn */
+  retried?: boolean
 }
 
 const DOC_EXT = /\.(docx|xlsx|pptx|pdf|md|html|csv|png|jpe?g)$/i
@@ -119,12 +121,22 @@ export function settleArtifact(
   out[index] = next
   // FX-32: If an earlier card in the same turn targeted the exact same file (by path or baseName),
   // supersede the earlier card so the UI shows one accurate card for the final write.
-  return out.filter((item, idx) => {
-    if (idx === index) return true
-    if (path && item.path && item.path === path) return false
-    if (item.name === resolvedName && idx < index) return false
-    return true
-  })
+  // FX-64: If an earlier card in the same turn failed (even with a different file name, e.g.
+  // baocao.md -> Bao_Cao_Ra_Soat_Hop_Dong_Mua_Ban.docx) and this card succeeded, mark the
+  // earlier failed card as `retried: true` ("Đã thử lại thành công").
+  return out
+    .filter((item, idx) => {
+      if (idx === index) return true
+      if (path && item.path && item.path === path) return false
+      if (item.name === resolvedName && idx < index) return false
+      return true
+    })
+    .map((item) => {
+      if (!execution.isError && item.callId !== call.id && item.status === 'failed') {
+        return { ...item, retried: true }
+      }
+      return item
+    })
 }
 
 /** the prompt a Retry button sends for one failed artifact */

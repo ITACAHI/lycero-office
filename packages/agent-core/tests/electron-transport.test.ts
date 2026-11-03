@@ -128,10 +128,30 @@ describe('createIpcTransport', () => {
     expect(cancelled).toEqual([started[0]!.requestId])
   })
 
-  it('maps a timeout error code to the localized timeout message', () => {
+  it('maps a timeout error code to the localized timeout message, preserving specific FX-62 watchdog messages', () => {
     const { cb, emit } = setup()
     emit({ type: 'error', error: 'AI request timed out: no data received', errorCode: 'timeout' })
     expect(cb.onError).toHaveBeenCalledWith('timed out')
+
+    const { cb: cbIdle, emit: emitIdle } = setup()
+    emitIdle({
+      type: 'error',
+      error: 'Máy chủ không phản hồi (không nhận được dữ liệu trong 120s). (requestId: r1)',
+      errorCode: 'timeout',
+    })
+    expect(cbIdle.onError).toHaveBeenCalledWith(
+      'Máy chủ không phản hồi (không nhận được dữ liệu trong 120s). (requestId: r1)',
+    )
+
+    const { cb: cbTotal, emit: emitTotal } = setup()
+    emitTotal({
+      type: 'error',
+      error: 'Yêu cầu chạy quá lâu (đã vượt giới hạn 15 phút). (requestId: r2)',
+      errorCode: 'timeout',
+    })
+    expect(cbTotal.onError).toHaveBeenCalledWith(
+      'Yêu cầu chạy quá lâu (đã vượt giới hạn 15 phút). (requestId: r2)',
+    )
   })
 
   it('maps a credits error code to the localized credits message', () => {

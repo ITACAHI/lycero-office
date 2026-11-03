@@ -21,7 +21,11 @@ import {
 } from './shared'
 import type { AgentMessage, AgentToolDef } from '@lycero/agent-core'
 
-export const MAX_HUB_RECONNECT_ATTEMPTS = 10
+/**
+ * FX-63: Retry at most 1 time (2 total attempts), and only for network errors
+ * before any byte has been received from the stream body.
+ */
+export const MAX_HUB_RECONNECT_ATTEMPTS = 2
 
 interface HubFinishPayload {
   type: 'finish'
@@ -288,10 +292,15 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
   const totalAttempts = Math.max(1, maxAttempts)
   for (let attempt = 1; attempt <= totalAttempts; attempt++) {
     let emitted = false
+    let receivedAnyByte = false
     const wd = createStreamWatchdog(cb.signal)
     const onBytes = () => {
       wd.touch()
       cb.onActivity?.()
+    }
+    const onStreamBodyBytes = () => {
+      receivedAnyByte = true
+      onBytes()
     }
     try {
       await wd.guard(async () => {
@@ -389,7 +398,7 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
         const unmaskDelta = PiiTokenizer.createStreamUnmasker(piiMap)
         const unmaskReasoning = PiiTokenizer.createStreamUnmasker(piiMap)
 
-        for await (const rawLine of sseLines(response.body, onBytes)) {
+        for await (const rawLine of sseLines(response.body, onStreamBodyBytes)) {
           const line = rawLine.trim()
           if (!line) continue
           if (line.startsWith(':')) continue
@@ -407,13 +416,13 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
           switch (payload.type) {
             case 'text':
               emitted = true
+              receivedAnyByte = true
               cb.onDelta(unmaskDelta(payload.delta))
               break
             case 'reasoning':
             case 'thinking':
-              // Reasoning deltas do not mutate history or visible answer text;
-              // keep `emitted = false` so a drop while thinking or buffering
-              // tool_calls can reconnect up to 10 times seamlessly.
+              emitted = true
+              receivedAnyByte = true
               cb.onReasoningDelta?.(
                 unmaskReasoning(payload.delta).replace(
                   /Manus(?:\s+1\.6)?(?:\s+Orchestrator)?/gi,
@@ -423,6 +432,7 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
               break
             case 'tool_call': {
               emitted = true
+              receivedAnyByte = true
               const rawArgs = payload.input ?? payload.arguments ?? {}
               let parsedArgs: Record<string, unknown> = {}
               if (typeof rawArgs === 'string') {
@@ -447,6 +457,7 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
             }
             case 'finish': {
               sawFinish = true
+              receivedAnyByte = true
               const tailDelta = unmaskDelta('', true)
               if (tailDelta) cb.onDelta(tailDelta)
               const tailReasoning = unmaskReasoning('', true)
@@ -471,9 +482,11 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
               break
             }
             case 'error':
+              receivedAnyByte = true
               onBytes()
               throw new Error(payload.message || 'Lỗi xử lý từ Cổng Trí tuệ Lycero.')
             case 'start':
+              receivedAnyByte = true
               break
           }
         }
@@ -492,18 +505,18 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
         attempt--
         continue
       }
-      const isTransient =
+      // FX-63: Retry at most 1 time, and ONLY for network errors before any byte
+      // has been received. Never retry silently on 'Stream closed without a finish event'
+      // or AiTimeoutError.
+      const isPreByteNetworkFailure =
+        !receivedAnyByte &&
         !emitted &&
         !cb.signal?.aborted &&
         !(err instanceof AiQuotaExhaustedError) &&
-        (isAiNetworkError(err) ||
-          err instanceof AiTimeoutError ||
-          /^HTTP (408|425|500|502|503|504|520|521|522|523|524)\b/.test(msg) ||
-          msg === 'Stream closed without a finish event' ||
-          /timeout|timed out|overloaded|temporarily unavailable|connection|socket|terminated|ECONN|UND_ERR|Đã xảy ra lỗi khi tạo phản hồi/i.test(
-            msg,
-          ))
-      if (isTransient && attempt < totalAttempts) {
+        !(err instanceof AiTimeoutError) &&
+        msg !== 'Stream closed without a finish event' &&
+        isAiNetworkError(err)
+      if (isPreByteNetworkFailure && attempt < totalAttempts) {
         const delayMs =
           retryBaseDelayMs <= 0 ? 0 : Math.min(attempt * retryBaseDelayMs, retryBaseDelayMs * 6)
         await waitWithActivity(delayMs, cb.signal, cb.onActivity)
