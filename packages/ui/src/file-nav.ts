@@ -44,12 +44,24 @@ export function parseFileNavHref(href: string): string | null {
 }
 
 /** nav entry that opens cited files through the host app's open-channel */
-export function createFileNav(openPath: (path: string) => void): MarkdownNav {
+export function createFileNav(
+  openPath: (path: string) => void,
+  opts?: { isMissing?: (path: string) => boolean; missingLabel?: string },
+): MarkdownNav {
   return {
     scheme: FILE_NAV_SCHEME,
     onNavigate: (href) => {
       const path = parseFileNavHref(href)
-      if (path !== null) openPath(path)
+      if (path !== null && !opts?.isMissing?.(path)) openPath(path)
     },
+    ...(opts?.isMissing
+      ? {
+          isBroken: (href: string) => {
+            const path = parseFileNavHref(href)
+            return path !== null && opts.isMissing!(path)
+          },
+          brokenLabel: opts.missingLabel ?? 'File không còn tồn tại',
+        }
+      : {}),
   }
 }

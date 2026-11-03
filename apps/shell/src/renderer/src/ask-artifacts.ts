@@ -24,14 +24,36 @@ export interface Artifact {
   status: ArtifactStatus
   /** the CLI's one-line reason when status is 'failed' */
   error?: string
+  /** optional retry instruction persisted for stopped/failed turns */
+  instruction?: string
   /** FX-64: set when a failed artifact was later superseded by a successful create in the same turn */
   retried?: boolean
 }
 
 const DOC_EXT = /\.(docx|xlsx|pptx|pdf|md|html|csv|png|jpe?g)$/i
 
+const callMetaById = new Map<string, { command: string; target: string }>()
+
 function baseName(path: string): string {
   return path.split(/[\\/]/).pop() ?? path
+}
+
+/** Canonical command family for a tool call ('create', 'convert', 'docs apply', 'sheet apply', 'slides apply', 'slides replace'). */
+export function artifactCommand(call: AgentToolCall): string {
+  if (call.name === CREATE_DOCUMENT_TOOL) return 'create'
+  if (call.name !== RUN_GENOFFICE_TOOL || !Array.isArray(call.input.args)) return call.name
+  const args = (call.input.args as unknown[]).filter((a): a is string => typeof a === 'string')
+  const first = args[0] ?? ''
+  if (first === 'docs' || first === 'sheet' || first === 'slides') {
+    return `${first} ${args[1] ?? ''}`.trim()
+  }
+  return first
+}
+
+function normalizeTargetStem(nameOrPath: string): string {
+  return baseName(nameOrPath)
+    .toLowerCase()
+    .replace(/(?:[-_](?:v\d{1,3}|\d{1,2}|final|updated|moi)|\s+\(\d+\))(\.[^.]+)$/i, '$1')
 }
 
 /** the --out value (or in-place apply/replace target) of a run_genoffice call, or the title of a create_document call */
@@ -82,6 +104,7 @@ export function artifactFromCall(call: AgentToolCall, outDir?: string | null): A
   const target = artifactTarget(call)
   if (!target) return null
   if (outDir && call.name === RUN_GENOFFICE_TOOL && !isInside(outDir, target)) return null
+  callMetaById.set(call.id, { command: artifactCommand(call), target })
   return { callId: call.id, name: baseName(target), status: 'building' }
 }
 
@@ -117,26 +140,78 @@ export function settleArtifact(
           execution.output.split('\n')[0]?.slice(0, 160),
       }
     : { ...current, status: 'done', ...(path ? { path, name: resolvedName } : {}) }
+  const currentCommand = artifactCommand(call)
+  const currentTarget = path ?? artifactTarget(call) ?? current.path ?? current.name
+  callMetaById.set(call.id, { command: currentCommand, target: currentTarget })
   const out = [...artifacts]
   out[index] = next
   // FX-32: If an earlier card in the same turn targeted the exact same file (by path or baseName),
-  // supersede the earlier card so the UI shows one accurate card for the final write.
-  // FX-64: If an earlier card in the same turn failed (even with a different file name, e.g.
-  // baocao.md -> Bao_Cao_Ra_Soat_Hop_Dong_Mua_Ban.docx) and this card succeeded, mark the
-  // earlier failed card as `retried: true` ("Đã thử lại thành công").
+  // supersede the earlier card ONLY when this new call succeeded (`!execution.isError`).
+  // FX-64 & FX-81: Only mark an earlier failed card (`idx < index`) as `retried: true`
+  // when a LATER call in the same turn with the SAME command and SAME target file succeeds
+  // (or when a retried `create` succeeds after an empty-stub validation error).
   return out
     .filter((item, idx) => {
       if (idx === index) return true
+      if (execution.isError) return true
       if (path && item.path && item.path === path) return false
       if (item.name === resolvedName && idx < index) return false
       return true
     })
-    .map((item) => {
-      if (!execution.isError && item.callId !== call.id && item.status === 'failed') {
-        return { ...item, retried: true }
+    .map((item, idx) => {
+      if (!execution.isError && idx < index && item.callId !== call.id && item.status === 'failed') {
+        const itemMeta = callMetaById.get(item.callId)
+        const itemCommand = itemMeta?.command ?? 'create'
+        const itemTarget = item.path ?? itemMeta?.target ?? item.name
+        const sameCmd = itemCommand === currentCommand
+        const sameFile = normalizeTargetStem(itemTarget) === normalizeTargetStem(currentTarget)
+        const stubRetry =
+          sameCmd &&
+          currentCommand === 'create' &&
+          /empty or title-only stub/i.test(item.error ?? '')
+        if (sameCmd && (sameFile || stubRetry)) {
+          return { ...item, retried: true }
+        }
       }
       return item
     })
+}
+
+/**
+ * FX-81: Collect all local file paths referenced by artifact cards, saved answers,
+ * or `filenav://` markdown links so the UI can check `fs.existsSync` over IPC.
+ */
+export function collectReferencedFilePaths(
+  messages: ReadonlyArray<{
+    text?: string
+    artifacts?: readonly Artifact[]
+    saved?: { path: string; name: string } | { error: string } | 'saving'
+  }>,
+): string[] {
+  const paths = new Set<string>()
+  const filenavRe = /filenav:\/\/([^\s)]+)/g
+  for (const m of messages) {
+    if (m.artifacts) {
+      for (const a of m.artifacts) {
+        if (a.path) paths.add(a.path)
+      }
+    }
+    if (m.saved && typeof m.saved === 'object' && 'path' in m.saved && m.saved.path) {
+      paths.add(m.saved.path)
+    }
+    if (typeof m.text === 'string' && m.text.includes('filenav://')) {
+      for (const match of m.text.matchAll(filenavRe)) {
+        const raw = match[1]
+        if (!raw) continue
+        try {
+          paths.add(decodeURIComponent(raw))
+        } catch {
+          paths.add(raw)
+        }
+      }
+    }
+  }
+  return [...paths]
 }
 
 /** the prompt a Retry button sends for one failed artifact */

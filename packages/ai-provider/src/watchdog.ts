@@ -17,6 +17,12 @@ export const AI_CONNECT_TIMEOUT_MS = 60_000
  */
 export const AI_IDLE_TIMEOUT_MS = 120_000
 /**
+ * FX-72: "No content delta" timeout (105s, within 90–120s).
+ * Re-armed ONLY on real content deltas (text, reasoning, tool_call, or tool-arg fragments),
+ * NEVER reset by SSE `: ping` heartbeats.
+ */
+export const AI_CONTENT_IDLE_TIMEOUT_MS = 105_000
+/**
  * Hard wall-clock cap for a single streaming request (15 minutes), even if the
  * server keeps sending pings or partial deltas.
  */
@@ -54,7 +60,7 @@ export function normalizeWatchdogTimeout(
   return ms
 }
 
-export type AiTimeoutKind = 'idle' | 'total'
+export type AiTimeoutKind = 'idle' | 'no_content' | 'total'
 
 export class AiTimeoutError extends Error {
   readonly kind: AiTimeoutKind
@@ -64,7 +70,9 @@ export class AiTimeoutError extends Error {
     const message =
       kind === 'total'
         ? `Yêu cầu chạy quá lâu (đã vượt giới hạn ${Math.max(1, Math.round(ms / 60_000))} phút).`
-        : `Máy chủ không phản hồi (không nhận được dữ liệu trong ${Math.round(ms / 1000)}s).`
+        : kind === 'no_content'
+          ? `Máy chủ không phản hồi nội dung mới sau ${Math.round(ms / 1000)}s.`
+          : `Máy chủ không phản hồi (không nhận được dữ liệu trong ${Math.round(ms / 1000)}s).`
     super(message)
     this.name = 'AiTimeoutError'
     this.kind = kind
@@ -77,6 +85,8 @@ export interface StreamWatchdog {
   signal: AbortSignal
   /** data arrived: switch to (and re-arm) the idle timeout */
   touch(): void
+  /** content delta arrived (text, reasoning, tool_call, tool-arg delta): re-arm both idle and no-content timeout */
+  touchContent(): void
   /** run the request; a timeout abort surfaces as AiTimeoutError; always disposes the timer */
   guard<T>(run: () => Promise<T>): Promise<T>
 }
@@ -86,6 +96,7 @@ export function createStreamWatchdog(
   connectMs = AI_CONNECT_TIMEOUT_MS,
   idleMs = AI_IDLE_TIMEOUT_MS,
   totalMs = AI_TOTAL_TIMEOUT_MS,
+  contentIdleMs?: number,
 ): StreamWatchdog {
   const normalizedConnectMs = normalizeWatchdogTimeout(connectMs, AI_CONNECT_TIMEOUT_MS)
   const normalizedIdleMs = normalizeWatchdogTimeout(idleMs, AI_IDLE_TIMEOUT_MS)
@@ -94,19 +105,36 @@ export function createStreamWatchdog(
     AI_TOTAL_TIMEOUT_MS,
     AI_WATCHDOG_MAX_TOTAL_TIMEOUT_MS,
   )
+  const normalizedContentIdleMs =
+    contentIdleMs !== undefined
+      ? normalizeWatchdogTimeout(contentIdleMs, AI_CONTENT_IDLE_TIMEOUT_MS)
+      : undefined
   const controller = new AbortController()
   let timedOutAfter = 0
   let timedOutKind: AiTimeoutKind = 'idle'
   let timer: ReturnType<typeof setTimeout> | undefined
+  let contentTimer: ReturnType<typeof setTimeout> | undefined
   let totalTimer: ReturnType<typeof setTimeout> | undefined
   const arm = (ms: number) => {
     clearTimeout(timer)
     timer = setTimeout(() => {
       timedOutAfter = ms
       timedOutKind = 'idle'
+      clearTimeout(contentTimer)
       clearTimeout(totalTimer)
       controller.abort()
     }, ms)
+  }
+  const armContent = () => {
+    if (normalizedContentIdleMs === undefined) return
+    clearTimeout(contentTimer)
+    contentTimer = setTimeout(() => {
+      timedOutAfter = normalizedContentIdleMs
+      timedOutKind = 'no_content'
+      clearTimeout(timer)
+      clearTimeout(totalTimer)
+      controller.abort()
+    }, normalizedContentIdleMs)
   }
   const onParentAbort = () => controller.abort()
   if (parent?.aborted) controller.abort()
@@ -116,11 +144,21 @@ export function createStreamWatchdog(
     timedOutAfter = normalizedTotalMs
     timedOutKind = 'total'
     clearTimeout(timer)
+    clearTimeout(contentTimer)
     controller.abort()
   }, normalizedTotalMs)
   return {
     signal: controller.signal,
-    touch: () => arm(normalizedIdleMs),
+    touch: () => {
+      arm(normalizedIdleMs)
+      if (normalizedContentIdleMs !== undefined && contentTimer === undefined) {
+        armContent()
+      }
+    },
+    touchContent: () => {
+      arm(normalizedIdleMs)
+      armContent()
+    },
     async guard<T>(run: () => Promise<T>): Promise<T> {
       try {
         return await run()
@@ -129,6 +167,7 @@ export function createStreamWatchdog(
         throw e
       } finally {
         clearTimeout(timer)
+        clearTimeout(contentTimer)
         clearTimeout(totalTimer)
         parent?.removeEventListener('abort', onParentAbort)
       }

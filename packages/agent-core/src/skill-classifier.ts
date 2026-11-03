@@ -349,6 +349,37 @@ export function resolveCanonicalSkillSlug(slug: string): string {
 }
 
 /**
+ * FX-82: Short display titles for merged skills so the skill picker can show
+ * `"Đã gộp vào: Ma trận & đặc tả đề (TT22)"` when the user searches by a merged slug or alias (e.g. `"7991"` or `"vn-periodic"`).
+ */
+export const MERGED_SKILL_DISPLAY_TITLES: Readonly<Record<string, string>> = {
+  'vn-exam-matrix-specification-tt22': 'Ma trận & đặc tả đề (TT22)',
+  'vn-gdpt2018-lesson-plan-cv5512': 'Kế hoạch bài dạy GDPT 2018 (CV 5512)',
+  'vn-admin-doc-nd30': 'Thể thức văn bản hành chính (NĐ30/2020)',
+  'vn-corporate-accounting-tt200-tt133': 'Kế toán doanh nghiệp (TT200 / TT99)',
+  'vn-legal-contract-audit': 'Thẩm định & rà soát hợp đồng',
+}
+
+export function getMergedSkillRedirectNotice(
+  skillName: string,
+  aliases: readonly string[] | undefined,
+  query: string,
+  fallbackTitle?: string,
+): string | null {
+  const q = (query || '').trim().toLowerCase()
+  if (!q) return null
+  const cleanName = (skillName || '').trim().toLowerCase()
+  if (cleanName.includes(q)) return null
+  const matchedAlias = (aliases ?? []).some(
+    (alias) => alias.toLowerCase() !== cleanName && alias.toLowerCase().includes(q),
+  )
+  if (!matchedAlias) return null
+  const targetLabel =
+    MERGED_SKILL_DISPLAY_TITLES[cleanName] ?? fallbackTitle ?? skillName
+  return `Đã gộp vào: ${targetLabel}`
+}
+
+/**
  * Built-in catalog of all active canonical Cloud Skills (190 active skills from the 206 registry)
  * mirrored from Lycero Hub so all skills are immediately available and classifiable offline and online.
  */

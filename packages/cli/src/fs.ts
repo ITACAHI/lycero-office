@@ -182,7 +182,9 @@ export function resolveOutput(
     )
   }
   assertAllowed(abs, ctx.env, 'write')
-  if (opts.fresh && !opts.force && existsSync(abs)) {
+  const sameAsFallback = Boolean(opts.fallback && resolve(abs) === resolve(opts.fallback))
+  const allowHomeOverwrite = ctx.env?.LYCERO_HOME_CLI_OVERWRITE === '1'
+  if (opts.fresh && !opts.force && !sameAsFallback && !allowHomeOverwrite && existsSync(abs)) {
     throw new CliError(EXIT.file, `output exists: ${abs} (use --force to overwrite)`, undefined, {
       reason: 'output_exists',
       suggestion: 'pass --force to overwrite, or choose another --out',

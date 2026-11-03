@@ -356,11 +356,15 @@ export interface AiTokenUsage {
 export interface AiStreamChunk {
   requestId: string
   /** 'ping' = wire-level keepalive so the renderer can tell a live stream from a dead one;
-   * 'reasoning' = model thinking delta (text carries it), stored for interleaved-thinking echo */
-  type: 'delta' | 'reasoning' | 'tool-call' | 'usage' | 'done' | 'error' | 'ping'
+   * 'reasoning' = model thinking delta (text carries it), stored for interleaved-thinking echo;
+   * 'tool-progress' = tool-call arguments streaming progress (FX-72) */
+  type: 'delta' | 'reasoning' | 'tool-call' | 'tool-progress' | 'usage' | 'done' | 'error' | 'ping'
   text?: string
   /** complete parsed tool call (emitted once its arguments finish streaming) */
   toolCall?: AgentToolCall
+  /** FX-72: tool name and accumulated argument byte count while tool arguments are streaming */
+  toolName?: string
+  toolBytes?: number
   error?: string
   /** machine-readable error cause ('timeout', exhausted 'credits', 'network' connectivity failure, 'overloaded' capacity/rate limit, 'region' vendor refuses the request origin); lets the renderer localize the message */
   errorCode?: 'timeout' | 'credits' | 'network' | 'overloaded' | 'region' | 'quota_exhausted'

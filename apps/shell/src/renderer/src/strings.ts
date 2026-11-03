@@ -50,7 +50,7 @@ export const strings = {
     askStep3Title: '点击引用',
     askStep3Desc: '回答标注来源文件,点引用直接跳过去',
     askCtaRecents: '去最近文件收藏',
-    askNoSave: '对话不会保存,重启应用后清空。',
+    askNoSave: '对话保存在本机，可随时清空历史记录。',
     askUnknownError: 'AI 请求失败,请重试。',
     navCloud: 'Lycero Projects',
     cloudSubtitle: '在网页端用 Lycero AI 创建的项目。编辑在浏览器中继续——点击任意项目即可打开。',
@@ -644,7 +644,7 @@ export const strings = {
     askStep3Title: 'Open citations',
     askStep3Desc: 'Answers name the source file; click one to jump there',
     askCtaRecents: 'Star files from Recents',
-    askNoSave: 'The conversation is not saved; it clears when the app restarts.',
+    askNoSave: 'Conversations are saved locally on this device; you can clear history at any time.',
     askUnknownError: 'The AI request failed. Try again.',
     navCloud: 'Lycero Projects',
     cloudSubtitle:
@@ -1254,7 +1254,7 @@ export const strings = {
     askStep3Title: 'Nhấp trích dẫn',
     askStep3Desc: 'Câu trả lời nêu tên tệp nguồn; nhấp để nhảy tới',
     askCtaRecents: 'Gắn sao từ Gần đây',
-    askNoSave: 'Cuộc trò chuyện không được lưu; sẽ bị xóa khi khởi động lại ứng dụng.',
+    askNoSave: 'Cuộc trò chuyện được lưu cục bộ trên thiết bị này; bạn có thể xóa lịch sử bất cứ lúc nào.',
     askUnknownError: 'Yêu cầu AI thất bại. Thử lại.',
     navCloud: 'Dự án Lycero',
     cloudSubtitle:

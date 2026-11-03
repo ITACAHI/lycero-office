@@ -109,6 +109,7 @@ import {
   type AiSearchProviderId,
   resolveAiSettings,
   maxOutputTokensOf,
+  sanitizeAiErrorForUi,
   sanitizeAiSettings,
   sanitizeCliPath,
   setAiUserAgent,
@@ -4502,6 +4503,15 @@ export function registerAiIpc(): void {
           trace?.onToolCall(toolCall)
           send({ requestId, type: 'tool-call', toolCall })
         },
+        onToolArgsProgress: ({ name, bytes }) => {
+          ping()
+          send({
+            requestId,
+            type: 'tool-progress',
+            ...(name ? { toolName: name } : {}),
+            toolBytes: bytes,
+          })
+        },
         onActivity: ping,
         onStopReason: (reason) => {
           stopReason = reason
@@ -4530,7 +4540,7 @@ export function registerAiIpc(): void {
             ? `Stream closed without a finish event (requestId: ${requestId}). Máy chủ đã ngắt luồng phản hồi sớm.`
             : err instanceof AiTimeoutError && !rawMsg.includes(requestId)
               ? `${rawMsg} (requestId: ${requestId})`
-              : rawMsg
+              : sanitizeAiErrorForUi(err, requestId)
         send({
           requestId,
           type: 'error',

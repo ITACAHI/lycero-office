@@ -2,7 +2,7 @@
 name: genoffice
 description: Create, convert, read and edit Office documents locally with Lycero Office's command line. Build a new presentation (pptx) from a brief through a checked outline, per-page spec and render pipeline, a new spreadsheet (xlsx) from CSV or JSON data with formulas, a new Word document (docx) from Markdown or HTML, or a PDF; convert between pdf, docx, xlsx, pptx, md, html and csv; read the structure and text of an existing file (including the user's own docx / xlsx / pptx as source material) and apply structured edits to it. Use whenever the user asks for a slide deck, presentation, spreadsheet, workbook, report, Word document or any real Office file, a format conversion, a rewrite of part of an existing document, or wants the result opened in the Lycero Office editor. Documents are processed locally; only search, image and media send the query or the referenced file to the provider configured in Lycero Office.
 metadata:
-  version: 2.0.24
+  version: 2.0.25
   cli: '>=0.9.0'
 ---
 
@@ -227,3 +227,11 @@ echo '[{"op":"insert_content","afterBlockIndex":0,"html":"<p>Executive summary.<
 - Conversions to PDF run inside the Lycero Office app (hidden, a few seconds each); they need Lycero Office installed, or `GENOFFICE_APP_BIN` pointing at it; the same holds for `docx→html` and `html→docx`.
 - `add_pivot` writes the pivot's cells at `targetCell` (no values or formulas there, on a sheet that already exists in the file) plus a native pivot Excel refreshes, source formulas are evaluated from the file so set them in an earlier batch; `add_sparkline` writes one in-cell sparkline per data row (at most 200 rows per op); `convert_to_values` replaces formulas with the values the workbook engine computes from the file (error results keep their formula; cell edits go in an earlier batch); `set_page_setup` also takes `printTitles`, `header`/`footer` and `rowBreaks`/`colBreaks`. Excel ops that still need the live editor (`refresh_pivot`, edits to session-created tables and shapes) are refused with the reason. `add_conditional_format` and `set_data_validation` add to the rules a sheet already has (`set_data_validation` on a range that has one replaces it, `null` removes it); `clear_conditional_formats` starts over.
 - Formulas are evaluated with the workbook engine after writing, so `sheet read` and cached-value readers see numbers.
+
+### Quy tắc gọi `guide` & `docs read` chuẩn xác (`FX-74`, `FX-77`)
+- **Các nhóm hợp lệ của `genoffice guide` (viết chữ thường)**:
+  + `genoffice guide docs [nhóm|op]`: `block | table | text | list | track | comment | note | layout | media | props` (hoặc tên op như `setTableCellFormat`, `insertContent`; **không gọi** `design`, `setTableRowFormat`, `"document creation and formatting"`).
+  + `genoffice guide sheets [nhóm|op]`: `cell | formula | structure | layout | format | validation | chart | pivot | media` (hoặc tên op như `set_freeze`; **không gọi** `Layout` viết hoa, `design`, `freeze_panes`).
+  + `genoffice guide slides [nhóm|op]`: `design | spec | slide | shape | text | style | table | chart | media | order`.
+- **Cú pháp `docs read` theo khoảng block**: Dùng `genoffice docs read <file> --from <n> --to <m>` (**tuyệt đối không dùng `--range`**).
+- **Cấm thao tác vô nghĩa trên MST/CCCD & metadata (`FX-77`)**: Ghi trực tiếp nguyên văn số CCCD/MST vào văn bản, không bọc trong `[...]`, không gọi `findReplace` thay thế chính nó bằng chính nó, không gọi `set_properties` với `clear: "all"`.

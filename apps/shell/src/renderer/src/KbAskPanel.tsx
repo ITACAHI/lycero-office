@@ -3,7 +3,7 @@
  * Copyright © 2026 ITAC AI Heavy Industries.
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AgentLoop,
   ATTACHMENT_IMAGE_EXTS,
@@ -14,6 +14,7 @@ import {
   createIpcTransport,
   createKnowledgeBaseSkill,
   DEFAULT_CLOUD_SKILL_CATALOG,
+  fetchCloudSkillCatalog,
   HIDDEN_OR_MERGED_SKILL_SLUGS,
   isAdvancedCloudSkill,
   resolveCanonicalSkillSlug,
@@ -42,11 +43,17 @@ import {
 } from '@lycero/ui'
 import type { AiSettings } from '@lycero/ai-provider'
 import { activeProvider } from '@lycero/ai-provider/browser'
-import type { ChatMessage, ChatMeta, ProjectApi } from '@lycero/project-store'
+import type { ChatMessage, ChatMeta, ProjectApi, ToolActivity } from '@lycero/project-store'
 import { useI18n } from './locale'
 import type { AttachmentAddResult } from '../../shared/home-api'
 import { AskAttachments } from './AskAttachments'
-import { artifactFromCall, retryInstruction, settleArtifact, type Artifact } from './ask-artifacts'
+import {
+  artifactFromCall,
+  collectReferencedFilePaths,
+  retryInstruction,
+  settleArtifact,
+  type Artifact,
+} from './ask-artifacts'
 import { appendToolNote, toolNoteDetail, toolNoteKind, type ToolNote } from './ask-tool-notes'
 import sendEnterOn from './assets/send-enter-on.png'
 import sendEnterOff from './assets/send-enter-off.png'
@@ -161,10 +168,71 @@ export function firstQuestionOf(stored: readonly ChatMessage[]): string | undefi
  * panel is the only conversation in the app that belongs to no file, so
  * nothing else exercises the file-less `resolveChat` path end to end.
  */
+export type PersistChatEntry = {
+  role: 'user' | 'assistant'
+  text: string
+  tools?: ToolActivity[]
+}
+
+export function serializeAskTurnTools(
+  toolNotes: readonly ToolNote[],
+  artifacts: readonly Artifact[],
+): ToolActivity[] {
+  const tools: ToolActivity[] = []
+  for (const note of toolNotes) {
+    tools.push({
+      name: `kb-note:${note.kind}`,
+      summary: note.label,
+      input: JSON.stringify({
+        ...(note.detail ? { detail: note.detail } : {}),
+        count: note.count,
+      }),
+    })
+  }
+  for (const artifact of artifacts) {
+    if (artifact.status === 'building') continue
+    tools.push({
+      name: `kb-artifact:${artifact.status}`,
+      summary: artifact.name,
+      ...(artifact.status === 'failed' ? { isError: true } : {}),
+      input: JSON.stringify({
+        callId: artifact.callId,
+        ...(artifact.path ? { path: artifact.path } : {}),
+        ...(artifact.error ? { error: artifact.error } : {}),
+        instruction: artifact.instruction,
+        ...(artifact.retried ? { retried: true } : {}),
+      }),
+    })
+  }
+  return tools
+}
+
+export function buildStoppedAssistantTurn(last: AskMessage): {
+  message: AskMessage
+  persisted: PersistChatEntry
+} {
+  const settledArtifacts = last.artifacts.filter((a) => a.status !== 'building')
+  const finalText = last.text.trim() ? `${last.text}\n\n*(Đã dừng)*` : 'Đã dừng'
+  const tools = serializeAskTurnTools(last.toolNotes, settledArtifacts)
+  return {
+    message: {
+      ...last,
+      text: finalText,
+      artifacts: settledArtifacts,
+      streaming: false,
+    },
+    persisted: {
+      role: 'assistant',
+      text: finalText,
+      ...(tools.length > 0 ? { tools } : {}),
+    },
+  }
+}
+
 export async function claimThread(
   api: ProjectApi,
   chatId: string,
-  queued: Array<{ role: 'user' | 'assistant'; text: string }>,
+  queued: PersistChatEntry[],
   show: (messages: AskMessage[]) => void,
   stillCurrent: () => boolean,
 ): Promise<{ projectId: string; chatId: string }> {
@@ -179,14 +247,62 @@ export async function claimThread(
 }
 
 /**
- * The stored turns as the panel renders them. Only role and text come back:
- * a turn read from disk has this session's badges, token chip and "save as"
- * outcome long gone, and rendering them as absent is truer than guessing.
+ * The stored turns as the panel renders them. Restores role, text, and any
+ * persisted `kb-note:*` / `kb-artifact:*` records (FX-73), while ignoring
+ * raw internal tool entries that do not carry the `kb-` UI prefix.
  */
 export function restoreAskMessages(stored: ChatMessage[]): AskMessage[] {
   return stored
     .filter((message) => message.role === 'user' || message.role === 'assistant')
-    .map((message) => ({ role: message.role, text: message.text, toolNotes: [], artifacts: [] }))
+    .map((message) => {
+      const toolNotes: ToolNote[] = []
+      const artifacts: Artifact[] = []
+      for (const tool of message.tools ?? []) {
+        if (tool.name.startsWith('kb-note:')) {
+          const kind = tool.name.slice('kb-note:'.length) as ToolNote['kind']
+          if (kind === 'search' || kind === 'read' || kind === 'create' || kind === 'cli') {
+            let parsed: { detail?: string; count?: number } = {}
+            if (tool.input) {
+              try {
+                parsed = JSON.parse(tool.input) as { detail?: string; count?: number }
+              } catch {}
+            }
+            toolNotes.push({
+              kind,
+              label: tool.summary,
+              ...(parsed.detail ? { detail: parsed.detail } : {}),
+              count: typeof parsed.count === 'number' && parsed.count > 0 ? parsed.count : 1,
+            })
+          }
+        } else if (tool.name.startsWith('kb-artifact:')) {
+          const status = tool.name.slice('kb-artifact:'.length)
+          if (status === 'done' || status === 'failed') {
+            let parsed: {
+              callId?: string
+              path?: string
+              error?: string
+              instruction?: string
+              retried?: boolean
+            } = {}
+            if (tool.input) {
+              try {
+                parsed = JSON.parse(tool.input) as typeof parsed
+              } catch {}
+            }
+            artifacts.push({
+              callId: parsed.callId || `restored_${artifacts.length}`,
+              name: tool.summary,
+              status,
+              ...(parsed.path ? { path: parsed.path } : {}),
+              ...(parsed.error ? { error: parsed.error } : {}),
+              instruction: parsed.instruction || `Tạo lại file ${tool.summary}`,
+              ...(parsed.retried ? { retried: true } : {}),
+            })
+          }
+        }
+      }
+      return { role: message.role, text: message.text, toolNotes, artifacts }
+    })
 }
 
 export function KbAskPanel({
@@ -244,9 +360,27 @@ export function KbAskPanel({
     )
   }
   /** turns asked before the ids came back, written once they do */
-  const pendingRef = useRef<Array<{ role: 'user' | 'assistant'; text: string }>>([])
+  const pendingRef = useRef<PersistChatEntry[]>([])
+  /** FX-72: live byte counter while tool arguments are streaming */
+  const [toolProgressBytes, setToolProgressBytes] = useState(0)
+  /** FX-81: set of referenced file paths that no longer exist on disk */
+  const [missingPaths, setMissingPaths] = useState<Set<string>>(() => new Set())
+  /** FX-69: cached skill menu items so opening/closing the + menu 20x is instant */
+  const skillsMenuCacheRef = useRef<{
+    at: number
+    promise: Promise<
+      Array<{
+        name: string
+        title?: string
+        description: string
+        cloudProtected?: boolean
+        tier?: string
+        aliases?: readonly string[]
+      }>
+    >
+  } | null>(null)
 
-  const persist = (entry: { role: 'user' | 'assistant'; text: string }): void => {
+  const persist = (entry: PersistChatEntry): void => {
     const ids = chatIdsRef.current
     if (!ids) {
       pendingRef.current.push(entry)
@@ -452,10 +586,15 @@ export function KbAskPanel({
         onReasoning: (reasoning) => {
           patchLast({ reasoning })
         },
+        onToolProgress: ({ bytes }) => {
+          setToolProgressBytes(bytes)
+        },
         onToolExecuted: ({ call, execution }) => {
+          setToolProgressBytes(0)
           patchLast((last) => ({ artifacts: settleArtifact(last.artifacts, call, execution) }))
         },
         onToolStart: (call) => {
+          setToolProgressBytes(0)
           patchLast((last) => ({
             artifacts: (() => {
               const started = artifactFromCall(call, cliContextRef.current?.outDir)
@@ -474,7 +613,8 @@ export function KbAskPanel({
           }))
         },
         onDone: () => {
-          finishLast()
+          setToolProgressBytes(0)
+          finishLast(false)
         },
         onUsage: (usage) => {
           runUsageRef.current = addTokenUsage(runUsageRef.current, usage)
@@ -482,9 +622,32 @@ export function KbAskPanel({
           patchLast({ usage: runUsageRef.current })
         },
         onError: (error) => {
+          setToolProgressBytes(0)
           setBusy(false)
-          patchLast((last) => ({
-            text: last.text ? `${last.text}\n\n⚠️ ${error}` : error,
+          const last = messagesRef.current[messagesRef.current.length - 1]
+          const hasCompletedCreate = Boolean(
+            last?.role === 'assistant' &&
+              last.artifacts.some((a) => a.status === 'done' && Boolean(a.path)),
+          )
+          const isPostCreateSummaryTimeout =
+            hasCompletedCreate &&
+            (error.includes('Máy chủ không phản hồi') ||
+              error.includes('Yêu cầu chạy quá lâu') ||
+              error.includes('Stream closed without a finish event') ||
+              error.includes('Luồng phản hồi từ máy chủ bị ngắt'))
+          if (isPostCreateSummaryTimeout) {
+            // FX-72: If `create` already succeeded and the post-create summary turn hung/timed out,
+            // complete the turn cleanly with the file card rather than failing the turn.
+            patchLast((cur) => ({
+              text: cur.text || 'Đã tạo tệp tài liệu thành công.',
+              streaming: false,
+              isError: false,
+            }))
+            finishLast(false)
+            return
+          }
+          patchLast((cur) => ({
+            text: cur.text ? `${cur.text}\n\n⚠️ ${error}` : error,
             streaming: false,
             isError: true,
           }))
@@ -517,14 +680,34 @@ export function KbAskPanel({
     setMessages(apply)
   }
 
-  const finishLast = (): void => {
-    // The answer is whole for the first time here; streaming it as it grows
-    // would store every intermediate state. The `streaming` guard is what
-    // keeps a second finish (Stop, then the loop's own onDone) from storing
-    // the same turn twice.
+  const finishLast = (stoppedByUser = false): void => {
+    setToolProgressBytes(0)
     const last = messagesRef.current[messagesRef.current.length - 1]
-    if (last?.role === 'assistant' && last.streaming && last.text) {
-      persist({ role: 'assistant', text: last.text })
+    if (last?.role === 'assistant' && last.streaming) {
+      if (stoppedByUser) {
+        const { message, persisted } = buildStoppedAssistantTurn(last)
+        patchLast(message)
+        persist(persisted)
+        setBusy(false)
+        return
+      }
+      const settledArtifacts = last.artifacts.filter((a) => a.status !== 'building')
+      const tools = serializeAskTurnTools(last.toolNotes, settledArtifacts)
+      const finalText =
+        last.text ||
+        (settledArtifacts.some((a) => a.status === 'done')
+          ? 'Đã tạo tệp tài liệu thành công.'
+          : '')
+      if (finalText || tools.length > 0) {
+        persist({
+          role: 'assistant',
+          text: finalText,
+          ...(tools.length > 0 ? { tools } : {}),
+        })
+      }
+      patchLast({ text: finalText, artifacts: settledArtifacts, streaming: false })
+      setBusy(false)
+      return
     }
     patchLast({ streaming: false })
     setBusy(false)
@@ -623,53 +806,75 @@ export function KbAskPanel({
     )
   }
 
-  const listSkillsForMenu = async () => {
-    const rawList = await window.aiOffice.skillsList()
-    const out = rawList.map((entry) => {
-      const e = entry as {
-        name: string
-        title?: string
-        description: string
-        cloudProtected?: boolean
-        tier?: string
-        aliases?: readonly string[]
+  const listSkillsForMenu = useCallback(async () => {
+    const now = Date.now()
+    if (skillsMenuCacheRef.current && now - skillsMenuCacheRef.current.at < 30_000) {
+      return skillsMenuCacheRef.current.promise
+    }
+    const promise = (async () => {
+      const [rawList, cloudCatalog] = await Promise.all([
+        window.aiOffice.skillsList(),
+        fetchCloudSkillCatalog().catch(() => DEFAULT_CLOUD_SKILL_CATALOG),
+      ])
+      const out = rawList.map((entry) => {
+        const e = entry as {
+          name: string
+          title?: string
+          description: string
+          cloudProtected?: boolean
+          tier?: string
+          locked?: boolean
+          aliases?: readonly string[]
+        }
+        return {
+          name: e.name,
+          ...(e.title ? { title: e.title } : {}),
+          description: e.description,
+          ...(e.cloudProtected ? { cloudProtected: true } : {}),
+          ...(e.tier ? { tier: e.tier } : {}),
+          ...(e.locked ? { locked: true } : {}),
+          ...(e.aliases ? { aliases: e.aliases } : {}),
+        }
+      })
+      const seen = new Set(out.map((s) => s.name))
+      for (const item of cloudCatalog) {
+        if (seen.has(item.slug) || HIDDEN_OR_MERGED_SKILL_SLUGS.has(item.slug.toLowerCase())) {
+          continue
+        }
+        seen.add(item.slug)
+        const aliases = Object.entries(SKILL_SLUG_ALIAS_MAP)
+          .filter(([alias, canonical]) => canonical === item.slug && alias !== item.slug)
+          .map(([alias]) => alias)
+        out.push({
+          name: item.slug,
+          title: item.name,
+          description:
+            item.name && item.name !== item.slug
+              ? `${item.name} — ${item.description}`
+              : item.description,
+          cloudProtected: item.tier !== 'free',
+          tier: item.tier ?? 'pro',
+          ...(item.locked ? { locked: true } : {}),
+          ...(aliases.length > 0 ? { aliases } : {}),
+        })
       }
-      return {
-        name: e.name,
-        ...(e.title ? { title: e.title } : {}),
-        description: e.description,
-        ...(e.cloudProtected ? { cloudProtected: true } : {}),
-        ...(e.tier ? { tier: e.tier } : {}),
-        ...(e.aliases ? { aliases: e.aliases } : {}),
+      return out
+    })()
+    skillsMenuCacheRef.current = { at: now, promise }
+    promise.catch(() => {
+      if (skillsMenuCacheRef.current?.promise === promise) {
+        skillsMenuCacheRef.current = null
       }
     })
-    const seen = new Set(out.map((s) => s.name))
-    for (const item of DEFAULT_CLOUD_SKILL_CATALOG) {
-      if (seen.has(item.slug) || HIDDEN_OR_MERGED_SKILL_SLUGS.has(item.slug.toLowerCase())) {
-        continue
-      }
-      seen.add(item.slug)
-      const aliases = Object.entries(SKILL_SLUG_ALIAS_MAP)
-        .filter(([alias, canonical]) => canonical === item.slug && alias !== item.slug)
-        .map(([alias]) => alias)
-      out.push({
-        name: item.slug,
-        title: item.name,
-        description:
-          item.name && item.name !== item.slug
-            ? `${item.name} — ${item.description}`
-            : item.description,
-        cloudProtected: true,
-        tier: 'pro',
-        ...(aliases.length > 0 ? { aliases } : {}),
-      })
-    }
-    return out
-  }
-  const toggleSkill = (name: string) =>
-    setAttachedSkills((prev) =>
-      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
-    )
+    return promise
+  }, [])
+  const toggleSkill = useCallback(
+    (name: string) =>
+      setAttachedSkills((prev) =>
+        prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
+      ),
+    [],
+  )
 
   // Retry and other programmatic turns: the composer draft is not theirs to clear
   const askWith = async (
@@ -741,7 +946,67 @@ export function KbAskPanel({
     }
   }
 
-  const fileNav = createFileNav((path) => onOpenPath(path))
+  // FX-81: Check referenced file paths on disk via IPC so deleted files show "File không còn tồn tại"
+  useEffect(() => {
+    const paths = collectReferencedFilePaths(messages)
+    if (paths.length === 0) {
+      setMissingPaths((prev) => (prev.size === 0 ? prev : new Set()))
+      return
+    }
+    let active = true
+    void (async () => {
+      const missing = new Set<string>()
+      const checkExists = window.aiOffice?.fileExists
+      if (typeof checkExists === 'function') {
+        await Promise.all(
+          paths.map(async (p) => {
+            try {
+              const exists = await checkExists(p)
+              if (!exists) missing.add(p)
+            } catch {}
+          }),
+        )
+      } else if (typeof window.aiOffice?.statPaths === 'function') {
+        try {
+          const stats = await window.aiOffice.statPaths(paths)
+          for (let i = 0; i < paths.length; i++) {
+            if (!stats[i]) missing.add(paths[i]!)
+          }
+        } catch {}
+      }
+      if (active) setMissingPaths(missing)
+    })()
+    return () => {
+      active = false
+    }
+  }, [messages])
+
+  const missingFileLabel = lang === 'vi' ? 'File không còn tồn tại' : 'File no longer exists'
+  const fileNav = createFileNav((path) => onOpenPath(path), {
+    isMissing: (path) => missingPaths.has(path),
+    missingLabel: missingFileLabel,
+  })
+
+  const clearHistory = async (): Promise<void> => {
+    const api = window.projectApi
+    askSeqRef.current++
+    loopRef.current?.reset()
+    setBusy(false)
+    setToolProgressBytes(0)
+    pendingRef.current = []
+    messagesRef.current = []
+    setMessages([])
+    if (!api) return
+    try {
+      const ids = chatIdsRef.current ?? (await api.resolveChat({ filePath: null, tempChatId: CHAT_ID }))
+      const metas = panelThreads(await api.listChats({ projectId: ids.projectId }))
+      const toDelete = new Set<string>([CHAT_ID, activeChat, ...metas.map((m) => m.chatId)])
+      for (const id of toDelete) {
+        await api.deleteChat({ projectId: ids.projectId, chatId: id }).catch(() => undefined)
+      }
+      await refreshThreads(api)
+    } catch {}
+  }
 
   // the deterministic half of "keep this answer": the question becomes the
   // file name, the answer's markdown the body, same write path as the tool
@@ -912,16 +1177,15 @@ export function KbAskPanel({
             {m.role === 'assistant' && m.artifacts.length > 0 && (
               <div className="kb-ask-card" role="list">
                 {m.artifacts.map((a) => {
-                  const retriedOk =
-                    a.retried === true ||
-                    (a.status === 'failed' && m.artifacts.some((other) => other.status === 'done'))
+                  const retriedOk = a.retried === true
+                  const fileMissing = Boolean(a.path && missingPaths.has(a.path))
                   return (
                     <div
                       key={a.callId}
-                      className={`kb-ask-card-row kb-ask-card-${retriedOk ? 'retried' : a.status}`}
+                      className={`kb-ask-card-row kb-ask-card-${retriedOk ? 'retried' : fileMissing ? 'failed' : a.status}`}
                       role="listitem"
                     >
-                      {a.status === 'done' && a.path ? (
+                      {a.status === 'done' && a.path && !fileMissing ? (
                         <button
                           type="button"
                           className="kb-ask-card-name"
@@ -936,8 +1200,17 @@ export function KbAskPanel({
                           {a.name}
                         </span>
                       )}
+                      {a.status === 'done' && fileMissing && (
+                        <span className="kb-ask-card-status kb-ask-card-error">
+                          {missingFileLabel}
+                        </span>
+                      )}
                       {a.status === 'building' && (
-                        <span className="kb-ask-card-status">{t('askArtifactBuilding')}…</span>
+                        <span className="kb-ask-card-status">
+                          {toolProgressBytes > 0
+                            ? `Đang soạn tài liệu… ${Math.max(1, Math.round(toolProgressBytes / 1024))} KB`
+                            : `${t('askArtifactBuilding')}…`}
+                        </span>
                       )}
                       {a.status === 'failed' &&
                         (retriedOk ? (
@@ -971,7 +1244,13 @@ export function KbAskPanel({
                 m.text
               )
             ) : m.streaming ? (
-              <AiTypingIndicator label={t('askHintBusy')} />
+              <AiTypingIndicator
+                label={
+                  toolProgressBytes > 0
+                    ? `Đang soạn tài liệu… ${Math.max(1, Math.round(toolProgressBytes / 1024))} KB`
+                    : t('askHintBusy')
+                }
+              />
             ) : null}
             {m.role === 'assistant' && m.isError && !m.streaming && (
               <div className="kb-ask-actions">
@@ -1043,7 +1322,15 @@ export function KbAskPanel({
       {messages.length > 0 && (
         <p className="kb-ask-nosave">
           <IconInfo />
-          {t('askNoSave')}
+          <span>{t('askNoSave')}</span>
+          <button
+            type="button"
+            className="kb-ask-action kb-ask-clear-history"
+            disabled={busy}
+            onClick={() => void clearHistory()}
+          >
+            {lang === 'vi' ? 'Xóa lịch sử' : 'Clear history'}
+          </button>
         </p>
       )}
       {gskEmail === null && provider === 'lycero' && (
@@ -1058,19 +1345,23 @@ export function KbAskPanel({
         const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant')
         const lastNote = lastAssistant?.toolNotes.at(-1)
         const stepCount = lastAssistant?.toolNotes.reduce((acc, n) => acc + n.count, 0) ?? 0
+        const livePhaseLabel =
+          toolProgressBytes > 0
+            ? `Đang soạn tài liệu… ${Math.max(1, Math.round(toolProgressBytes / 1024))} KB`
+            : lastNote
+              ? `${lastNote.label}${lastNote.detail ? ` · ${lastNote.detail}` : ''}`
+              : null
         return (
           <AiLiveDirectBar
             busy={busy}
             portalCanvas={false}
-            phaseLabel={
-              lastNote ? `${lastNote.label}${lastNote.detail ? ` · ${lastNote.detail}` : ''}` : null
-            }
+            phaseLabel={livePhaseLabel}
             isReasoning={Boolean(busy && lastAssistant?.reasoning && !lastAssistant?.text)}
             stepCount={stepCount}
             onStop={() => {
               askSeqRef.current++
               loopRef.current?.cancel()
-              finishLast()
+              finishLast(true)
             }}
             lang={lang}
           />
@@ -1124,7 +1415,7 @@ export function KbAskPanel({
         onStop={() => {
           askSeqRef.current++
           loopRef.current?.cancel()
-          finishLast()
+          finishLast(true)
         }}
       />
     </div>

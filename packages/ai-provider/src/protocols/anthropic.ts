@@ -13,7 +13,11 @@ import {
 } from '../providers'
 export { ANTHROPIC_BASE_URL }
 import type { AiChatResponse, AiProviderConfig, AiTokenUsage } from '../types'
-import { createStreamWatchdog, type StreamWatchdog } from '../watchdog'
+import {
+  AI_CONTENT_IDLE_TIMEOUT_MS,
+  createStreamWatchdog,
+  type StreamWatchdog,
+} from '../watchdog'
 import {
   SKILL_EXTRACTION_REFUSAL_TEXT,
   endpointUrl,
@@ -163,7 +167,13 @@ export async function streamAnthropic(
   baseUrl = ANTHROPIC_BASE_URL,
   options: AnthropicRequestOptions = {},
 ): Promise<void> {
-  const wd = createStreamWatchdog(cb.signal, undefined, options.idleTimeoutMs)
+  const wd = createStreamWatchdog(
+    cb.signal,
+    undefined,
+    options.idleTimeoutMs,
+    undefined,
+    options.idleTimeoutMs ?? AI_CONTENT_IDLE_TIMEOUT_MS,
+  )
   return wd.guard(() =>
     anthropicTurn(config, system, messages, tools, maxTokens, cb, baseUrl, wd, options),
   )
@@ -296,12 +306,18 @@ async function anthropicTurn(
     } else if (event.type === 'content_block_delta') {
       if (event.delta?.type === 'text_delta' && event.delta.text) {
         emitted = true
+        wd.touchContent()
         cb.onDelta(event.delta.text)
       } else if (event.delta?.type === 'input_json_delta') {
+        wd.touchContent()
         const pending = pendingTools.get(event.index ?? currentToolIndex)
         if (pending) {
           pending.json += event.delta.partial_json ?? ''
           throwIfToolJsonOverBudget(pending.json.length, 'anthropic')
+          cb.onToolArgsProgress?.({
+            name: pending.name || undefined,
+            bytes: Buffer.byteLength(pending.json, 'utf8'),
+          })
         }
       }
     } else if (event.type === 'content_block_stop') {

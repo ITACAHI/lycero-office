@@ -155,6 +155,8 @@ export interface AgentStreamCallbacks {
   onReasoning?(text: string): void
   /** complete parsed tool call (arguments finished streaming) */
   onToolCall(call: AgentToolCall): void
+  /** FX-72: tool-call argument streaming progress (bytes received so far) */
+  onToolProgress?(info: { name?: string | undefined; bytes: number }): void
   /** Phase changes within the model stream (thinking / responding / tool-input); older transports may omit this */
   onPhase?(phase: AgentPhase): void
   /** normalized stop reason of the turn ('max_tokens' = cut off by the token limit); transports may omit this */

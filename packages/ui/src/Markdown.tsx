@@ -20,6 +20,10 @@ export interface MarkdownNav {
   /** href prefix that renders as an in-app navigation link (e.g. 'docnav://') */
   scheme: string
   onNavigate: (href: string) => void
+  /** FX-81: optional predicate returning true when the target file no longer exists on disk */
+  isBroken?: (href: string) => boolean
+  /** FX-81: label shown instead of an active link when `isBroken(href)` is true */
+  brokenLabel?: string
 }
 
 export interface MarkdownImage {
@@ -79,19 +83,28 @@ function renderInline(
       const href = link?.[2] ?? ''
       const hit = link ? matchNav(navs, href) : undefined
       if (link && hit) {
-        out.push(
-          <a
-            key={key++}
-            className="ai-md-nav"
-            href={href}
-            onClick={(e) => {
-              e.preventDefault()
-              hit.onNavigate(href)
-            }}
-          >
-            {link[1]}
-          </a>,
-        )
+        if (hit.isBroken?.(href)) {
+          const brokenText = hit.brokenLabel ?? 'File không còn tồn tại'
+          out.push(
+            <span key={key++} className="ai-md-nav-missing" title={brokenText}>
+              {link[1]} ({brokenText})
+            </span>,
+          )
+        } else {
+          out.push(
+            <a
+              key={key++}
+              className="ai-md-nav"
+              href={href}
+              onClick={(e) => {
+                e.preventDefault()
+                hit.onNavigate(href)
+              }}
+            >
+              {link[1]}
+            </a>,
+          )
+        }
       } else {
         out.push(tok) // non-nav links keep today's literal rendering
       }

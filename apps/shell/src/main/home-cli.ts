@@ -3,7 +3,7 @@
  * Copyright © 2026 ITAC AI Heavy Industries.
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
-import { existsSync, rmSync, statSync } from 'node:fs'
+import { existsSync, statSync } from 'node:fs'
 import { copyFile, mkdir, writeFile } from 'node:fs/promises'
 import {
   basename,
@@ -70,6 +70,8 @@ const LEAKED_SESSION_ID_RE = /\bkb-(?:ask-)?\d{8,}\b/g
 const LEAKED_INTERNAL_BLOCKS_RE =
   /<(?:thinking|think|tool_call|lycero_global_mandatory_rules|lycero_internal)\b[^>]*>[\s\S]*?<\/(?:thinking|think|tool_call|lycero_global_mandatory_rules|lycero_internal)>|<\|tool_call_start\|>[\s\S]*?<\|tool_call_end\|>|<function=[^>]+>[\s\S]*?<\/function>|<skill\s+name="[^"]*"[^>]*>[\s\S]*?<\/skill>/gi
 const LEAKED_INTERNAL_MARKERS_RE = /\[LYCERO_[A-Z0-9_]+(?::[^\]]*)?\]|\[PII_[A-Z0-9_]+\]/g
+const LEAKED_UNTAGGED_INTERNAL_LINES_RE =
+  /^(?:The user attached the following skills? to this request\.[^\n]*|##\s*Skills loaded\s*\([^\n]*|(?:Starred knowledge-base files|Attachment list|Document block list):\s*[^\n]*|\s*tool_call\s*:\s*\w+[^\n]*)(?:\r?\n|$)/gim
 
 export function isJunkTestFilename(nameOrPath: string): boolean {
   const base = basename(nameOrPath.trim())
@@ -82,6 +84,7 @@ export function sanitizeStagedContent(content: string): string {
     .replace(LEAKED_SESSION_ID_RE, '')
     .replace(LEAKED_INTERNAL_BLOCKS_RE, '')
     .replace(LEAKED_INTERNAL_MARKERS_RE, '')
+    .replace(LEAKED_UNTAGGED_INTERNAL_LINES_RE, '')
 }
 
 export class HomeCliError extends Error {}
@@ -285,15 +288,13 @@ const sessionCreatedOutputs = new Map<string, Set<string>>()
 const sessionOutputRedirects = new Map<string, Map<string, string>>()
 
 /**
- * FX-50: Compute a non-colliding path with a `" (1)"`, `" (2)"`, ... suffix before the
- * extension when `targetPath` already exists on disk and was not created in this session.
+ * FX-50 & FX-66: Compute a non-colliding path with a `" (1)"`, `" (2)"`, ... suffix before the
+ * extension whenever `targetPath` already exists on disk (including files created earlier in
+ * the same session).
  */
-export function uniqueOutputPathWithSuffix(
-  targetPath: string,
-  createdInSession?: ReadonlySet<string>,
-): string {
+export function uniqueOutputPathWithSuffix(targetPath: string): string {
   const resolved = resolve(targetPath)
-  if (!existsSync(resolved) || createdInSession?.has(resolved)) {
+  if (!existsSync(resolved)) {
     return targetPath
   }
   const dir = dirname(targetPath)
@@ -305,7 +306,7 @@ export function uniqueOutputPathWithSuffix(
   for (let n = 1; n < 10_000; n++) {
     const candidate = join(dir, `${stem} (${n})${ext}`)
     const resolvedCandidate = resolve(candidate)
-    if (!existsSync(resolvedCandidate) || createdInSession?.has(resolvedCandidate)) {
+    if (!existsSync(resolvedCandidate)) {
       return candidate
     }
   }
@@ -313,11 +314,12 @@ export function uniqueOutputPathWithSuffix(
 }
 
 /**
- * FX-18 & FX-50: Redirect any `--out` that accidentally points into `ask-ai-work`, `~/Lycero`,
+ * FX-18, FX-50 & FX-66: Redirect any `--out` that accidentally points into `ask-ai-work`, `~/Lycero`,
  * bare `$HOME/<file>.(docx|xlsx|pptx|pdf)`, or relative filenames in production to the
- * canonical `ctx.outDir` (`<Documents>/Lycero Office`), collapse `-2` / `_v2` duplicate
- * suffixes back to the session's own created file, and append `" (1)"` instead of silently
- * overwriting pre-existing files in `ctx.outDir`.
+ * canonical `ctx.outDir` (`<Documents>/Lycero Office`), collapse `-2` / `_v2` / `_final` / `-moi`
+ * duplicate suffixes back to the session's own created file WITHOUT deleting the source file
+ * beforehand (atomic temp-file + rename happens inside the CLI only on `status: ok`), and append
+ * `" (1)"` instead of silently overwriting existing files in `ctx.outDir`.
  */
 function normalizeOutputArgPaths(
   args: string[],
@@ -335,6 +337,10 @@ function normalizeOutputArgPaths(
     redirects = new Map<string, string>()
     sessionOutputRedirects.set(sessionId, redirects)
   }
+  const isEditCommand =
+    (normalized[0] === 'docs' || normalized[0] === 'sheet' || normalized[0] === 'slides') &&
+    (normalized[1] === 'apply' || normalized[1] === 'replace')
+
   const rewriteOut = (rawOut: string): string => {
     if (!/\.(docx|xlsx|pptx|pdf)$/i.test(rawOut)) return rawOut
     const clean = rawOut.trim()
@@ -350,60 +356,41 @@ function normalizeOutputArgPaths(
       targetPath = join(ctx.outDir, basename(clean))
     }
     const resolvedTarget = resolve(ctx.workDir, targetPath)
-    // FX-18: If the model tries to create a duplicate `<stem>-2.ext` or `<stem>_v2.ext` for a file
-    // already created in this same session, collapse it back to the original session file and
-    // remove the earlier draft so only one final file exists.
-    const dupMatch = /^(.+?)(?:[-_](?:v?\d+|final|updated|moi))(\.(?:docx|xlsx|pptx|pdf))$/i.exec(
+    // FX-66: Collapse duplicate suffixes (`-v2`, `-2`, `_final`, `_updated`, `-moi`) back to
+    // the session's created file WITHOUT deleting anything beforehand. Do not match 4-digit years (`-2026`).
+    const dupMatch = /^(.+?)(?:[-_](?:v\d{1,3}|\d{1,2}|final|updated|moi))(\.(?:docx|xlsx|pptx|pdf))$/i.exec(
       basename(resolvedTarget),
     )
     if (dupMatch) {
       const rawBase = resolve(dirname(resolvedTarget), `${dupMatch[1]}${dupMatch[2]}`)
       const baseCandidate = redirects.get(rawBase) ?? rawBase
       if (createdInSession.has(baseCandidate)) {
-        try {
-          rmSync(baseCandidate, { force: true })
-        } catch {
-          // ignore
-        }
         return baseCandidate
       }
     }
-    // FX-50: If this session already redirected `resolvedTarget` to a `" (1)"` path, reuse it.
-    const existingRedirect = redirects.get(resolvedTarget)
-    if (existingRedirect) {
-      if (existsSync(existingRedirect)) {
-        try {
-          rmSync(existingRedirect, { force: true })
-        } catch {
-          // ignore
-        }
+    // For edit commands (`docs/sheet/slides apply/replace`), keep targeting the active session file
+    // so the CLI updates it in place via atomic temp-file + rename when `status: ok`.
+    if (isEditCommand) {
+      const existingRedirect = redirects.get(resolvedTarget)
+      if (existingRedirect) {
+        return existingRedirect
       }
-      return existingRedirect
+      if (createdInSession.has(resolvedTarget)) {
+        return targetPath
+      }
     }
-    // FX-50: If the file already exists in ctx.outDir and was NOT created in this session,
-    // do not overwrite it — add a `" (1)"` (or `" (2)"`, ...) suffix instead.
+    // FX-50: If the file already exists in ctx.outDir (even if created earlier in this session),
+    // do not overwrite it on `create` / `convert` — add a `" (1)"` (or `" (2)"`, ...) suffix instead.
     if (
       existsSync(resolvedTarget) &&
       isInside(ctx.outDir, resolvedTarget) &&
-      !isInside(ctx.workDir, resolvedTarget) &&
-      !createdInSession.has(resolvedTarget)
+      !isInside(ctx.workDir, resolvedTarget)
     ) {
-      const suffixed = uniqueOutputPathWithSuffix(targetPath, createdInSession)
+      const suffixed = uniqueOutputPathWithSuffix(targetPath)
       const resolvedSuffixed = resolve(ctx.workDir, suffixed)
       redirects.set(resolvedTarget, resolvedSuffixed)
       createdInSession.add(resolvedSuffixed)
       return suffixed
-    }
-    // Same-session output revision or scratch file in ctx.workDir: safe to replace before regeneration
-    if (
-      existsSync(resolvedTarget) &&
-      (createdInSession.has(resolvedTarget) || isInside(ctx.workDir, resolvedTarget))
-    ) {
-      try {
-        rmSync(resolvedTarget, { force: true })
-      } catch {
-        // ignore
-      }
     }
     return targetPath
   }
@@ -488,6 +475,7 @@ export async function runHomeCli(
   const piiRegistry = PiiTokenizer.exportGlobalRegistry()
   const extraEnv: Record<string, string> = {
     GENOFFICE_ALLOWED_ROOTS: allowedRootsFor(ctx, effectiveSources),
+    LYCERO_HOME_CLI_OVERWRITE: '1',
   }
   if (Object.keys(piiRegistry).length > 0) {
     extraEnv.LYCERO_PII_MAP = JSON.stringify(piiRegistry)

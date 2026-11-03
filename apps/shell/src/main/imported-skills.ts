@@ -87,30 +87,32 @@ export async function usableSkills(userDataDir: string): Promise<FoundSkill[]> {
   } catch {
     return []
   }
-  const out: FoundSkill[] = []
-  for (const name of entries.sort()) {
-    if (name.startsWith('.')) continue
-    if (HIDDEN_OR_MERGED_SKILL_SLUGS.has(name.toLowerCase())) continue
-    if (isAdvancedCloudSkill(name)) {
-      tryRm(join(root, name))
-      continue
-    }
-    const path = join(root, name, 'SKILL.md')
-    let text: string
-    try {
-      text = await readFile(path, 'utf8')
-    } catch {
-      continue
-    }
-    const skill = describe(name, path, text)
-    if (!skill) continue
-    if (skill.cloudProtected) {
-      tryRm(join(root, name))
-      continue
-    }
-    out.push(skill)
-  }
-  return out
+  const sorted = entries.sort()
+  const parsed = await Promise.all(
+    sorted.map(async (name): Promise<FoundSkill | null> => {
+      if (name.startsWith('.')) return null
+      if (HIDDEN_OR_MERGED_SKILL_SLUGS.has(name.toLowerCase())) return null
+      if (isAdvancedCloudSkill(name)) {
+        tryRm(join(root, name))
+        return null
+      }
+      const path = join(root, name, 'SKILL.md')
+      let text: string
+      try {
+        text = await readFile(path, 'utf8')
+      } catch {
+        return null
+      }
+      const skill = describe(name, path, text)
+      if (!skill) return null
+      if (skill.cloudProtected) {
+        tryRm(join(root, name))
+        return null
+      }
+      return skill
+    }),
+  )
+  return parsed.filter((s): s is FoundSkill => s !== null)
 }
 
 /** the body of a skill, for the turn that runs it */

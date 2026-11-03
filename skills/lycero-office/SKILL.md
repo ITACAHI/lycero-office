@@ -2,7 +2,7 @@
 name: lycero-office
 description: Create, convert, read and edit Office documents locally with Lycero Office's command line. Build a new presentation (pptx) from a brief through a checked outline, per-page spec and render pipeline, a new spreadsheet (xlsx) from CSV or JSON data with formulas, a new Word document (docx) from Markdown or HTML, or a PDF; convert between pdf, docx, xlsx, pptx, md, html and csv; read the structure and text of an existing file (including the user's own docx / xlsx / pptx as source material) and apply structured edits to it. Use whenever the user asks for a slide deck, presentation, spreadsheet, workbook, report, Word document or any real Office file, a format conversion, a rewrite of part of an existing document, or wants the result opened in the Lycero Office editor. Documents are processed locally; only search, image and media send the query or the referenced file to the provider configured in Lycero Office.
 metadata:
-  version: 2.0.24
+  version: 2.0.25
   cli: '>=0.9.0'
 ---
 
@@ -276,3 +276,11 @@ echo '[{"op":"insert_content","afterBlockIndex":0,"html":"<p>Executive summary.<
   + **Biên bản bàn giao nghỉ việc & Chấm dứt HĐLĐ (`FX-42`)**: Thời hạn thanh toán đầy đủ các khoản quyền lợi là **14 ngày làm việc** kể từ ngày chấm dứt HĐLĐ theo **Khoản 1 Điều 48 Bộ luật Lao động 2019** — bắt buộc tính ra **ngày cụ thể theo lịch làm việc thực tế** của doanh nghiệp (ví dụ: chấm dứt HĐLĐ từ ngày `01/12/2026`, chế độ làm việc Thứ Hai đến Thứ Sáu nghỉ Thứ Bảy và Chủ nhật -> hạn 14 ngày làm việc là ngày **`18/12/2026`**, tuyệt đối không cộng 14 ngày lịch thông thường thành `15/12/2026`); không tự đặt quy tắc khấu trừ lương trái Điều 102 Bộ luật Lao động 2019; khi tài sản chưa kiểm kê thực tế thì cột *Tình trạng tài sản* phải để trống `……………………` chờ kiểm kê, không ghi sẵn *"Đã thu hồi"* hay *"Bình thường"*.
   + **Bảng KPI (`FX-20`) & OKR (`FX-41`)**: Trên bảng KPI, cột `% Hoàn thành` định dạng số `0.0%` (`0,0%`), xếp hạng bằng công thức `=RANK.EQ` tham chiếu trực tiếp vào cột `% Hoàn thành`, vẽ biểu đồ cột và định dạng có điều kiện `< 95%`. Trên bảng OKR, cột `Tiến độ (%)` bắt buộc áp dụng định dạng số phần trăm `0%` hoặc `0.0%` (tuyệt đối không để số thập phân thô `0.5`), cột `Điểm tự tin (1–10)` áp dụng Data Validation kiểu số nguyên (`whole`) từ `1` đến `10`, và 100% tên trang tính/tiêu đề cột bằng tiếng Việt.
 </lycero_global_mandatory_rules_v2018>
+
+### Quy tắc gọi `guide` & `docs read` chuẩn xác (`FX-74`, `FX-77`)
+- **Các nhóm hợp lệ của `genoffice guide` (viết chữ thường)**:
+  + `genoffice guide docs [nhóm|op]`: `block | table | text | list | track | comment | note | layout | media | props` (hoặc tên op như `setTableCellFormat`, `insertContent`; **không gọi** `design`, `setTableRowFormat`, `"document creation and formatting"`).
+  + `genoffice guide sheets [nhóm|op]`: `cell | formula | structure | layout | format | validation | chart | pivot | media` (hoặc tên op như `set_freeze`; **không gọi** `Layout` viết hoa, `design`, `freeze_panes`).
+  + `genoffice guide slides [nhóm|op]`: `design | spec | slide | shape | text | style | table | chart | media | order`.
+- **Cú pháp `docs read` theo khoảng block**: Dùng `genoffice docs read <file> --from <n> --to <m>` (**tuyệt đối không dùng `--range`**).
+- **Cấm thao tác vô nghĩa trên MST/CCCD & metadata (`FX-77`)**: Ghi trực tiếp nguyên văn số CCCD/MST vào văn bản, không bọc trong `[...]`, không gọi `findReplace` thay thế chính nó bằng chính nó, không gọi `set_properties` với `clear: "all"`.

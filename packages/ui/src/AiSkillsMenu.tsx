@@ -16,7 +16,16 @@ export interface AiSkillsMenuEntry {
   description: string
   cloudProtected?: boolean
   tier?: string
+  locked?: boolean
   aliases?: readonly string[]
+}
+
+const MERGED_SKILL_DISPLAY_TITLES: Readonly<Record<string, string>> = {
+  'vn-exam-matrix-specification-tt22': 'Ma trận & đặc tả đề (TT22)',
+  'vn-gdpt2018-lesson-plan-cv5512': 'Kế hoạch bài dạy GDPT 2018 (CV 5512)',
+  'vn-admin-doc-nd30': 'Thể thức văn bản hành chính (NĐ30/2020)',
+  'vn-corporate-accounting-tt200-tt133': 'Kế toán doanh nghiệp (TT200 / TT99)',
+  'vn-legal-contract-audit': 'Thẩm định & rà soát hợp đồng',
 }
 
 function foldSearchText(text: string): string {
@@ -25,6 +34,40 @@ function foldSearchText(text: string): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/đ/g, 'd')
+}
+
+export function getMergedSkillHint(
+  entry: AiSkillsMenuEntry,
+  query: string,
+  lang: Lang = 'vi',
+): string | null {
+  const q = query.trim().toLowerCase()
+  if (!q) return null
+  const cleanName = entry.name.trim().toLowerCase()
+  if (cleanName.includes(q)) return null
+  const qFolded = foldSearchText(q)
+  const matchedAlias = (entry.aliases ?? []).some((alias) => {
+    const a = alias.toLowerCase()
+    return a !== cleanName && (a.includes(q) || foldSearchText(a).includes(qFolded))
+  })
+  if (!matchedAlias) return null
+  const targetTitle = MERGED_SKILL_DISPLAY_TITLES[cleanName] ?? entry.title ?? entry.name
+  return lang === 'vi' ? `Đã gộp vào: ${targetTitle}` : `Merged into: ${targetTitle}`
+}
+
+export function filterSkillsForMenu(
+  skills: readonly AiSkillsMenuEntry[],
+  query: string,
+): readonly AiSkillsMenuEntry[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return skills
+  const qFolded = foldSearchText(q)
+  return skills.filter((s) => {
+    const haystack = [s.name, s.title ?? '', s.description, ...(s.aliases ?? [])]
+      .join(' ')
+      .toLowerCase()
+    return haystack.includes(q) || foldSearchText(haystack).includes(qFolded)
+  })
 }
 
 /**
@@ -69,10 +112,9 @@ export function AiSkillsMenu({
   const showSkills = useCallback(() => {
     setPage('skills')
     setQuery('')
-    setSkills(null)
     listSkills()
       .then((list) => setSkills(list))
-      .catch(() => setSkills([]))
+      .catch(() => setSkills((prev) => prev ?? []))
   }, [listSkills])
 
   const toggle = () => {
@@ -80,8 +122,17 @@ export function AiSkillsMenu({
       const rect = btnRef.current?.getBoundingClientRect()
       // the composer sits at the panel bottom: open upwards, pinned to the button
       if (rect) setPopStyle({ left: rect.left, bottom: window.innerHeight - rect.top + 6 })
-      if (onAddFile) setPage('root')
-      else showSkills()
+      if (onAddFile) {
+        setPage('root')
+        // FX-69: Pre-warm skill list as soon as the + menu opens so switching to "Kỹ năng" is instant
+        if (skills === null) {
+          listSkills()
+            .then((list) => setSkills(list))
+            .catch(() => setSkills((prev) => prev ?? []))
+        }
+      } else {
+        showSkills()
+      }
     }
     setOpen((v) => !v)
   }
@@ -92,15 +143,7 @@ export function AiSkillsMenu({
 
   const shown = useMemo(() => {
     if (!skills) return null
-    const q = query.trim().toLowerCase()
-    if (!q) return skills
-    const qFolded = foldSearchText(q)
-    return skills.filter((s) => {
-      const haystack = [s.name, s.title ?? '', s.description, ...(s.aliases ?? [])]
-        .join(' ')
-        .toLowerCase()
-      return haystack.includes(q) || foldSearchText(haystack).includes(qFolded)
-    })
+    return filterSkillsForMenu(skills, query)
   }, [skills, query])
 
   return (
@@ -178,6 +221,19 @@ export function AiSkillsMenu({
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Escape') setOpen(false)
+                    else if (e.key === 'Enter' && shown && shown.length > 0) {
+                      e.preventDefault()
+                      const first = shown[0]!
+                      const isCloud = Boolean(
+                        first.cloudProtected || first.tier === 'pro' || first.tier === 'plus',
+                      )
+                      const isOffline =
+                        isCloud && typeof navigator !== 'undefined' && navigator.onLine === false
+                      if (!isOffline && !first.locked) {
+                        onToggle(first.name)
+                        setOpen(false)
+                      }
+                    }
                   }}
                 />
               </div>
@@ -192,24 +248,33 @@ export function AiSkillsMenu({
                   const isCloud = Boolean(s.cloudProtected || s.tier === 'pro' || s.tier === 'plus')
                   const isOffline =
                     isCloud && typeof navigator !== 'undefined' && navigator.onLine === false
+                  const isLocked = Boolean(s.locked)
+                  const isDisabled = isOffline || isLocked
                   const offlinePrefix =
                     lang === 'vi'
                       ? '[Không khả dụng khi ngoại tuyến] '
                       : '[Unavailable offline] '
+                  const lockedPrefix =
+                    lang === 'vi' ? '[Khoá theo gói Pro] ' : '[Locked — Pro tier] '
+                  const mergedHint = getMergedSkillHint(s, query, lang)
+                  const baseDesc = mergedHint ? `${mergedHint} — ${s.description}` : s.description
                   const displayDesc =
-                    isOffline && !s.description.startsWith('[')
-                      ? `${offlinePrefix}${s.description}`
-                      : s.description
+                    isOffline && !baseDesc.startsWith('[')
+                      ? `${offlinePrefix}${baseDesc}`
+                      : isLocked && !baseDesc.startsWith('[')
+                        ? `${lockedPrefix}${baseDesc}`
+                        : baseDesc
                   return (
                     <button
                       key={s.name}
                       type="button"
                       role="menuitemcheckbox"
                       aria-checked={on}
-                      disabled={isOffline}
-                      className={`ai-plus-skill${on ? ' on' : ''}${isOffline ? ' disabled' : ''}`}
+                      disabled={isDisabled}
+                      className={`ai-plus-skill${on ? ' on' : ''}${isDisabled ? ' disabled' : ''}`}
+                      onMouseDown={(e) => e.preventDefault()}
                       onClick={() => {
-                        if (!isOffline) onToggle(s.name)
+                        if (!isDisabled) onToggle(s.name)
                       }}
                       title={displayDesc}
                     >
@@ -221,7 +286,11 @@ export function AiSkillsMenu({
                           <span className="ai-plus-skill-name">{s.name}</span>
                           {isCloud && (
                             <span className="ai-plus-cloud-badge">
-                              {s.tier === 'plus' ? 'CLOUD PLUS' : 'CLOUD PRO'}
+                              {isLocked
+                                ? 'PRO LOCKED'
+                                : s.tier === 'plus'
+                                  ? 'CLOUD PLUS'
+                                  : 'CLOUD PRO'}
                             </span>
                           )}
                         </span>

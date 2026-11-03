@@ -38,7 +38,7 @@ export const guideCommand: CommandDef = {
     },
   ],
   async run(args) {
-    const [domain, topic] = args.positionals
+    const [domain, rawTopic] = args.positionals
     const json = flagBool(args, 'json')
     if (flagBool(args, 'fingerprint') && (domain === undefined || isDomain(domain))) {
       return fingerprints(domain, json)
@@ -54,23 +54,28 @@ export const guideCommand: CommandDef = {
         },
       )
     }
+    const topic = resolveTopicAlias(domain, rawTopic)
     if (domain === 'slides' && (topic === 'design' || topic === 'spec')) {
       const { SLIDES_GUIDES } = await import('@lycero/pipelines/slides')
       return { summary: SLIDES_GUIDES[topic].content }
     }
     const { catalog, text } = await load(domain, topic, flagBool(args, 'index'))
     if (!topic) return { summary: text(), ...(json ? { detail: { ...catalog } } : {}) }
-    const group = catalog.groups.find((g) => g.name === topic)
+    const group =
+      catalog.groups.find((g) => g.name === topic) ??
+      catalog.groups.find((g) => g.name.toLowerCase() === topic.toLowerCase())
     if (group) {
-      const entries = catalog.ops.filter((e) => e.group === topic)
+      const entries = catalog.ops.filter((e) => e.group === group.name)
       return {
-        summary: text(topic),
+        summary: text(group.name),
         ...(json
           ? { detail: { domain, fingerprint: catalog.fingerprint, group, ops: entries } }
           : {}),
       }
     }
-    const entry = catalog.ops.find((e) => e.op === topic)
+    const entry =
+      catalog.ops.find((e) => e.op === topic) ??
+      catalog.ops.find((e) => e.op.toLowerCase() === topic.toLowerCase())
     if (!entry) {
       const names = [...catalog.groups.map((g) => g.name), ...catalog.ops.map((e) => e.op)]
       const guess = didYouMean(topic, names)
@@ -88,6 +93,32 @@ export const guideCommand: CommandDef = {
     }
     return { summary: opText(entry), ...(json ? { detail: { ...entry } } : {}) }
   },
+}
+
+const TOPIC_ALIASES: Record<GuideDomain, Record<string, string | undefined>> = {
+  slides: {
+    design: 'design',
+    spec: 'spec',
+  },
+  docs: {
+    design: 'block',
+    settablerowformat: 'setTableCellFormat',
+    'document creation and formatting': undefined,
+  },
+  sheets: {
+    design: 'format',
+    formatting: 'format',
+    freeze_panes: 'set_freeze',
+    freeze: 'set_freeze',
+  },
+}
+
+function resolveTopicAlias(domain: GuideDomain, rawTopic: string | undefined): string | undefined {
+  if (!rawTopic) return undefined
+  const lower = rawTopic.trim().toLowerCase()
+  const domainAliases = TOPIC_ALIASES[domain]
+  if (lower in domainAliases) return domainAliases[lower]
+  return rawTopic.trim()
 }
 
 function isDomain(value: string | undefined): value is GuideDomain {

@@ -291,5 +291,192 @@ describe('runHomeCli', () => {
       files: [{ name: 'ops.json', content: '[]' }],
     })
     expect(runs[1]!.args).toEqual(['docs', 'apply', resolve(expectedSuffixed), '--ops', 'ops.json'])
+
+    // FX-50 (in-session): a subsequent `create` targeting the same name in the same session must NOT overwrite `report (1).docx`
+    const expectedSuffixed2 = join(outDir, 'report (2).docx')
+    outcome.json = {
+      status: 'ok',
+      command: 'create',
+      summary: 'ok',
+      output_path: expectedSuffixed2,
+    }
+    await runHomeCli(deps, 'kb-ask-fx50', {
+      args: ['create', '--type', 'docx', '--from', 'report2.md', '--out', existing],
+      files: [{ name: 'report2.md', content: '# Second Report' }],
+    })
+    expect(await readFile(expectedSuffixed, 'utf8')).toBe('new session content')
+    expect(runs[2]!.args).toEqual([
+      'create',
+      '--type',
+      'docx',
+      '--from',
+      'report2.md',
+      '--out',
+      expectedSuffixed2,
+    ])
+  })
+
+  it('FX-66: dupMatch rewrites --out <stem>_final.docx / -v2.xlsx / -moi.pptx to the original session file WITHOUT deleting it, and preserves 4-digit years (-2026)', async () => {
+    const outDir = join(root, 'Documents')
+    await mkdir(outDir, { recursive: true })
+
+    // 1. Case 24 reproduction: create X.docx -> docs apply X.docx --ops ok.json --out X_final.docx
+    const docPath = join(outDir, 'Van_ban_thoa_thuan_phan_chia_di_san_Nguyen_Van_Hoa.docx')
+    const docFinalPath = join(
+      outDir,
+      'Van_ban_thoa_thuan_phan_chia_di_san_Nguyen_Van_Hoa_final.docx',
+    )
+    deps = {
+      ...deps,
+      runner: () => ({
+        run: async (args, options) => {
+          runs.push({ args, options })
+          if (args[0] === 'create') {
+            const outIdx = args.indexOf('--out')
+            const outTarget = args[outIdx + 1]!
+            await writeFile(outTarget, 'initial-created-bytes')
+            return {
+              ok: true,
+              code: 0,
+              stdout: JSON.stringify({
+                status: 'ok',
+                command: 'create',
+                summary: 'ok',
+                output_path: outTarget,
+              }),
+              stderr: '',
+              json: {
+                status: 'ok',
+                command: 'create',
+                summary: 'ok',
+                output_path: outTarget,
+              },
+            }
+          }
+          if (args[1] === 'apply') {
+            const inputPath = args[2]!
+            // The source file MUST still exist on disk when the CLI starts!
+            const currentBytes = await readFile(inputPath, 'utf8')
+            const opsIdx = args.indexOf('--ops')
+            const opsName = args[opsIdx + 1]!
+            if (opsName.includes('bad')) {
+              return {
+                ok: false,
+                code: 1,
+                stdout: JSON.stringify({
+                  status: 'error',
+                  command: `${args[0]} apply`,
+                  code: 1,
+                  message: 'invalid ops',
+                }),
+                stderr: '',
+                json: {
+                  status: 'error',
+                  command: `${args[0]} apply`,
+                  code: 1,
+                  message: 'invalid ops',
+                },
+              }
+            }
+            const outIdx = args.indexOf('--out')
+            const outTarget = outIdx >= 0 ? args[outIdx + 1]! : inputPath
+            await writeFile(outTarget, `${currentBytes}+applied`)
+            return {
+              ok: true,
+              code: 0,
+              stdout: JSON.stringify({
+                status: 'ok',
+                command: `${args[0]} apply`,
+                summary: 'ok',
+                output_path: outTarget,
+              }),
+              stderr: '',
+              json: {
+                status: 'ok',
+                command: `${args[0]} apply`,
+                summary: 'ok',
+                output_path: outTarget,
+              },
+            }
+          }
+          return outcome
+        },
+      }),
+    }
+
+    await runHomeCli(deps, 'kb-ask-fx66', {
+      args: ['create', '--type', 'docx', '--from', 'doc.md', '--out', docPath],
+      files: [{ name: 'doc.md', content: '# Di san' }],
+    })
+    expect(await readFile(docPath, 'utf8')).toBe('initial-created-bytes')
+
+    // Apply with valid ops and `--out <file>_final.docx` -> rewrites `--out` to `docPath` without deleting `docPath`
+    const applyOk = await runHomeCli(deps, 'kb-ask-fx66', {
+      args: ['docs', 'apply', docPath, '--ops', 'ok.json', '--out', docFinalPath],
+      files: [{ name: 'ok.json', content: '[{"op":"setStyle"}]' }],
+    })
+    expect(applyOk.ok).toBe(true)
+    expect(await readFile(docPath, 'utf8')).toBe('initial-created-bytes+applied')
+
+    // Apply with bad ops and `--out <file>_final.docx` -> fails, and `docPath` remains 100% intact!
+    const applyBad = await runHomeCli(deps, 'kb-ask-fx66', {
+      args: ['docs', 'apply', docPath, '--ops', 'bad.json', '--out', docFinalPath],
+      files: [{ name: 'bad.json', content: 'invalid' }],
+    })
+    expect(applyBad.ok).toBe(false)
+    expect(await readFile(docPath, 'utf8')).toBe('initial-created-bytes+applied')
+
+    // 2. Test -v2 for xlsx and -moi for pptx, and ensure -2026 is NOT stripped
+    const xlsxPath = join(outDir, 'Bang_tinh.xlsx')
+    const xlsxV2Path = join(outDir, 'Bang_tinh-v2.xlsx')
+    const xlsx2026Path = join(outDir, 'Bang_tinh-2026.xlsx')
+    await runHomeCli(deps, 'kb-ask-fx66', {
+      args: ['create', '--type', 'xlsx', '--from', 'data.json', '--out', xlsxPath],
+      files: [{ name: 'data.json', content: '[["A","B"],[1,2]]' }],
+    })
+    await runHomeCli(deps, 'kb-ask-fx66', {
+      args: ['sheet', 'apply', xlsxPath, '--ops', 'ok.json', '--out', xlsxV2Path],
+      files: [{ name: 'ok.json', content: '[]' }],
+    })
+    expect(await readFile(xlsxPath, 'utf8')).toBe('initial-created-bytes+applied')
+
+    await runHomeCli(deps, 'kb-ask-fx66', {
+      args: ['sheet', 'apply', xlsxPath, '--ops', 'bad.json', '--out', xlsxV2Path],
+      files: [{ name: 'bad.json', content: '[]' }],
+    })
+    expect(await readFile(xlsxPath, 'utf8')).toBe('initial-created-bytes+applied')
+
+    // -2026 must NOT match dupMatch
+    await runHomeCli(deps, 'kb-ask-fx66', {
+      args: ['sheet', 'apply', xlsxPath, '--ops', 'ok.json', '--out', xlsx2026Path],
+      files: [{ name: 'ok.json', content: '[]' }],
+    })
+    expect(runs.at(-1)!.args.at(-1)).toBe(xlsx2026Path)
+    expect(await readFile(xlsx2026Path, 'utf8')).toBe('initial-created-bytes+applied+applied')
+
+    const pptxPath = join(outDir, 'Bai_giang.pptx')
+    const pptxMoiPath = join(outDir, 'Bai_giang-moi.pptx')
+    const pptx2026Path = join(outDir, 'Bai_giang-2026.pptx')
+    await runHomeCli(deps, 'kb-ask-fx66', {
+      args: ['create', '--type', 'pptx', '--spec', 'spec.json', '--out', pptxPath],
+      files: [{ name: 'spec.json', content: '{"pages":[]}' }],
+    })
+    await runHomeCli(deps, 'kb-ask-fx66', {
+      args: ['slides', 'apply', pptxPath, '--ops', 'ok.json', '--out', pptxMoiPath],
+      files: [{ name: 'ok.json', content: '[]' }],
+    })
+    expect(await readFile(pptxPath, 'utf8')).toBe('initial-created-bytes+applied')
+
+    await runHomeCli(deps, 'kb-ask-fx66', {
+      args: ['slides', 'apply', pptxPath, '--ops', 'bad.json', '--out', pptxMoiPath],
+      files: [{ name: 'bad.json', content: '[]' }],
+    })
+    expect(await readFile(pptxPath, 'utf8')).toBe('initial-created-bytes+applied')
+
+    await runHomeCli(deps, 'kb-ask-fx66', {
+      args: ['slides', 'apply', pptxPath, '--ops', 'ok.json', '--out', pptx2026Path],
+      files: [{ name: 'ok.json', content: '[]' }],
+    })
+    expect(runs.at(-1)!.args.at(-1)).toBe(pptx2026Path)
   })
 })

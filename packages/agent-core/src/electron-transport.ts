@@ -20,10 +20,13 @@ import type {
 export interface IpcStreamChunk {
   requestId: string
   /** 'ping' = wire-level keepalive; re-arms the silence watchdog and carries no payload;
-   * 'reasoning' = model thinking delta (text carries it) */
-  type: 'delta' | 'reasoning' | 'tool-call' | 'usage' | 'done' | 'error' | 'ping'
+   * 'reasoning' = model thinking delta (text carries it);
+   * 'tool-progress' = tool-call arguments streaming progress (FX-72) */
+  type: 'delta' | 'reasoning' | 'tool-call' | 'tool-progress' | 'usage' | 'done' | 'error' | 'ping'
   text?: string
   toolCall?: AgentToolCall
+  toolName?: string
+  toolBytes?: number
   error?: string
   /** machine-readable error cause; maps to the localized timeout/credits/network/overloaded message */
   errorCode?: 'timeout' | 'credits' | 'network' | 'overloaded' | 'region' | 'quota_exhausted'
@@ -163,6 +166,9 @@ export function createIpcTransport<S>(options: IpcTransportOptions<S>): AgentTra
           if (chunk.text) cb.onReasoning?.(chunk.text)
         } else if (chunk.type === 'tool-call') {
           if (chunk.toolCall) cb.onToolCall(chunk.toolCall)
+        } else if (chunk.type === 'tool-progress') {
+          cb.onPhase?.({ kind: 'tool-input', toolName: chunk.toolName })
+          cb.onToolProgress?.({ name: chunk.toolName, bytes: chunk.toolBytes ?? 0 })
         } else if (chunk.type === 'usage') {
           if (chunk.usage) cb.onUsage?.(chunk.usage)
         } else if (chunk.type === 'done') {
@@ -171,20 +177,25 @@ export function createIpcTransport<S>(options: IpcTransportOptions<S>): AgentTra
           cb.onDone()
         } else if (chunk.type === 'error') {
           settle()
+          const hasRequestIdMsg =
+            typeof chunk.error === 'string' &&
+            (chunk.error.includes('Mã yêu cầu:') || chunk.error.includes('requestId:'))
           cb.onError(
             chunk.errorCode === 'timeout'
               ? timeoutText(chunk.error)
-              : chunk.errorCode === 'credits'
-                ? (options.creditsErrorText?.() ?? chunk.error ?? options.unknownErrorText())
-                : chunk.errorCode === 'network'
-                  ? (options.networkErrorText?.() ?? chunk.error ?? options.unknownErrorText())
-                  : chunk.errorCode === 'overloaded'
-                    ? (options.overloadedErrorText?.() ?? chunk.error ?? options.unknownErrorText())
-                    : chunk.errorCode === 'region'
-                      ? (options.regionErrorText?.() ?? chunk.error ?? options.unknownErrorText())
-                      : chunk.errorCode === 'quota_exhausted'
-                        ? (options.quotaExhaustedErrorText?.() ?? chunk.error ?? options.unknownErrorText())
-                        : (chunk.error ?? options.unknownErrorText()),
+              : hasRequestIdMsg
+                ? chunk.error!
+                : chunk.errorCode === 'credits'
+                  ? (options.creditsErrorText?.() ?? chunk.error ?? options.unknownErrorText())
+                  : chunk.errorCode === 'network'
+                    ? (options.networkErrorText?.() ?? chunk.error ?? options.unknownErrorText())
+                    : chunk.errorCode === 'overloaded'
+                      ? (options.overloadedErrorText?.() ?? chunk.error ?? options.unknownErrorText())
+                      : chunk.errorCode === 'region'
+                        ? (options.regionErrorText?.() ?? chunk.error ?? options.unknownErrorText())
+                        : chunk.errorCode === 'quota_exhausted'
+                          ? (options.quotaExhaustedErrorText?.() ?? chunk.error ?? options.unknownErrorText())
+                          : (chunk.error ?? options.unknownErrorText()),
           )
         }
       })

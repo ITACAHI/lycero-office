@@ -421,6 +421,23 @@ describe('genoffice docx (docs editor under jsdom)', () => {
     expect(r.json().detail.failures[0]).toMatchObject({ index: 0, op: 'frobnicate' })
     expect(readFileSync(copy).equals(readFileSync(DOCX))).toBe(true)
     expect((await run(['docs', 'nope', copy])).code).toBe(1)
+
+    // FX-66: when --out equals the input path, valid ops overwrite atomically and invalid ops leave the file intact
+    const okOps = join(dir, 'ok-same-out.json')
+    writeFileSync(
+      okOps,
+      JSON.stringify([
+        { op: 'insert_content', afterBlockIndex: 0, html: '<p>FX-66 atomic overwrite</p>' },
+      ]),
+    )
+    const sameOutOk = await run(['docs', 'apply', copy, '--ops', okOps, '--out', copy, '--json'])
+    expect(sameOutOk.code).toBe(0)
+    expect(await documentXml(copy)).toContain('FX-66 atomic overwrite')
+    const bytesAfterOk = readFileSync(copy)
+
+    const sameOutBad = await run(['docs', 'apply', copy, '--ops', bad, '--out', copy, '--json'])
+    expect(sameOutBad.code).toBe(1)
+    expect(readFileSync(copy).equals(bytesAfterOk)).toBe(true)
   })
 
   it('converts markdown to docx and html, and prints the docs guide', async () => {
@@ -1401,5 +1418,50 @@ describe('genoffice docs: comments, revisions, header/footer, images, charts', (
     const rejected = await run(['docs', 'apply', path, '--ops', bad, '--json'])
     expect(rejected.code).toBe(1)
     expect(rejected.json().message).toContain('no style "Nope"')
+  })
+
+  it('FX-78, FX-46, FX-34: preserves decimal numbers after comma, splits <br> in cells, and strips untagged internal text', async () => {
+    const dir = tempDir()
+    const htmlIn = join(dir, 'fx78-input.html')
+    const outDocx = join(dir, 'fx78-output.docx')
+    writeFileSync(
+      htmlIn,
+      [
+        '<thinking>Internal reasoning block</thinking>',
+        'The user attached the following skills to this request. Read their SKILL.md files.',
+        '## Skills loaded (vn-legal-contract-review)',
+        'Starred knowledge-base files: D:\\secret.docx',
+        'tool_call: run_cli',
+        '<h1>BÁO CÁO KẾT QUẢ</h1>',
+        '<table>',
+        '  <tr><th>STT</th><th>Chỉ tiêu</th><th>Tỷ lệ</th><th>Giá trị</th><th>Đơn giá</th></tr>',
+        '  <tr><td>1</td><td>Dòng 1<br>Dòng 2&lt;br&gt;Dòng 3\\<br\\>Dòng 4</td><td>4,62962963%</td><td>1.234.567,891</td><td>15000000</td></tr>',
+        '  <tr><td>2</td><td>Hệ số điều chỉnh</td><td>0,5</td><td>3.14159</td><td>2500000</td></tr>',
+        '</table>',
+      ].join('\n'),
+      'utf-8',
+    )
+    const created = await run(['create', '--type', 'docx', '--from', htmlIn, '--out', outDocx, '--json'])
+    expect(created.code, created.stderr).toBe(0)
+
+    const readRes = await run(['docs', 'read', outDocx, '--json'])
+    expect(readRes.code).toBe(0)
+    const rawReadJson = readRes.stdout
+
+    // FX-78: Decimal numbers with comma must never have thousand dots inserted into the fractional part
+    expect(rawReadJson).toContain('4,62962963%')
+    expect(rawReadJson).not.toContain('4,62.962.963%')
+    expect(rawReadJson).toContain('1.234.567,891')
+    expect(rawReadJson).not.toContain('1.234.567.891')
+    expect(rawReadJson).toContain('0,5')
+    expect(rawReadJson).toContain('3.14159')
+    // Pure integer in currency column is still formatted with thousand dots
+    expect(rawReadJson).toContain('15.000.000')
+
+    // FX-46: Zero raw <br> tags in table cells or document text
+    expect(rawReadJson).not.toMatch(/<br\s*\/?>|&lt;br/i)
+
+    // FX-34: Zero leaked internal reasoning or untagged prompt lines
+    expect(rawReadJson).not.toMatch(/<thinking>|The user attached the following skills|## Skills loaded|Starred knowledge-base files|tool_call:/i)
   })
 })

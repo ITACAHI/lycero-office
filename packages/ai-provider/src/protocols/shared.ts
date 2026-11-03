@@ -115,7 +115,7 @@ export function openAiContentText(content: unknown): string {
 
 export async function* sseLines(
   body: NodeJS.ReadableStream | ReadableStream<Uint8Array>,
-  onBytes?: () => void,
+  onBytes?: (bufferedLine?: string) => void,
 ): AsyncGenerator<string> {
   const decoder = new TextDecoder()
   let buffer = ''
@@ -126,7 +126,6 @@ export async function* sseLines(
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
-      onBytes?.()
       for (const byte of value) {
         if (byte === 0x0a) {
           lineBytes = 0
@@ -140,6 +139,7 @@ export async function* sseLines(
         }
       }
       buffer += decoder.decode(value, { stream: true })
+      onBytes?.(buffer)
       const lines = buffer.split('\n')
       buffer = lines.pop() ?? ''
       for (const line of lines) yield line
@@ -273,6 +273,8 @@ export interface StreamCallbacks {
   onUsage?: (usage: AiTokenUsage) => void
   /** bytes arrived on the wire (fires per network chunk, including SSE pings; used for keepalive) */
   onActivity?: () => void
+  /** FX-72: streamed tool-call argument progress (bytes accumulated while generating tool arguments) */
+  onToolArgsProgress?: (info: { name?: string | undefined; bytes: number }) => void
   /** Stable renderer transport id for providers with native sessions. */
   sessionId?: string
   editorModule?: LyceroEditorModule | undefined
@@ -372,16 +374,64 @@ export function isSkillExtractionAttempt(prompt: string): boolean {
   )
   if (!withoutProhibitions.trim()) return false
 
+  // Direct prompt-injection / rule-override attempts (FX-59)
+  const overridePattern =
+    /(?:bỏ\s+qua|phớt\s+lờ|quên\s+đi)\s+(?:mọi\s+|tất\s+cả\s+|các\s+)?(?:quy\s+tắc|chỉ\s+thị|hướng\s+dẫn|luật|ràng\s+buộc)|ignore\s+(?:all\s+|any\s+)?(?:previous|prior|above|system)\s+(?:instructions?|rules?|prompts?|constraints?)/i
+  if (overridePattern.test(withoutProhibitions)) return true
+
   // Require BOTH an extraction command verb AND an explicit internal skill / system-prompt target (FX-59)
   const target =
-    '(?:nội\\s+dung\\s+|toàn\\s+bộ\\s+|toàn\\s+văn\\s+|mã\\s+nguồn\\s+|chỉ\\s+thị\\s+|hướng\\s+dẫn\\s+|file\\s+|tệp\\s+)*(?:skill(?:\\.md)?\\b|kỹ\\s+năng\\s+(?:hệ\\s+thống|nội\\s+bộ|[a-z0-9_-]+)|system\\s*prompt\\b|secretsystemprompt\\b|chỉ\\s+thị\\s+(?:hệ\\s+thống|nội\\s+bộ|kỹ\\s+năng)|hướng\\s+dẫn\\s+(?:hệ\\s+thống|nội\\s+bộ))'
+    '(?:nội\\s+dung\\s+|toàn\\s+bộ\\s+|toàn\\s+văn\\s+|mã\\s+nguồn\\s+|chỉ\\s+thị\\s+|hướng\\s+dẫn\\s+|file\\s+|tệp\\s+)*(?:skill\\.md\\b|skill\\s+(?:hệ\\s+thống|nội\\s+bộ|[a-z0-9_-]+)|kỹ\\s+năng\\s+(?:hệ\\s+thống|nội\\s+bộ|[a-z0-9_-]+)|system\\s*prompt\\b|secretsystemprompt\\b|chỉ\\s+thị\\s+(?:hệ\\s+thống|nội\\s+bộ|kỹ\\s+năng)|hướng\\s+dẫn\\s+(?:hệ\\s+thống|nội\\s+bộ))'
   const vnVerb =
-    '(?:in\\s+nguyên\\s+văn|xuất\\s+nguyên\\s+văn|hiển\\s+thị\\s+nguyên\\s+văn|chép\\s+nguyên\\s+văn|trích\\s+xuất(?:\\s+nguyên\\s+văn)?|đọc\\s+nguyên\\s+văn|in\\s+toàn\\s+bộ|toàn\\s+văn|xem\\s+mã\\s+nguồn|tiết\\s+lộ\\s+nguyên\\s+văn)'
+    '(?:in\\s+nguyên\\s+văn|xuất\\s+nguyên\\s+văn|hiển\\s+thị(?:\\s+nguyên\\s+văn)?|chép\\s+nguyên\\s+văn|trích\\s+xuất(?:\\s+nguyên\\s+văn)?|đọc(?:\\s+nguyên\\s+văn)?|in\\s+toàn\\s+bộ|toàn\\s+văn|xem\\s+mã\\s+nguồn|tiết\\s+lộ(?:\\s+nguyên\\s+văn)?|(?:cho\\s+(?:tôi|mình|em|anh|chị|bạn)\\s+)?(?:xem|đọc|biết|xin|lấy))'
   const enVerb =
-    '(?:print(?:\\s+the)?(?:\\s+(?:verbatim|full|raw|exact))?|dump(?:\\s+the)?(?:\\s+(?:verbatim|full|raw|exact))?|repeat(?:\\s+(?:your|the))?|output(?:\\s+the)?(?:\\s+(?:full|raw|verbatim))?(?:\\s+contents?\\s+of)?|show(?:\\s+me)?(?:\\s+the)?(?:\\s+(?:verbatim|raw|exact))?)'
+    '(?:print(?:\\s+(?:me|us))?(?:\\s+(?:your|the|my|its))?(?:\\s+(?:verbatim|full|raw|exact))?|dump(?:\\s+(?:your|the|my|its))?(?:\\s+(?:verbatim|full|raw|exact))?|repeat(?:\\s+(?:your|the|my|its))?|output(?:\\s+(?:your|the|my|its))?(?:\\s+(?:full|raw|verbatim))?(?:\\s+contents?\\s+of)?|show(?:\\s+(?:me|us))?(?:\\s+(?:your|the|my|its))?(?:\\s+(?:verbatim|raw|exact|full))?|reveal(?:\\s+(?:your|the|my|its))?|display(?:\\s+(?:your|the|my|its))?)'
 
   const pattern = new RegExp(`(?:${vnVerb}|${enVerb})\\s+${target}`, 'i')
   return pattern.test(withoutProhibitions)
+}
+
+/**
+ * FX-65b: Sanitize provider / HTTP / gateway errors into a clean Vietnamese message
+ * with `requestId`, stripping any model names, provider names, or raw JSON payloads.
+ */
+export function sanitizeAiErrorForUi(rawError: unknown, requestId?: string): string {
+  const raw = (rawError instanceof Error ? rawError.message : String(rawError ?? '')).trim()
+  const reqSuffix =
+    requestId && !raw.includes(requestId) ? ` (Mã yêu cầu: ${requestId})` : ''
+
+  if (!raw) {
+    return `Đã xảy ra lỗi kết nối với dịch vụ AI${reqSuffix}. Vui lòng thử lại.`
+  }
+
+  // Already a clean Vietnamese timeout/quota/auth message without provider leaks or raw JSON
+  const hasProviderOrModelLeak =
+    /\b(?:anthropic|openai|claude(?:-[a-z0-9.-]+)?|gemini(?:-[a-z0-9.-]+)?|gpt-[a-z0-9.-]+|deepseek(?:-[a-z0-9.-]+)?|qwen(?:-[a-z0-9.-]+)?|minimax(?:-[a-z0-9.-]+)?|mistral(?:-[a-z0-9.-]+)?|llama(?:-[a-z0-9.-]+)?|vertex|bedrock|openrouter|genspark|litellm)\b/i.test(
+      raw,
+    )
+  const hasRawJson = /\{\s*"(?:error|message|type|code|status)"/i.test(raw) || /^\s*[{[]/.test(raw)
+
+  if (/Stream closed without a finish event/i.test(raw)) {
+    return `Luồng phản hồi từ máy chủ bị ngắt đột ngột trước khi hoàn tất${reqSuffix}. Vui lòng bấm Thử lại.`
+  }
+
+  if (/\b(?:HTTP\s*50[234]|HTTP\s*529|503\b|502\b|504\b|529\b|overloaded|service\s+unavailable|bad\s+gateway|gateway\s+timeout|capacity)/i.test(raw)) {
+    return `Hệ thống AI đang tạm thời quá tải hoặc bảo trì (mã 503)${reqSuffix}. Vui lòng thử lại sau ít phút.`
+  }
+
+  if (/\b(?:HTTP\s*500|internal\s+server\s+error)\b/i.test(raw)) {
+    return `Máy chủ AI gặp sự cố nội bộ tạm thời${reqSuffix}. Vui lòng thử lại.`
+  }
+
+  if (/\b(?:HTTP\s*429|rate\s*limit|too\s+many\s+requests|quota)\b/i.test(raw) && (hasProviderOrModelLeak || hasRawJson || /^HTTP\s*429/i.test(raw))) {
+    return `Hệ thống AI đang nhận quá nhiều yêu cầu cùng lúc${reqSuffix}. Vui lòng thử lại sau giây lát.`
+  }
+
+  if (hasProviderOrModelLeak || hasRawJson || /^HTTP\s+\d{3}\b/i.test(raw)) {
+    return `Hệ thống AI tạm thời không thể xử lý yêu cầu này${reqSuffix}. Vui lòng thử lại.`
+  }
+
+  return `${raw}${reqSuffix}`
 }
 
 export function restorePiiAndSanitizeToolValue<T>(

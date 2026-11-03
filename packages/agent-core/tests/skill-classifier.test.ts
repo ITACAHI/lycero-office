@@ -4,17 +4,21 @@
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   ADVANCED_CLOUD_SKILL_SLUGS,
   BASIC_BUNDLED_SKILL_SLUGS,
   CloudCapabilitiesManager,
   DEFAULT_CLOUD_SKILL_CATALOG,
   HIDDEN_OR_MERGED_SKILL_SLUGS,
+  SKILL_SLUG_ALIAS_MAP,
   classifySkillsForContext,
+  fetchCloudSkillCatalog,
+  getMergedSkillRedirectNotice,
   isAdvancedCloudSkill,
   isBasicBundledSkill,
   parseSkillFrontmatter,
+  resetCloudSkillCatalogCache,
   resolveCanonicalSkillSlug,
 } from '../src/index'
 
@@ -177,5 +181,80 @@ describe('classifySkillsForContext & CloudCapabilitiesManager', () => {
         editorModule: 'office_docx',
       }),
     ).toContain('vn-accounting-payment-voucher-forms-tt200')
+  })
+
+  it('FX-82: returns merged skill redirect notice when searching by merged slug or alias ("7991", "vn-periodic")', () => {
+    const aliases = Object.entries(SKILL_SLUG_ALIAS_MAP)
+      .filter(([alias, canonical]) => canonical === 'vn-exam-matrix-specification-tt22' && alias !== 'vn-exam-matrix-specification-tt22')
+      .map(([alias]) => alias)
+
+    expect(
+      getMergedSkillRedirectNotice('vn-exam-matrix-specification-tt22', aliases, '7991'),
+    ).toBe('Đã gộp vào: Ma trận & đặc tả đề (TT22)')
+
+    expect(
+      getMergedSkillRedirectNotice('vn-exam-matrix-specification-tt22', aliases, 'vn-periodic'),
+    ).toBe('Đã gộp vào: Ma trận & đặc tả đề (TT22)')
+
+    // Searching by canonical slug itself should not show a redirect notice
+    expect(
+      getMergedSkillRedirectNotice('vn-exam-matrix-specification-tt22', aliases, 'tt22'),
+    ).toBeNull()
+  })
+
+  it('FX-60: fetches dynamic cloud skill catalog from /api/v1/office/skills with cache and tier locking', async () => {
+    resetCloudSkillCatalogCache()
+    const origFetch = globalThis.fetch
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        skills: [
+          {
+            slug: 'vn-exam-matrix-specification-tt22',
+            name: 'Ma trận & đặc tả đề (TT22)',
+            description: 'Thiết kế ma trận đề kiểm tra',
+            category: 'education',
+            version: '3.4.0',
+            tier: 'pro',
+          },
+          {
+            slug: 'lesson-plan',
+            name: 'Giáo án cơ bản',
+            description: 'Soạn giáo án cơ bản',
+            category: 'education',
+            version: '3.4.0',
+            tier: 'free',
+          },
+        ],
+      }),
+    })
+    globalThis.fetch = mockFetch as unknown as typeof fetch
+
+    try {
+      const freeUserCatalog = await fetchCloudSkillCatalog({
+        url: 'https://lycero.com/api/v1/office/skills',
+        userTier: 'free',
+        forceRefresh: true,
+      })
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      const proSkill = freeUserCatalog.find((s) => s.slug === 'vn-exam-matrix-specification-tt22')
+      const freeSkill = freeUserCatalog.find((s) => s.slug === 'lesson-plan')
+      expect(proSkill?.tier).toBe('pro')
+      expect(proSkill?.locked).toBe(true)
+      expect(freeSkill?.tier).toBe('free')
+      expect(freeSkill?.locked).toBe(false)
+
+      // Subsequent call hits in-memory cache without re-fetching
+      const proUserCatalog = await fetchCloudSkillCatalog({
+        url: 'https://lycero.com/api/v1/office/skills',
+        userTier: 'pro',
+      })
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      const unlockedProSkill = proUserCatalog.find((s) => s.slug === 'vn-exam-matrix-specification-tt22')
+      expect(unlockedProSkill?.locked).toBe(false)
+    } finally {
+      globalThis.fetch = origFetch
+      resetCloudSkillCatalogCache()
+    }
   })
 })

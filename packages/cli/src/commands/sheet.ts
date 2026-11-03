@@ -392,12 +392,6 @@ async function applyCells(
   const inputs = readJsonList(spec, '--cells', ctx)
   // addresses are checked before the workbook engine is even started
   cellEditsFromInputs(inputs as CellInput[], '')
-  const output = resolveOutput(flagString(args, 'out'), ctx, {
-    fallback: path,
-    force: flagBool(args, 'force'),
-    // in-place edits overwrite by design; --out onto another existing file needs --force
-    fresh: flagString(args, 'out') !== undefined,
-  })
   const summary = await workbookSummary(path)
   const defaultSheet = flagString(args, 'sheet') ?? summary.activeSheet ?? summary.sheets[0]?.name
   if (!defaultSheet) throw new CliError(EXIT.conversion, 'workbook has no sheets')
@@ -412,6 +406,12 @@ async function applyCells(
       sheetNotFoundHints(unknown.sheetName, [...known]),
     )
   }
+  const output = resolveOutput(flagString(args, 'out'), ctx, {
+    fallback: path,
+    force: flagBool(args, 'force'),
+    // in-place edits overwrite by design; --out onto another existing file needs --force
+    fresh: flagString(args, 'out') !== undefined,
+  })
   const r = await writeWorkbook(readFileSync(path), edits, output)
   return {
     summary: `wrote ${r.cells} cells to ${basename(output)}`,

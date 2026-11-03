@@ -199,6 +199,11 @@ const homeApi: HomeApi = {
     const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.statPaths, paths)
     return Array.isArray(result) ? (result as RecentEntry[]) : []
   },
+  async fileExists(path) {
+    if (typeof path !== 'string' || !path) return false
+    const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.fileExists, path)
+    return result === true
+  },
   async toggleStar(path) {
     if (typeof path !== 'string' || !path) throw new Error('Invalid path.')
     await ipcRenderer.invoke(HOME_CHANNELS.toggleStar, path)

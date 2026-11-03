@@ -156,9 +156,13 @@ const BARE_LATEX_SYMBOL_MAP: Record<string, string> = {
 function normalizeBrAndMarkers(text: string): string {
   return text
     .replace(/\[PII_[A-Z0-9_]+(?:\]|\b)/g, '')
-    .replace(/\[LYCERO_[A-Z0-9_]+\]/g, '')
+    .replace(/\[LYCERO_[A-Z0-9_]+(?::[^\]]*)?\]/g, '')
     .replace(/\bkb-(?:ask-)?\d{8,}(?:-[a-z0-9]+)*\b/gi, '')
     .replace(/\bkb-ask-[a-z0-9_-]*\d[a-z0-9_-]*\b/gi, '')
+    .replace(/^The user attached the following skills? to this request\.[^\n]*$/gim, '')
+    .replace(/^##\s*Skills loaded\s*\([^\n]*$/gim, '')
+    .replace(/^(?:Starred knowledge-base files|Attachment list|Document block list):\s*[^\n]*$/gim, '')
+    .replace(/^\s*tool_call\s*:\s*\w+[^\n]*$/gim, '')
     .replace(/&amp;lt;br\s*\/?&amp;gt;/gi, '\n')
     .replace(/&lt;br\s*\/?&gt;/gi, '\n')
     .replace(/\\<br\s*\/?\\?>/gi, '\n')
@@ -411,10 +415,36 @@ function allocOrderedNumId(ctx: WalkContext): string {
   return numId
 }
 
+function splitRunsByNewline(runs: Run[]): TableParagraph[] {
+  const out: TableParagraph[] = []
+  let current: Run[] = []
+  for (const run of runs) {
+    if (!run.math && run.text.includes('\n')) {
+      const parts = run.text.split('\n')
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i]!
+        if (part) current.push({ ...run, text: part })
+        if (i < parts.length - 1) {
+          out.push({ runs: current })
+          current = []
+        }
+      }
+    } else {
+      current.push(run)
+    }
+  }
+  if (current.length > 0 || out.length === 0) {
+    out.push({ runs: current })
+  }
+  return out
+}
+
 function tableParagraphs(cell: JSONContent): TableParagraph[] {
   const paras: TableParagraph[] = []
   for (const child of cell.content ?? []) {
-    if (child.type === 'paragraph') paras.push({ runs: runsFromInline(child.content) })
+    if (child.type === 'paragraph') {
+      paras.push(...splitRunsByNewline(runsFromInline(child.content)))
+    }
   }
   return paras.length > 0 ? paras : [{ runs: [] }]
 }

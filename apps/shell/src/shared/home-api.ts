@@ -315,7 +315,10 @@ export interface HomeApi {
   /** put each starred path into `group` (null = remove from its group) */
   setStarredGroup(paths: string[], group: string | null): Promise<void>
   /** stat a specific set of paths (project view); unstat-able files come back flagged `missing` */
+  /** stat a batch of paths (returns missing: true for paths not on disk) */
   statPaths(paths: string[]): Promise<RecentEntry[]>
+  /** FX-81: check whether a file exists on disk via fs.existsSync */
+  fileExists?(path: string): Promise<boolean>
   /** star / unstar a file */
   toggleStar(path: string): Promise<void>
   // ---- knowledge-base ask panel: the reader's starred corpus, askable ----
@@ -757,6 +760,7 @@ export const HOME_CHANNELS = {
   testFileSearchRerank: 'home:test-file-search-rerank',
   starred: 'home:starred',
   statPaths: 'home:stat-paths',
+  fileExists: 'home:file-exists',
   toggleStar: 'home:toggle-star',
   unstarPaths: 'home:unstar-paths',
   starredGroups: 'home:starred-groups',

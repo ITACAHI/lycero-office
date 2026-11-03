@@ -5,7 +5,10 @@
 
 import {
   DEFAULT_CLOUD_SKILL_CATALOG,
+  HIDDEN_OR_MERGED_SKILL_SLUGS,
   classifySkillsForContext,
+  isBasicBundledSkill,
+  resolveCanonicalSkillSlug,
   type ClassifySkillsInput,
 } from './skill-classifier'
 
@@ -43,6 +46,8 @@ export interface CloudSkillManifest {
   description: string
   category: string
   version: string
+  tier?: 'free' | 'pro' | 'plus'
+  locked?: boolean
   icon?: string
   clientConfigSchema?: SkillConfigFieldSchema[]
   tools?: Array<{
@@ -120,10 +125,133 @@ export const OFFLINE_CAPABILITIES_MESSAGE =
   'Đang làm việc ngoại tuyến, tính năng trợ lý thông minh sẽ tiếp tục khi có kết nối trở lại.'
 
 export const DEFAULT_CAPABILITIES_GATEWAY_URL = 'https://lycero.com/api/v1/office/desktop/capabilities'
+export const DEFAULT_OFFICE_SKILLS_URL = 'https://lycero.com/api/v1/office/skills'
 
 const CACHE_KEY_MANIFEST = 'lycero_cloud_capabilities_manifest'
+const CACHE_KEY_SKILLS_CATALOG = 'lycero_cloud_office_skills_catalog'
 const CACHE_KEY_CONFIG = 'lycero_cloud_skills_config'
 const CACHE_KEY_ACTIVE = 'lycero_cloud_skills_active'
+const SKILLS_CATALOG_TTL_MS = 10 * 60 * 1000
+
+let memoryCatalogCache: { at: number; skills: CloudSkillManifest[] } | null = null
+
+export function resetCloudSkillCatalogCache(): void {
+  memoryCatalogCache = null
+}
+
+/**
+ * FX-60: Fetches the dynamic Cloud Skill catalog from `GET /api/v1/office/skills`
+ * (with in-memory + persistent storage caching and tier lock calculation `free` / `pro` / `locked`),
+ * falling back gracefully to `DEFAULT_CLOUD_SKILL_CATALOG` when offline or unreachable.
+ */
+export async function fetchCloudSkillCatalog(options?: {
+  url?: string
+  token?: string
+  userTier?: 'free' | 'pro' | 'plus'
+  forceRefresh?: boolean
+  storage?: CapabilitiesStorage
+  timeoutMs?: number
+}): Promise<CloudSkillManifest[]> {
+  const userTier = options?.userTier
+  const applyTierLocks = (items: readonly CloudSkillManifest[]): CloudSkillManifest[] => {
+    const seen = new Set<string>()
+    const out: CloudSkillManifest[] = []
+    for (const raw of items) {
+      const slug = resolveCanonicalSkillSlug(raw.slug)
+      if (!slug || seen.has(slug) || HIDDEN_OR_MERGED_SKILL_SLUGS.has(slug.toLowerCase())) continue
+      seen.add(slug)
+      const tier: 'free' | 'pro' | 'plus' =
+        raw.tier ?? (isBasicBundledSkill(slug) ? 'free' : 'pro')
+      const locked =
+        typeof raw.locked === 'boolean'
+          ? raw.locked
+          : userTier === 'free'
+            ? tier !== 'free'
+            : false
+      out.push({
+        ...raw,
+        slug,
+        tier,
+        locked,
+      })
+    }
+    return out
+  }
+
+  const now = Date.now()
+  if (
+    !options?.forceRefresh &&
+    memoryCatalogCache &&
+    now - memoryCatalogCache.at < SKILLS_CATALOG_TTL_MS
+  ) {
+    return applyTierLocks(memoryCatalogCache.skills)
+  }
+
+  const storage = options?.storage ?? resolveDefaultStorage()
+  const isOnline =
+    typeof navigator !== 'undefined' && 'onLine' in navigator ? navigator.onLine : true
+
+  if (isOnline && !process.env.VITEST_OFFLINE_SKILLS) {
+    const targetUrl = options?.url ?? DEFAULT_OFFICE_SKILLS_URL
+    const timeoutMs = options?.timeoutMs ?? 4_000
+    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null
+    const timer = ctrl ? setTimeout(() => ctrl.abort(), timeoutMs) : null
+    try {
+      const headers: Record<string, string> = { Accept: 'application/json' }
+      if (options?.token) headers.Authorization = `Bearer ${options.token}`
+      const res = await fetch(targetUrl, {
+        method: 'GET',
+        headers,
+        ...(ctrl ? { signal: ctrl.signal } : {}),
+      })
+      if (res.ok) {
+        const body = (await res.json()) as
+          | CloudSkillManifest[]
+          | { skills?: CloudSkillManifest[]; data?: CloudSkillManifest[] }
+        const remoteList = Array.isArray(body)
+          ? body
+          : Array.isArray(body?.skills)
+            ? body.skills
+            : Array.isArray(body?.data)
+              ? body.data
+              : null
+        if (remoteList && remoteList.length > 0) {
+          const seen = new Set(remoteList.map((s) => resolveCanonicalSkillSlug(s.slug)))
+          const merged = [
+            ...remoteList,
+            ...DEFAULT_CLOUD_SKILL_CATALOG.filter((s) => !seen.has(s.slug)),
+          ]
+          memoryCatalogCache = { at: now, skills: merged }
+          await storage.setItem(
+            CACHE_KEY_SKILLS_CATALOG,
+            JSON.stringify({ at: now, skills: merged }),
+          )
+          return applyTierLocks(merged)
+        }
+      }
+    } catch {
+      // Fall back to storage cache or static catalog
+    } finally {
+      if (timer) clearTimeout(timer)
+    }
+  }
+
+  try {
+    const cachedRaw = await storage.getItem(CACHE_KEY_SKILLS_CATALOG)
+    if (cachedRaw) {
+      const parsed = JSON.parse(cachedRaw) as { at?: number; skills?: CloudSkillManifest[] }
+      if (Array.isArray(parsed?.skills) && parsed.skills.length > 0) {
+        memoryCatalogCache = { at: parsed.at ?? now, skills: parsed.skills }
+        return applyTierLocks(parsed.skills)
+      }
+    }
+  } catch {
+    // ignore storage errors
+  }
+
+  memoryCatalogCache = { at: now, skills: [...DEFAULT_CLOUD_SKILL_CATALOG] }
+  return applyTierLocks(DEFAULT_CLOUD_SKILL_CATALOG)
+}
 
 export class CloudCapabilitiesManager {
   private skills: CloudSkillManifest[] = []

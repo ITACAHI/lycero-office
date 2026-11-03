@@ -48,6 +48,8 @@ export interface AgentLoopEvents<TSnapshot> {
   onReasoning?(text: string): void
   /** phase changes within the current turn */
   onPhase?(phase: AgentPhase): void
+  /** FX-72: tool-call argument streaming progress (bytes received so far) */
+  onToolProgress?(info: { name?: string | undefined; bytes: number }): void
   /** a tool is about to execute (UI shows a live "running" indicator; onToolExecuted always follows) */
   onToolStart?(call: AgentToolCall): void
   onToolExecuted?(event: ToolExecutedEvent<TSnapshot>): void
@@ -1242,6 +1244,10 @@ export class AgentLoop<TSnapshot = unknown> {
           onPhase: (phase) => {
             if (generation !== this.generation || settled) return
             this.options.events?.onPhase?.(phase)
+          },
+          onToolProgress: (info) => {
+            if (generation !== this.generation || settled) return
+            this.options.events?.onToolProgress?.(info)
           },
           onToolCall: (call) => {
             if (generation !== this.generation || settled) return

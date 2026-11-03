@@ -5300,6 +5300,10 @@ function registerHomeIpc(): void {
     statEntries(capStatPaths(stringPaths(paths))),
   )
 
+  ipcMain.handle(HOME_CHANNELS.fileExists, (_event, path: unknown): boolean =>
+    typeof path === 'string' && path.length > 0 && path.length <= 4096 && existsSync(path),
+  )
+
   ipcMain.handle(HOME_CHANNELS.toggleStar, (_event, path: unknown) => {
     if (typeof path === 'string') toggleStarredFile(path)
   })

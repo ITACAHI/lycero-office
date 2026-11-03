@@ -1088,18 +1088,19 @@ function uppercaseTextNodes(nodes: PmNode[]): PmNode[] {
   return nodes.map((n) => (n.type === 'text' && n.text ? { ...n, text: n.text.toUpperCase() } : n))
 }
 
-function formatVnThousandDots(rawText: string): string {
-  return rawText.replace(/\b(\d{1,3}(?:,\d{3})+|\d{4,})\b/g, (match) => {
-    const digits = match.replace(/,/g, '')
-    // Avoid formatting 4-digit years like 2025, 2026, 2027
-    if (/^(?:19|20)\d{2}$/.test(digits)) return match
-    return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+export function formatVnThousandDots(rawText: string): string {
+  // FX-78: Never reformat numbers that contain a comma (Vietnamese decimal separator, e.g. "4,62962963%", "1.234.567,891", "0,5")
+  if (rawText.includes(',')) return rawText
+  return rawText.replace(/(?<![.,\d/-])\b(\d{4,})\b(?![.,\d/-])/g, (match) => {
+    // Avoid formatting 4-digit years like 2025, 2026, 2027 or numbers with leading zero (phone/code)
+    if (/^(?:19|20)\d{2}$/.test(match) || match.startsWith('0')) return match
+    return match.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
   })
 }
 
 function sanitizeNd30Placeholders(rawHtml: string): string {
   let out = rawHtml
-  // FX-34: Strip leaked internal reasoning, tool_call, skill, and session markers
+  // FX-34: Strip leaked internal reasoning, tool_call, skill, and session markers (both XML-tagged and untagged lines)
   out = out.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
   out = out.replace(/<think>[\s\S]*?<\/think>/gi, '')
   out = out.replace(/<tool_call\b[^>]*>[\s\S]*?<\/tool_call>/gi, '')
@@ -1107,8 +1108,12 @@ function sanitizeNd30Placeholders(rawHtml: string): string {
   out = out.replace(/<lycero_global_mandatory_rules>[\s\S]*?<\/lycero_global_mandatory_rules>/gi, '')
   out = out.replace(/<lycero_internal>[\s\S]*?<\/lycero_internal>/gi, '')
   out = out.replace(/<skill\s+name="[^"]*">[\s\S]*?<\/skill>/gi, '')
-  out = out.replace(/\[LYCERO_[A-Z0-9_]+\]/g, '')
+  out = out.replace(/\[LYCERO_[A-Z0-9_]+(?::[^\]]*)?\]/g, '')
   out = out.replace(/\[PII_[A-Z0-9_]+(?:\]|\b)/g, '')
+  out = out.replace(/^The user attached the following skills? to this request\.[^\n]*$/gim, '')
+  out = out.replace(/^##\s*Skills loaded\s*\([^\n]*$/gim, '')
+  out = out.replace(/^(?:Starred knowledge-base files|Attachment list|Document block list):\s*[^\n]*$/gim, '')
+  out = out.replace(/^\s*tool_call\s*:\s*\w+[^\n]*$/gim, '')
   // FX-46: Unescape literal &amp;lt;br&amp;gt; / &lt;br&gt; / \<br\> so line breaks in Markdown/HTML cells become real <br> tags
   out = out.replace(/&amp;lt;br\s*\/?&amp;gt;/gi, '<br>')
   out = out.replace(/&lt;br\s*\/?&gt;/gi, '<br>')
@@ -1704,7 +1709,12 @@ function cellParas(cell: Element): string[] {
   const walk = (node: Node) => {
     node.childNodes.forEach((child) => {
       if (child.nodeType === Node.TEXT_NODE) {
-        current += child.textContent ?? ''
+        const text = child.textContent ?? ''
+        const parts = text.split(/\\?<br\s*\/?\\?>|&lt;br\s*\/?&gt;/gi)
+        for (let i = 0; i < parts.length; i++) {
+          current += parts[i] ?? ''
+          if (i < parts.length - 1) push()
+        }
         return
       }
       if (child.nodeType !== Node.ELEMENT_NODE) return

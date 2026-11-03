@@ -4,17 +4,21 @@
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
 import { describe, expect, it } from 'vitest'
+import { filterSkillsForMenu, getMergedSkillHint, type AiSkillsMenuEntry } from '@lycero/ui'
 
 import type { ChatMessage, ChatMeta, ProjectApi } from '@lycero/project-store'
 
 import {
+  buildStoppedAssistantTurn,
   claimThread,
   firstQuestionOf,
   listThreads,
   panelThreads,
   restoreAskMessages,
+  serializeAskTurnTools,
   type AskMessage,
 } from '../src/renderer/src/KbAskPanel'
+import { strings } from '../src/renderer/src/strings'
 
 function stored(over: Partial<ChatMessage> = {}): ChatMessage {
   return {
@@ -301,5 +305,104 @@ describe('claiming the thread the panel switched to', () => {
       method: 'resolveChat',
       args: { filePath: null, tempChatId: 'kb-ask-1731' },
     })
+  })
+
+  it('FX-73: stopping mid-turn after create persists assistant "Đã dừng" with completed tool steps and file card, and restores them on restart', () => {
+    const inFlight: AskMessage = {
+      role: 'assistant',
+      text: '',
+      streaming: true,
+      toolNotes: [
+        { kind: 'create', label: 'Tạo tài liệu', detail: 'Giao_an_5512.docx', count: 1 },
+      ],
+      artifacts: [
+        {
+          callId: 'call_create_1',
+          name: 'Giao_an_5512.docx',
+          status: 'done',
+          path: '/tmp/out/Giao_an_5512.docx',
+          instruction: 'Tạo lại file Giao_an_5512.docx',
+        },
+        {
+          callId: 'call_apply_2',
+          name: 'Giao_an_5512.docx',
+          status: 'building',
+          instruction: 'Tạo lại file Giao_an_5512.docx',
+        },
+      ],
+    }
+
+    const { message, persisted } = buildStoppedAssistantTurn(inFlight)
+    expect(message.streaming).toBe(false)
+    expect(message.text).toBe('Đã dừng')
+    expect(message.artifacts).toHaveLength(1)
+    expect(message.artifacts[0]?.status).toBe('done')
+    expect(persisted.role).toBe('assistant')
+    expect(persisted.text).toBe('Đã dừng')
+    expect(persisted.tools).toBeDefined()
+
+    // Simulate restarting the app and loading from kb-ask.jsonl
+    const restored = restoreAskMessages([
+      stored({ role: 'user', text: 'Soạn giáo án CV 5512', seq: 0 }),
+      stored({
+        role: 'assistant',
+        text: persisted.text,
+        tools: persisted.tools,
+        seq: 1,
+      }),
+    ])
+    expect(restored).toHaveLength(2)
+    expect(restored[1]?.text).toBe('Đã dừng')
+    expect(restored[1]?.toolNotes).toEqual([
+      { kind: 'create', label: 'Tạo tài liệu', detail: 'Giao_an_5512.docx', count: 1 },
+    ])
+    expect(restored[1]?.artifacts).toEqual([
+      {
+        callId: 'call_create_1',
+        name: 'Giao_an_5512.docx',
+        status: 'done',
+        path: '/tmp/out/Giao_an_5512.docx',
+        instruction: 'Tạo lại file Giao_an_5512.docx',
+      },
+    ])
+  })
+
+  it('FX-68: askNoSave notice accurately states local persistence and offers history deletion', () => {
+    expect(strings.vi.askNoSave).toContain('được lưu cục bộ')
+    expect(strings.vi.askNoSave).not.toContain('không được lưu')
+    expect(strings.en.askNoSave).toContain('saved locally')
+    expect(strings.en.askNoSave).not.toContain('not saved')
+    expect(serializeAskTurnTools([], [])).toEqual([])
+  })
+
+  it('FX-82 & FX-69: filterSkillsForMenu matches merged aliases and getMergedSkillHint returns "Đã gộp vào: Ma trận & đặc tả đề (TT22)"', () => {
+    const entries: AiSkillsMenuEntry[] = [
+      {
+        name: 'vn-exam-matrix-specification-tt22',
+        title: 'Thiết kế Ma trận & Bản Đặc tả Đề kiểm tra (TT22 / CV 7991)',
+        description: 'Xây dựng ma trận và bản đặc tả đề kiểm tra định kỳ',
+        cloudProtected: true,
+        tier: 'pro',
+        aliases: ['edtech-exam-matrix', 'vn-periodic-exam-7991-true-false-short-answer', 'exam-7991'],
+      },
+      {
+        name: 'lesson-plan',
+        title: 'Giáo án cơ bản',
+        description: 'Soạn giáo án cơ bản',
+      },
+    ]
+
+    const matched7991 = filterSkillsForMenu(entries, '7991')
+    expect(matched7991).toHaveLength(1)
+    expect(matched7991[0]?.name).toBe('vn-exam-matrix-specification-tt22')
+    expect(getMergedSkillHint(matched7991[0]!, '7991', 'vi')).toBe(
+      'Đã gộp vào: Ma trận & đặc tả đề (TT22)',
+    )
+
+    const matchedPeriodic = filterSkillsForMenu(entries, 'vn-periodic-exam-7991-true-false-short-answer')
+    expect(matchedPeriodic).toHaveLength(1)
+    expect(getMergedSkillHint(matchedPeriodic[0]!, 'vn-periodic', 'vi')).toBe(
+      'Đã gộp vào: Ma trận & đặc tả đề (TT22)',
+    )
   })
 })

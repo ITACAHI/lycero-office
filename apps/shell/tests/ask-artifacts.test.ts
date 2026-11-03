@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 import {
   artifactFromCall,
   artifactTarget,
+  collectReferencedFilePaths,
   retryInstruction,
   settleArtifact,
 } from '../src/renderer/src/ask-artifacts'
@@ -132,5 +133,86 @@ describe('ask task card', () => {
       name: 'Bao_Cao_Ra_Soat_Hop_Dong_Mua_Ban.docx',
       path: '/o/Bao_Cao_Ra_Soat_Hop_Dong_Mua_Ban.docx',
     })
+  })
+
+  it('FX-81: Case 24 reproduction — a failed docs apply after a successful create stays failed (not retried), and only marks retried when a subsequent call with the same command and target file succeeds', () => {
+    const createCall = run('1', [
+      'create',
+      '--type',
+      'docx',
+      '--from',
+      'doc.md',
+      '--out',
+      '/o/Van_ban_thoa_thuan_phan_chia_di_san_Nguyen_Van_Hoa.docx',
+    ])
+    const applyFailCall = run('2', [
+      'docs',
+      'apply',
+      '/o/Van_ban_thoa_thuan_phan_chia_di_san_Nguyen_Van_Hoa.docx',
+      '--ops',
+      'format-ops.json',
+      '--out',
+      '/o/Van_ban_thoa_thuan_phan_chia_di_san_Nguyen_Van_Hoa_final.docx',
+    ])
+    let cards = [artifactFromCall(createCall, '/o')!]
+    cards = settleArtifact(cards, createCall, {
+      output:
+        'exit 0\nsummary: created\noutput_path: /o/Van_ban_thoa_thuan_phan_chia_di_san_Nguyen_Van_Hoa.docx',
+    })
+    cards = [...cards, artifactFromCall(applyFailCall, '/o')!]
+    cards = settleArtifact(cards, applyFailCall, {
+      output: 'exit 2\nsummary: file not found',
+      isError: true,
+    })
+
+    // Both cards remain, and the failed docs apply card is NOT marked retried
+    expect(cards).toHaveLength(2)
+    expect(cards[0]).toMatchObject({ status: 'done' })
+    expect(cards[1]).toMatchObject({ status: 'failed', error: 'file not found' })
+    expect(cards[1]!.retried).toBeUndefined()
+
+    // Even if an unrelated create on a different file succeeds later, the failed docs apply card is NOT marked retried
+    const otherCreate = run('3', [
+      'create',
+      '--type',
+      'docx',
+      '--from',
+      'other.md',
+      '--out',
+      '/o/Other_File.docx',
+    ])
+    cards = [...cards, artifactFromCall(otherCreate, '/o')!]
+    cards = settleArtifact(cards, otherCreate, {
+      output: 'exit 0\nsummary: created\noutput_path: /o/Other_File.docx',
+    })
+    expect(cards[1]!.retried).toBeUndefined()
+
+    // Only when a later `docs apply` on the SAME target file succeeds is the failed `docs apply` card marked retried
+    const applyRetryOk = run('4', [
+      'docs',
+      'apply',
+      '/o/Van_ban_thoa_thuan_phan_chia_di_san_Nguyen_Van_Hoa.docx',
+      '--ops',
+      'ok.json',
+      '--out',
+      '/o/Van_ban_thoa_thuan_phan_chia_di_san_Nguyen_Van_Hoa.docx',
+    ])
+    cards = [...cards, artifactFromCall(applyRetryOk, '/o')!]
+    cards = settleArtifact(cards, applyRetryOk, {
+      output:
+        'exit 0\nsummary: applied\noutput_path: /o/Van_ban_thoa_thuan_phan_chia_di_san_Nguyen_Van_Hoa.docx',
+    })
+    const failedApplyCard = cards.find((c) => c.callId === '2')
+    expect(failedApplyCard).toMatchObject({ status: 'failed', retried: true })
+
+    // collectReferencedFilePaths extracts both artifact paths and filenav:// links for IPC existence checks
+    const paths = collectReferencedFilePaths([
+      {
+        text: 'Xem file tại [Văn bản](filenav:///o/Deleted_File.docx)',
+        artifacts: cards,
+      },
+    ])
+    expect(paths).toContain('/o/Van_ban_thoa_thuan_phan_chia_di_san_Nguyen_Van_Hoa.docx')
+    expect(paths).toContain('/o/Deleted_File.docx')
   })
 })

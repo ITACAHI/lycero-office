@@ -10,12 +10,17 @@ import { isAiNetworkError } from '../network-error'
 import { PiiTokenizer } from '../pii-tokenizer'
 import { compactOutboundAgentTurn } from '../token-compactor'
 import type { LyceroEditorModule, LyceroPipelineStage } from '../types'
-import { AiTimeoutError, createStreamWatchdog } from '../watchdog'
+import {
+  AI_CONTENT_IDLE_TIMEOUT_MS,
+  AiTimeoutError,
+  createStreamWatchdog,
+} from '../watchdog'
 import {
   SKILL_EXTRACTION_REFUSAL_TEXT,
   isSkillExtractionAttempt,
   resolveLyceroGatewayContext,
   restorePiiAndSanitizeToolValue,
+  sanitizeAiErrorForUi,
   sseLines,
   type StreamCallbacks,
 } from './shared'
@@ -60,6 +65,14 @@ interface HubToolCallPayload {
   input?: Record<string, unknown> | string
 }
 
+interface HubToolCallDeltaPayload {
+  type: 'tool_call_delta' | 'tool_args_delta'
+  id?: string
+  name?: string
+  delta?: string
+  arguments?: string
+}
+
 interface HubErrorPayload {
   type: 'error'
   message: string
@@ -76,6 +89,7 @@ type HubPayload =
   | HubTextPayload
   | HubReasoningPayload
   | HubToolCallPayload
+  | HubToolCallDeltaPayload
   | HubErrorPayload
   | HubStartPayload
 
@@ -293,14 +307,29 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
   for (let attempt = 1; attempt <= totalAttempts; attempt++) {
     let emitted = false
     let receivedAnyByte = false
-    const wd = createStreamWatchdog(cb.signal)
+    let streamedToolBytes = 0
+    const wd = createStreamWatchdog(
+      cb.signal,
+      undefined,
+      undefined,
+      undefined,
+      AI_CONTENT_IDLE_TIMEOUT_MS,
+    )
     const onBytes = () => {
       wd.touch()
       cb.onActivity?.()
     }
-    const onStreamBodyBytes = () => {
+    const onStreamBodyBytes = (bufferedLine?: string) => {
       receivedAnyByte = true
       onBytes()
+      if (bufferedLine && /^\s*data:\s*\{[\s\S]*?"type"\s*:\s*"tool_call/.test(bufferedLine)) {
+        wd.touchContent()
+        const nameMatch = bufferedLine.match(/"name"\s*:\s*"([^"]+)"/)
+        cb.onToolArgsProgress?.({
+          name: nameMatch?.[1],
+          bytes: Buffer.byteLength(bufferedLine, 'utf8'),
+        })
+      }
     }
     try {
       await wd.guard(async () => {
@@ -417,12 +446,14 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
             case 'text':
               emitted = true
               receivedAnyByte = true
+              wd.touchContent()
               cb.onDelta(unmaskDelta(payload.delta))
               break
             case 'reasoning':
             case 'thinking':
               emitted = true
               receivedAnyByte = true
+              wd.touchContent()
               cb.onReasoningDelta?.(
                 unmaskReasoning(payload.delta).replace(
                   /Manus(?:\s+1\.6)?(?:\s+Orchestrator)?/gi,
@@ -430,10 +461,34 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
                 ),
               )
               break
+            case 'tool_call_delta':
+            case 'tool_args_delta': {
+              emitted = true
+              receivedAnyByte = true
+              wd.touchContent()
+              const frag = String(payload.delta ?? payload.arguments ?? '')
+              streamedToolBytes += Buffer.byteLength(frag, 'utf8')
+              cb.onToolArgsProgress?.({
+                name: payload.name,
+                bytes: streamedToolBytes,
+              })
+              break
+            }
             case 'tool_call': {
               emitted = true
               receivedAnyByte = true
+              wd.touchContent()
               const rawArgs = payload.input ?? payload.arguments ?? {}
+              const rawSerialized =
+                typeof rawArgs === 'string' ? rawArgs : JSON.stringify(rawArgs)
+              streamedToolBytes = Math.max(
+                streamedToolBytes,
+                Buffer.byteLength(rawSerialized, 'utf8'),
+              )
+              cb.onToolArgsProgress?.({
+                name: payload.name,
+                bytes: streamedToolBytes,
+              })
               let parsedArgs: Record<string, unknown> = {}
               if (typeof rawArgs === 'string') {
                 try {

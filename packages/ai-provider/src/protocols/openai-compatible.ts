@@ -10,7 +10,11 @@ import { lyceroAttributionHeaders, opencodeSessionHeaders } from '../providers'
 import { compactOutboundAgentTurn } from '../token-compactor'
 import { modelEchoesReasoning } from '../registry'
 import type { AiChatResponse, AiProviderConfig } from '../types'
-import { createStreamWatchdog, type StreamWatchdog } from '../watchdog'
+import {
+  AI_CONTENT_IDLE_TIMEOUT_MS,
+  createStreamWatchdog,
+  type StreamWatchdog,
+} from '../watchdog'
 import {
   SKILL_EXTRACTION_REFUSAL_TEXT,
   endpointUrl,
@@ -186,7 +190,13 @@ export async function streamOpenAiCompatible(
   cb: StreamCallbacks,
   options: OpenAiRequestOptions = {},
 ): Promise<void> {
-  const wd = createStreamWatchdog(cb.signal, undefined, options.idleTimeoutMs)
+  const wd = createStreamWatchdog(
+    cb.signal,
+    undefined,
+    options.idleTimeoutMs,
+    undefined,
+    options.idleTimeoutMs ?? AI_CONTENT_IDLE_TIMEOUT_MS,
+  )
   return wd.guard(() =>
     openAiCompatibleTurn(baseUrl, config, system, messages, tools, maxTokens, cb, wd, {
       ...options,
@@ -369,6 +379,7 @@ async function openAiCompatibleTurn(
     const reasoning = choice.delta?.reasoning_content ?? choice.delta?.reasoning
     if (typeof reasoning === 'string' && reasoning) {
       emitted = true
+      wd.touchContent()
       cb.onReasoningDelta?.(
         isLyceroGateway
           ? reasoning.replace(/Manus(?:\s+1\.6)?(?:\s+Orchestrator)?/gi, 'Lycero Super Model')
@@ -380,10 +391,12 @@ async function openAiCompatibleTurn(
       const text = openAiContentText(choice.delta.content)
       if (text) {
         emitted = true
+        wd.touchContent()
         cb.onDelta(text)
       }
     }
     for (const tc of choice.delta?.tool_calls ?? []) {
+      wd.touchContent()
       if (!pendingTools.has(tc.index)) {
         throwIfToolCountOverBudget(pendingTools.size + 1, 'openai-compatible')
       }
@@ -406,6 +419,10 @@ async function openAiCompatibleTurn(
       if (tc.function?.arguments) {
         pending.json += tc.function.arguments
         throwIfToolJsonOverBudget(pending.json.length, 'openai-compatible')
+        cb.onToolArgsProgress?.({
+          name: pending.name || undefined,
+          bytes: Buffer.byteLength(pending.json, 'utf8'),
+        })
       }
       pendingTools.set(tc.index, pending)
     }

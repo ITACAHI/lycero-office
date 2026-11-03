@@ -48,7 +48,11 @@ export function sanitizeCliTextInput(raw: string, env?: NodeJS.ProcessEnv): stri
   out = out.replace(/<lycero_global_mandatory_rules>[\s\S]*?<\/lycero_global_mandatory_rules>/gi, '')
   out = out.replace(/<lycero_internal>[\s\S]*?<\/lycero_internal>/gi, '')
   out = out.replace(/<skill\s+name="[^"]*">[\s\S]*?<\/skill>/gi, '')
-  out = out.replace(/\[LYCERO_[A-Z0-9_]+\]/g, '')
+  out = out.replace(/\[LYCERO_[A-Z0-9_]+(?::[^\]]*)?\]/g, '')
+  out = out.replace(/^The user attached the following skills? to this request\.[^\n]*$/gim, '')
+  out = out.replace(/^##\s*Skills loaded\s*\([^\n]*$/gim, '')
+  out = out.replace(/^(?:Starred knowledge-base files|Attachment list|Document block list):\s*[^\n]*$/gim, '')
+  out = out.replace(/^\s*tool_call\s*:\s*\w+[^\n]*$/gim, '')
   return out
 }
 

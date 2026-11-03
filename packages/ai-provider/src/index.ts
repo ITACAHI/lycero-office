@@ -139,6 +139,7 @@ export type { StreamCallbacks } from './stream'
 export {
   AI_CHAT_RESPONSE_TIMEOUT_MS,
   AI_CONNECT_TIMEOUT_MS,
+  AI_CONTENT_IDLE_TIMEOUT_MS,
   AI_IDLE_TIMEOUT_MS,
   AI_TOTAL_TIMEOUT_MS,
   AiTimeoutError,
@@ -155,6 +156,7 @@ export {
   SKILL_EXTRACTION_REFUSAL_TEXT,
   extractRawUserPrompt,
   isSkillExtractionAttempt,
+  sanitizeAiErrorForUi,
 } from './protocols/shared'
 export { fetchRemoteModels } from './fetch-models'
 export {
