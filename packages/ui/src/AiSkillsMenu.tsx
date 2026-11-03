@@ -12,7 +12,19 @@ import './ai-skills.css'
 /** one installed skill as the menu shows it */
 export interface AiSkillsMenuEntry {
   name: string
+  title?: string
   description: string
+  cloudProtected?: boolean
+  tier?: string
+  aliases?: readonly string[]
+}
+
+function foldSearchText(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
 }
 
 /**
@@ -82,9 +94,13 @@ export function AiSkillsMenu({
     if (!skills) return null
     const q = query.trim().toLowerCase()
     if (!q) return skills
-    return skills.filter(
-      (s) => s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q),
-    )
+    const qFolded = foldSearchText(q)
+    return skills.filter((s) => {
+      const haystack = [s.name, s.title ?? '', s.description, ...(s.aliases ?? [])]
+        .join(' ')
+        .toLowerCase()
+      return haystack.includes(q) || foldSearchText(haystack).includes(qFolded)
+    })
   }, [skills, query])
 
   return (
@@ -173,22 +189,43 @@ export function AiSkillsMenu({
                 )}
                 {shown?.map((s) => {
                   const on = selected.includes(s.name)
+                  const isCloud = Boolean(s.cloudProtected || s.tier === 'pro' || s.tier === 'plus')
+                  const isOffline =
+                    isCloud && typeof navigator !== 'undefined' && navigator.onLine === false
+                  const offlinePrefix =
+                    lang === 'vi'
+                      ? '[Không khả dụng khi ngoại tuyến] '
+                      : '[Unavailable offline] '
+                  const displayDesc =
+                    isOffline && !s.description.startsWith('[')
+                      ? `${offlinePrefix}${s.description}`
+                      : s.description
                   return (
                     <button
                       key={s.name}
                       type="button"
                       role="menuitemcheckbox"
                       aria-checked={on}
-                      className={`ai-plus-skill${on ? ' on' : ''}`}
-                      onClick={() => onToggle(s.name)}
-                      title={s.description}
+                      disabled={isOffline}
+                      className={`ai-plus-skill${on ? ' on' : ''}${isOffline ? ' disabled' : ''}`}
+                      onClick={() => {
+                        if (!isOffline) onToggle(s.name)
+                      }}
+                      title={displayDesc}
                     >
                       <span className="ai-plus-avatar" aria-hidden>
                         {s.name.slice(0, 1).toUpperCase()}
                       </span>
                       <span className="ai-plus-skill-text">
-                        <span className="ai-plus-skill-name">{s.name}</span>
-                        <span className="ai-plus-skill-desc">{s.description}</span>
+                        <span className="ai-plus-skill-name-row">
+                          <span className="ai-plus-skill-name">{s.name}</span>
+                          {isCloud && (
+                            <span className="ai-plus-cloud-badge">
+                              {s.tier === 'plus' ? 'CLOUD PLUS' : 'CLOUD PRO'}
+                            </span>
+                          )}
+                        </span>
+                        <span className="ai-plus-skill-desc">{displayDesc}</span>
                       </span>
                       {on && (
                         <svg

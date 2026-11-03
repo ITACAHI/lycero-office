@@ -139,6 +139,14 @@ describe('latexToOmml', () => {
     expect(omml).toContain('<m:f>')
   })
 
+  it('supports \\widehat, \\overrightarrow, and geometry symbols (FX-44)', () => {
+    const omml = latexToOmml('\\widehat{ABC} = 90^\\circ, \\overrightarrow{AB}, \\triangle ABC \\cong \\triangle DEF')
+    expect(omml).toContain('<m:acc>')
+    expect(omml).toContain('ABC')
+    expect(omml).toContain('△')
+    expect(omml).toContain('≅')
+  })
+
   it('rejects unsupported commands with a helpful error', () => {
     expect(() => latexToOmml('\\unknowncmd{x}')).toThrow(/Unsupported command/)
     expect(() => latexToOmml('{unclosed')).toThrow(/Missing matching/)

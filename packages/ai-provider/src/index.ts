@@ -150,6 +150,11 @@ export { PiiTokenizer } from './pii-tokenizer'
 export type { PiiTokenizeResult } from './pii-tokenizer'
 export { MAX_HUB_RECONNECT_ATTEMPTS, streamHubChat } from './protocols/hub-lycero'
 export type { StreamHubChatParams } from './protocols/hub-lycero'
+export {
+  SKILL_EXTRACTION_REFUSAL_TEXT,
+  extractRawUserPrompt,
+  isSkillExtractionAttempt,
+} from './protocols/shared'
 export { fetchRemoteModels } from './fetch-models'
 export {
   applyRemoteTokenOptimizerPolicy,

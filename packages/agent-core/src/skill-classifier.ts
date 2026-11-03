@@ -275,6 +275,7 @@ export const SKILL_SLUG_ALIAS_MAP: Readonly<Record<string, string>> = {
   "general_office": "vn-admin-doc-nd30",
   "edtech-lesson-5512": "vn-gdpt2018-lesson-plan-cv5512",
   "vn-edtech-lesson-5512": "vn-gdpt2018-lesson-plan-cv5512",
+  "vn-lesson-plan-5512": "vn-gdpt2018-lesson-plan-cv5512",
   "vn-gdpt2018-lesson-plan-cv5512": "vn-gdpt2018-lesson-plan-cv5512",
   "k12_teacher": "vn-gdpt2018-lesson-plan-cv5512",
   "cv-5512-template": "vn-gdpt2018-lesson-plan-cv5512",

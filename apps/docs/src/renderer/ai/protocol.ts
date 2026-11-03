@@ -1099,6 +1099,8 @@ function formatVnThousandDots(rawText: string): string {
 
 function sanitizeNd30Placeholders(rawHtml: string): string {
   let out = rawHtml
+  // FX-34: Unescape literal &lt;br&gt; / &lt;br/&gt; so line breaks in Markdown/HTML cells become real <br> tags
+  out = out.replace(/&lt;br\s*\/?&gt;/gi, '<br>')
   // FX-03: Strip leaked internal session IDs (kb-ask-..., kb-...) from document content
   out = out.replace(/\bkb-(?:ask-)?[a-z0-9_-]*\d[a-z0-9_-]*\b/gi, '')
   // Replace {{PLACEHOLDER}} tokens only when the model emitted UPPERCASE NĐ30 template variables (1h);
@@ -1172,9 +1174,198 @@ function ensureNd30InlineMarks(nodes: PmNode[], textJoined: string): PmNode[] {
 }
 
 const VN_DOC_TITLE_RE =
-  /^(?:HỢP ĐỒNG|QUYẾT ĐỊNH|TỜ TRÌNH|CÔNG VĂN|BIÊN BẢN|THÔNG BÁO|BÁO CÁO|QUY CHẾ|QUY ĐỊNH|ĐIỀU LỆ|GIẤY ỦY QUYỀN|GIẤY ĐỀ NGHỊ|GIẤY GIỚI THIỆU|GIẤY XÁC NHẬN|ĐƠN XIN|ĐƠN ĐỀ NGHỊ|ĐƠN KHỞI KIỆN|ĐƠN KHIẾU NẠI|ĐƠN TỐ CÁO|BẢNG BÁO GIÁ|BÁO GIÁ|PHỤ LỤC|KẾ HOẠCH|CHƯƠNG TRÌNH|ĐỀ ÁN|ĐỀ CƯƠNG|THUYẾT MINH|HƯỚNG DẪN|NGHỊ QUYẾT|CHỈ THỊ|THỎA THUẬN|BẢN GHI NHỚ|CAM KẾT|BẢN CAM KẾT|THƯ MỜI|GIẤY MỜI|PHIẾU THU|PHIẾU CHI|PHIẾU ĐỀ XUẤT|LỆNH ĐIỀU ĐỘNG|BẢN MÔ TẢ CÔNG VIỆC|HỒ SƠ MỜI THẦU|BÀI GIẢNG|GIÁO ÁN|MA TRẬN ĐỀ|BẢNG MA TRẬN|ĐỀ KIỂM TRA|ĐỀ THI)(?:\s|$|:)/i
+  /^(?:HỢP ĐỒNG|QUYẾT ĐỊNH|TỜ TRÌNH|CÔNG VĂN|BIÊN BẢN|THÔNG BÁO|BÁO CÁO|QUY CHẾ|QUY ĐỊNH|ĐIỀU LỆ|GIẤY ỦY QUYỀN|GIẤY ĐỀ NGHỊ|GIẤY GIỚI THIỆU|GIẤY XÁC NHẬN|ĐƠN XIN|ĐƠN ĐỀ NGHỊ|ĐƠN KHỞI KIỆN|ĐƠN KHIẾU NẠI|ĐƠN TỐ CÁO|BẢNG BÁO GIÁ|BÁO GIÁ|PHỤ LỤC|KẾ HOẠCH|CHƯƠNG TRÌNH|ĐỀ ÁN|ĐỀ CƯƠNG|THUYẾT MINH|HƯỚNG DẦN|HƯỚNG DẪN|NGHỊ QUYẾT|CHỈ THỊ|THỎA THUẬN|BẢN GHI NHỚ|CAM KẾT|BẢN CAM KẾT|THƯ MỜI|GIẤY MỜI|PHIẾU THU|PHIẾU CHI|PHIẾU ĐỀ XUẤT|LỆNH ĐIỀU ĐỘNG|BẢN MÔ TẢ CÔNG VIỆC|HỒ SƠ MỜI THẦU|BÀI GIẢNG|GIÁO ÁN|MA TRẬN ĐỀ|BẢNG MA TRẬN|ĐỀ KIỂM TRA|ĐỀ THI)(?:\s|$|:)/i
 
-function parseInline(element: Node, marks: PmMark[]): PmNode[] {
+const INLINE_MATH_TOKEN_RE =
+  /\$\$([\s\S]+?)\$\$|\\\(([^\n]+?)\\\)|\\\[([\s\S]+?)\\\]|\$(?!\s)([^$\n]*[^\\\s$])\$(?![$\d])/g
+const CURRENCY_SPAN_RE = /^\d[\d.,]*(?:\s+[\p{L}\p{N}]+)*\s+\d[\d.,]*$/u
+
+const UNICODE_MATH_SYMBOLS: Record<string, string> = {
+  times: '×',
+  div: '÷',
+  pm: '±',
+  mp: '∓',
+  cdot: '·',
+  ast: '∗',
+  star: '⋆',
+  le: '≤',
+  leq: '≤',
+  ge: '≥',
+  geq: '≥',
+  ne: '≠',
+  neq: '≠',
+  approx: '≈',
+  equiv: '≡',
+  sim: '∼',
+  simeq: '≃',
+  cong: '≅',
+  propto: '∝',
+  infty: '∞',
+  partial: '∂',
+  nabla: '∇',
+  forall: '∀',
+  exists: '∃',
+  nexists: '∄',
+  in: '∈',
+  notin: '∉',
+  ni: '∋',
+  subset: '⊂',
+  supset: '⊃',
+  subseteq: '⊆',
+  supseteq: '⊇',
+  cup: '∪',
+  cap: '∩',
+  emptyset: '∅',
+  varnothing: '∅',
+  therefore: '∴',
+  because: '∵',
+  angle: '∠',
+  measuredangle: '∡',
+  perp: '⊥',
+  parallel: '∥',
+  triangle: '△',
+  circ: '°',
+  degree: '°',
+  to: '→',
+  rightarrow: '→',
+  leftarrow: '←',
+  leftrightarrow: '↔',
+  Rightarrow: '⇒',
+  Leftarrow: '⇐',
+  Leftrightarrow: '⇔',
+  iff: '⇔',
+  mapsto: '↦',
+  alpha: 'α',
+  beta: 'β',
+  gamma: 'γ',
+  delta: 'δ',
+  epsilon: 'ε',
+  varepsilon: 'ε',
+  zeta: 'ζ',
+  eta: 'η',
+  theta: 'θ',
+  vartheta: 'ϑ',
+  iota: 'ι',
+  kappa: 'κ',
+  lambda: 'λ',
+  mu: 'μ',
+  nu: 'ν',
+  xi: 'ξ',
+  pi: 'π',
+  rho: 'ρ',
+  sigma: 'σ',
+  tau: 'τ',
+  upsilon: 'υ',
+  phi: 'φ',
+  varphi: 'φ',
+  chi: 'χ',
+  psi: 'ψ',
+  omega: 'ω',
+  Gamma: 'Γ',
+  Delta: 'Δ',
+  Theta: 'Θ',
+  Lambda: 'Λ',
+  Xi: 'Ξ',
+  Pi: 'Π',
+  Sigma: 'Σ',
+  Upsilon: 'Υ',
+  Phi: 'Φ',
+  Psi: 'Ψ',
+  Omega: 'Ω',
+}
+
+export function cleanLatexToUnicode(latex: string): string {
+  let out = latex.trim()
+  out = out.replace(/^\$\$?|\$\$?$/g, '').trim()
+  // Unwrap \text{...}, \textbf{...}, \mathrm{...}, etc.
+  for (let i = 0; i < 4; i++) {
+    out = out.replace(
+      /\\(?:text|textbf|textit|textrm|mathbf|mathit|mathrm|mathsf|mathtt|mathcal|mathbb|operatorname)\s*\{([^{}]*)\}/g,
+      '$1',
+    )
+    out = out.replace(/\\(?:d?t?frac)\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, '($1)/($2)')
+    out = out.replace(/\\sqrt\s*\[([^\]]*)\]\s*\{([^{}]*)\}/g, '√[$1]($2)')
+    out = out.replace(/\\sqrt\s*\{([^{}]*)\}/g, '√($1)')
+    out = out.replace(/\\(?:widehat|hat)\s*\{([^{}]*)\}/g, '$1\u0302')
+    out = out.replace(/\\(?:widetilde|tilde)\s*\{([^{}]*)\}/g, '$1\u0303')
+    out = out.replace(/\\(?:overline|bar)\s*\{([^{}]*)\}/g, '$1\u0304')
+    out = out.replace(/\\(?:overrightarrow|vec)\s*\{([^{}]*)\}/g, '$1\u20D7')
+  }
+  out = out.replace(/\\([a-zA-Z]+)\b/g, (full, cmd: string) => UNICODE_MATH_SYMBOLS[cmd] ?? full)
+  out = out.replace(/\\([{}%$&_#])/g, '$1')
+  out = out.replace(/\{([^{}]*)\}/g, '$1')
+  return out.replace(/\s+/g, ' ').trim()
+}
+
+function cleanBareLatexInPlainText(text: string): string {
+  if (!text.includes('\\')) return text
+  let out = text
+  out = out.replace(/\\(?:d?t?frac)\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, '($1)/($2)')
+  out = out.replace(/\\sqrt\s*\{([^{}]*)\}/g, '√($1)')
+  out = out.replace(/\\(?:widehat|hat)\s*\{([^{}]*)\}/g, '$1\u0302')
+  out = out.replace(/\\(?:widetilde|tilde)\s*\{([^{}]*)\}/g, '$1\u0303')
+  out = out.replace(/\\(?:overline|bar)\s*\{([^{}]*)\}/g, '$1\u0304')
+  out = out.replace(/\\(?:overrightarrow|vec)\s*\{([^{}]*)\}/g, '$1\u20D7')
+  out = out.replace(
+    /(?<![A-Za-z]:)\\(times|div|pm|mp|cdot|le|leq|ge|geq|ne|neq|approx|equiv|sim|simeq|cong|propto|infty|partial|nabla|forall|exists|in|notin|subset|supset|subseteq|supseteq|cup|cap|emptyset|varnothing|therefore|because|angle|measuredangle|perp|parallel|triangle|circ|degree|Rightarrow|Leftarrow|Leftrightarrow|rightarrow|leftarrow|leftrightarrow|alpha|beta|gamma|delta|epsilon|varepsilon|theta|lambda|mu|pi|sigma|omega|Delta|Omega|Pi|Sigma)\b/g,
+    (_m, cmd: string) => UNICODE_MATH_SYMBOLS[cmd] ?? _m,
+  )
+  return out
+}
+
+function parseTextWithMathNodes(
+  rawText: string,
+  effectiveMarks: PmMark[],
+): PmNode[] {
+  const normalized = rawText.replace(/\s+/g, ' ')
+  if (!normalized) return []
+  const out: PmNode[] = []
+  const pushPlain = (segment: string) => {
+    const cleaned = cleanBareLatexInPlainText(segment)
+    if (!cleaned) return
+    out.push({
+      type: 'text',
+      text: cleaned,
+      ...(effectiveMarks.length > 0 ? { marks: [...effectiveMarks] } : {}),
+    })
+  }
+
+  if (!normalized.includes('$') && !normalized.includes('\\(') && !normalized.includes('\\[')) {
+    pushPlain(normalized)
+    return out
+  }
+
+  INLINE_MATH_TOKEN_RE.lastIndex = 0
+  let lastIdx = 0
+  let match: RegExpExecArray | null
+  while ((match = INLINE_MATH_TOKEN_RE.exec(normalized)) !== null) {
+    const fullMatch = match[0]
+    const latexCandidate = (match[1] ?? match[2] ?? match[3] ?? match[4] ?? '').trim()
+    const isSingleDollar = match[4] !== undefined
+    if (!latexCandidate || (isSingleDollar && CURRENCY_SPAN_RE.test(latexCandidate))) {
+      continue
+    }
+    if (match.index > lastIdx) {
+      pushPlain(normalized.slice(lastIdx, match.index))
+    }
+    try {
+      out.push(inlineEquationNodeJson(latexCandidate))
+    } catch {
+      pushPlain(cleanLatexToUnicode(latexCandidate))
+    }
+    lastIdx = match.index + fullMatch.length
+  }
+  if (lastIdx < normalized.length) {
+    pushPlain(normalized.slice(lastIdx))
+  }
+  return out
+}
+
+function parseInline(
+  element: Node,
+  marks: PmMark[],
+  fallbackInvalidFormula = false,
+): PmNode[] {
   const effectiveMarks =
     element.nodeType === Node.ELEMENT_NODE
       ? extractInlineStyleMarks(element as Element, marks)
@@ -1182,13 +1373,10 @@ function parseInline(element: Node, marks: PmMark[]): PmNode[] {
   const nodes: PmNode[] = []
   element.childNodes.forEach((child) => {
     if (child.nodeType === Node.TEXT_NODE) {
-      const text = (child.textContent ?? '').replace(/\s+/g, ' ')
-      if (text)
-        nodes.push({
-          type: 'text',
-          text,
-          ...(effectiveMarks.length > 0 ? { marks: [...effectiveMarks] } : {}),
-        })
+      const text = child.textContent ?? ''
+      if (text) {
+        nodes.push(...parseTextWithMathNodes(text, effectiveMarks))
+      }
       return
     }
     if (child.nodeType !== Node.ELEMENT_NODE) return
@@ -1208,13 +1396,17 @@ function parseInline(element: Node, marks: PmMark[]): PmNode[] {
         text: '\t',
         ...(childStyleMarks.length > 0 ? { marks: [...childStyleMarks] } : {}),
       })
-      nodes.push(...parseInline(el, childStyleMarks))
+      nodes.push(...parseInline(el, childStyleMarks, fallbackInvalidFormula))
       return
     }
     if (tag === 'a') {
       const href = el.getAttribute('href') ?? ''
       nodes.push(
-        ...parseInline(el, [...childStyleMarks, { type: 'link', attrs: { href, rId: null } }]),
+        ...parseInline(
+          el,
+          [...childStyleMarks, { type: 'link', attrs: { href, rId: null } }],
+          fallbackInvalidFormula,
+        ),
       )
       return
     }
@@ -1228,12 +1420,24 @@ function parseInline(element: Node, marks: PmMark[]): PmNode[] {
       // any other <img> is not restricted HTML: pictures come in through insert_picture
       return
     }
-    if (tag === 'formula') {
-      const latex = (el.textContent ?? '').trim()
+    if (
+      tag === 'formula' ||
+      el.getAttribute('data-type') === 'inline-math' ||
+      el.getAttribute('data-type') === 'block-math'
+    ) {
+      const latex = (el.getAttribute('data-latex') ?? el.textContent ?? '').trim()
       if (!latex) return
       try {
         nodes.push(inlineEquationNodeJson(latex))
       } catch (e) {
+        if (fallbackInvalidFormula || el.hasAttribute('data-type')) {
+          nodes.push({
+            type: 'text',
+            text: cleanLatexToUnicode(latex),
+            ...(childStyleMarks.length > 0 ? { marks: [...childStyleMarks] } : {}),
+          })
+          return
+        }
         const reason = e instanceof Error ? e.message : String(e)
         throw new Error(`Cannot parse the LaTeX in <formula> (${reason}): ${latex}`, { cause: e })
       }
@@ -1242,11 +1446,11 @@ function parseInline(element: Node, marks: PmMark[]): PmNode[] {
     const markType = INLINE_MARK_TAGS[tag]
     if (markType) {
       const next = addMarkIfMissing(childStyleMarks, markType)
-      nodes.push(...parseInline(el, next))
+      nodes.push(...parseInline(el, next, fallbackInvalidFormula))
       return
     }
     // unknown inline tag (span etc.): keep its text content and any inline style marks
-    nodes.push(...parseInline(el, childStyleMarks))
+    nodes.push(...parseInline(el, childStyleMarks, fallbackInvalidFormula))
   })
   return nodes
 }
@@ -1266,13 +1470,14 @@ function parseList(
   ilvl: number,
   numIds: NumIds,
   out: PmNode[],
+  fallbackInvalidFormula = false,
 ): void {
   el.childNodes.forEach((child) => {
     if (child.nodeType !== Node.ELEMENT_NODE) return
     const item = child as Element
     const tag = item.tagName.toLowerCase()
     if (tag === 'ul' || tag === 'ol') {
-      parseList(item, tag === 'ol' ? 'ordered' : 'bullet', ilvl + 1, numIds, out)
+      parseList(item, tag === 'ol' ? 'ordered' : 'bullet', ilvl + 1, numIds, out, fallbackInvalidFormula)
       return
     }
     if (tag !== 'li') return
@@ -1286,11 +1491,18 @@ function parseList(
       blockNode(
         'docListItem',
         { kind, numId: numIds[kind], ilvl: Math.min(ilvl, 4) },
-        parseInline(item, []),
+        parseInline(item, [], fallbackInvalidFormula),
       ),
     )
     for (const n of nested) {
-      parseList(n, n.tagName.toLowerCase() === 'ol' ? 'ordered' : 'bullet', ilvl + 1, numIds, out)
+      parseList(
+        n,
+        n.tagName.toLowerCase() === 'ol' ? 'ordered' : 'bullet',
+        ilvl + 1,
+        numIds,
+        out,
+        fallbackInvalidFormula,
+      )
     }
   })
 }
@@ -1313,7 +1525,13 @@ function cellParas(cell: Element): string[] {
       const el = child as Element
       const tag = el.tagName.toLowerCase()
       if (tag === 'br') push()
-      else if (tag === 'p' || tag === 'div') {
+      else if (
+        tag === 'formula' ||
+        el.getAttribute('data-type') === 'inline-math' ||
+        el.getAttribute('data-type') === 'block-math'
+      ) {
+        current += el.getAttribute('data-latex') ?? el.textContent ?? ''
+      } else if (tag === 'p' || tag === 'div') {
         if (current.trim()) push()
         walk(el)
         push()
@@ -1352,6 +1570,7 @@ function parseCellParagraphNodes(
   cell: Element,
   defaultAlign?: 'left' | 'center' | 'right' | 'justify',
   isHeader?: boolean,
+  fallbackInvalidFormula = false,
 ): PmNode[] {
   const out: PmNode[] = []
   let currentInline: PmNode[] = []
@@ -1366,7 +1585,14 @@ function parseCellParagraphNodes(
     while (currentInline.length > 0 && currentInline[currentInline.length - 1].type === 'hardBreak') {
       currentInline.pop()
     }
-    const textJoined = currentInline.map((n) => n.text ?? '').join('').trim()
+    const textJoined = currentInline
+      .map((n) =>
+        n.type === 'docInlineMath'
+          ? String(n.attrs?.text ?? n.attrs?.latex ?? 'math')
+          : (n.text ?? ''),
+      )
+      .join('')
+      .trim()
     let align = currentAlign
     if (textJoined) {
       if (/^Nơi nhận\s*:/i.test(textJoined) || /^-\s+(?:Như trên|Lưu\s*:)/i.test(textJoined)) {
@@ -1425,14 +1651,14 @@ function parseCellParagraphNodes(
       if (tag === 'p' || tag === 'div') {
         if (currentInline.length > 0) flush()
         const pAlign = extractTextAlign(el) ?? defaultAlign
-        const parsed = parseInline(el, baseMarks)
+        const parsed = parseInline(el, baseMarks, fallbackInvalidFormula)
         pushInlineSplittingBreaks(parsed, pAlign)
         return
       }
     }
     const fakeWrap = cell.ownerDocument.createElement('span')
     fakeWrap.appendChild(child.cloneNode(true))
-    const parsed = parseInline(fakeWrap, baseMarks)
+    const parsed = parseInline(fakeWrap, baseMarks, fallbackInvalidFormula)
     for (const n of parsed) {
       if (n.type === 'hardBreak') {
         flush()
@@ -1463,7 +1689,11 @@ const BORDERLESS_TABLE_BORDERS: NonNullable<TableModel['borders']> = {
 
 function getParagraphNodeText(p: PmNode): string {
   return (p.content ?? [])
-    .map((n) => n.text ?? '')
+    .map((n) =>
+      n.type === 'docInlineMath'
+        ? String(n.attrs?.text ?? n.attrs?.latex ?? 'math')
+        : (n.text ?? ''),
+    )
     .join('')
     .replace(/\s+/g, ' ')
     .trim()
@@ -1488,7 +1718,7 @@ function deriveAgencyAbbrev(agencyName: string): string {
  * existing genXml branch of pmDocToSavePlan (patchTableCellTexts), so the
  * model row/col counts must mirror the generated grid.
  */
-function parseTable(el: Element, docTitleHint?: string): PmNode | null {
+function parseTable(el: Element, docTitleHint?: string, fallbackInvalidFormula = false): PmNode | null {
   const trs = Array.from(el.querySelectorAll('tr'))
   if (trs.length === 0) return null
   let rawRows = trs.map((tr) => Array.from(tr.children).filter((c) => /^t[hd]$/i.test(c.tagName)))
@@ -1794,7 +2024,7 @@ function parseTable(el: Element, docTitleHint?: string): PmNode | null {
                 ? 'right'
                 : extractTextAlign(cellEl) ?? colDefaultAligns[c] ?? defaultCellAlign
 
-      let paras = parseCellParagraphNodes(cellEl, cellAlign, isHeader)
+      let paras = parseCellParagraphNodes(cellEl, cellAlign, isHeader, fallbackInvalidFormula)
 
       // 1a & 1h) Normalize 2-column Quốc hiệu - Tiêu ngữ Header Table
       if (isQuocHieuTable) {
@@ -2360,9 +2590,9 @@ function parseCodeBlock(el: Element): PmNode | null {
 }
 
 /** <blockquote> -> indented gray paragraph with a left border */
-function parseBlockquote(el: Element): PmNode | null {
+function parseBlockquote(el: Element, fallbackInvalidFormula = false): PmNode | null {
   const mark: PmMark = { type: 'docTextStyle', attrs: { color: QUOTE_BLOCK_PRESET.color } }
-  const inline = parseInline(el, [mark])
+  const inline = parseInline(el, [mark], fallbackInvalidFormula)
   if (inline.length === 0) return null
   return blockNode(
     'docParagraph',
@@ -2453,7 +2683,12 @@ function splitInlineAtHardBreaks(inline: PmNode[]): PmNode[][] {
   return segments
 }
 
-export function parseHtmlFragment(raw: string, numIds: NumIds): PmNode[] {
+export function parseHtmlFragment(
+  raw: string,
+  numIds: NumIds,
+  options?: { fallbackInvalidFormula?: boolean },
+): PmNode[] {
+  const fallbackInvalidFormula = options?.fallbackInvalidFormula === true
   let text = raw.trim()
   const fence = /```(?:html)?\s*([\s\S]*?)```/.exec(text)
   if (fence) text = fence[1].trim()
@@ -2466,9 +2701,9 @@ export function parseHtmlFragment(raw: string, numIds: NumIds): PmNode[] {
     return text
       .split(/\n{2,}/)
       .map((para) =>
-        blockNode('docParagraph', {}, [{ type: 'text', text: para.replace(/\s+/g, ' ').trim() }]),
+        blockNode('docParagraph', {}, parseTextWithMathNodes(para.replace(/\s+/g, ' ').trim(), [])),
       )
-      .filter((n) => n.content?.[0]?.text)
+      .filter((n) => (n.content?.length ?? 0) > 0)
   }
 
   const parsed = new DOMParser().parseFromString(text, 'text/html')
@@ -2484,11 +2719,15 @@ export function parseHtmlFragment(raw: string, numIds: NumIds): PmNode[] {
 
   const out: PmNode[] = []
   const pushFormula = (el: Element) => {
-    const latex = (el.textContent ?? '').trim()
+    const latex = (el.getAttribute('data-latex') ?? el.textContent ?? '').trim()
     if (!latex) return
     try {
       out.push(equationBlockJson(latex))
     } catch (e) {
+      if (fallbackInvalidFormula || el.hasAttribute('data-type')) {
+        pushFormattedParagraph([{ type: 'text', text: cleanLatexToUnicode(latex) }], 'center')
+        return
+      }
       const reason = e instanceof Error ? e.message : String(e)
       throw new Error(`Cannot parse the LaTeX in <formula> (${reason}): ${latex}`, { cause: e })
     }
@@ -2496,11 +2735,16 @@ export function parseHtmlFragment(raw: string, numIds: NumIds): PmNode[] {
 
   const pushFormattedParagraph = (inlineChunk: PmNode[], explicitAlign?: 'left' | 'center' | 'right' | 'justify') => {
     const chunkText = inlineChunk
-      .map((n) => n.text ?? '')
+      .map((n) =>
+        n.type === 'docInlineMath'
+          ? String(n.attrs?.text ?? n.attrs?.latex ?? 'math')
+          : (n.text ?? ''),
+      )
       .join('')
       .replace(/\s+/g, ' ')
       .trim()
-    if (!chunkText) return
+    const hasAtomNode = inlineChunk.some((n) => n.type !== 'text' && n.type !== 'hardBreak')
+    if (!chunkText && !hasAtomNode) return
     let normalized = ensureNd30InlineMarks(inlineChunk, chunkText)
     let align = explicitAlign
     if (CAN_CU_LINE_RE.test(chunkText)) {
@@ -2621,7 +2865,7 @@ export function parseHtmlFragment(raw: string, numIds: NumIds): PmNode[] {
     container.childNodes.forEach((child) => {
       if (child.nodeType === Node.TEXT_NODE) {
         const t = (child.textContent ?? '').trim()
-        if (t) pushFormattedParagraph([{ type: 'text', text: t }])
+        if (t) pushFormattedParagraph(parseTextWithMathNodes(t, []))
         return
       }
       if (child.nodeType !== Node.ELEMENT_NODE) return
@@ -2639,7 +2883,7 @@ export function parseHtmlFragment(raw: string, numIds: NumIds): PmNode[] {
         if (!align && (level === 1 || isMainDocTitle)) {
           align = 'center'
         }
-        let inline = parseInline(el, [])
+        let inline = parseInline(el, [], fallbackInvalidFormula)
         if (level === 1 || isMainDocTitle) {
           inline = ensureMarkOnNodes(inline, 'bold')
         }
@@ -2675,17 +2919,17 @@ export function parseHtmlFragment(raw: string, numIds: NumIds): PmNode[] {
           ),
         )
       } else if (tag === 'ul' || tag === 'ol') {
-        parseList(el, tag === 'ol' ? 'ordered' : 'bullet', 0, numIds, out)
+        parseList(el, tag === 'ol' ? 'ordered' : 'bullet', 0, numIds, out, fallbackInvalidFormula)
       } else if (tag === 'table') {
-        const node = parseTable(el, firstHeadingText)
+        const node = parseTable(el, firstHeadingText, fallbackInvalidFormula)
         if (node) out.push(node)
       } else if (tag === 'pre') {
         const node = parseCodeBlock(el)
         if (node) out.push(node)
       } else if (tag === 'blockquote') {
-        const node = parseBlockquote(el)
+        const node = parseBlockquote(el, fallbackInvalidFormula)
         if (node) out.push(node)
-      } else if (tag === 'formula') {
+      } else if (tag === 'formula' || el.getAttribute('data-type') === 'block-math') {
         pushFormula(el)
       } else if (
         (tag === 'div' ||
@@ -2694,11 +2938,13 @@ export function parseHtmlFragment(raw: string, numIds: NumIds): PmNode[] {
           tag === 'main' ||
           tag === 'header' ||
           tag === 'footer') &&
-        Array.from(el.children).some((c) => HAS_CHILD_BLOCK_TAG_RE.test(c.tagName))
+        Array.from(el.children).some(
+          (c) => HAS_CHILD_BLOCK_TAG_RE.test(c.tagName) || c.getAttribute('data-type') === 'block-math',
+        )
       ) {
         walkBlockContainer(el)
       } else if (tag === 'p' || tag === 'div') {
-        const inline = parseInline(el, [])
+        const inline = parseInline(el, [], fallbackInvalidFormula)
         if (inline.length > 0) {
           const explicitAlign = extractTextAlign(el)
           const hasHardBreak = inline.some((n) => n.type === 'hardBreak')

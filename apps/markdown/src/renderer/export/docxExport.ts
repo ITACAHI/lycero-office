@@ -62,9 +62,20 @@ function runsFromInline(content: JSONContent[] | undefined): Run[] {
       continue
     }
     if (child.type === 'inlineMath') {
-      // Run[] cannot carry OMML — keep the LaTeX source visible instead
-      const latex = String(child.attrs?.latex ?? '')
-      if (latex) runs.push({ text: `$${latex}$`, font: CODE_FONT })
+      const latex = String(child.attrs?.latex ?? '').trim()
+      if (latex) {
+        try {
+          const inner = latexToOmml(latex)
+          const omml = `<m:oMath>${inner}</m:oMath>`
+          runs.push({
+            text: `$${latex}$`,
+            font: CODE_FONT,
+            math: { omml },
+          })
+        } catch {
+          runs.push({ text: `$${latex}$`, font: CODE_FONT })
+        }
+      }
       continue
     }
     if (child.type === 'image') {
@@ -76,7 +87,7 @@ function runsFromInline(content: JSONContent[] | undefined): Run[] {
       continue
     }
     if (child.type !== 'text' || !child.text) continue
-    const run: Run = { text: child.text }
+    const run: Run = { text: child.text.replace(/<br\s*\/?>/gi, '\n') }
     for (const mark of child.marks ?? []) {
       if (mark.type === 'bold') run.bold = true
       else if (mark.type === 'italic') run.italic = true
@@ -92,7 +103,9 @@ function runsFromInline(content: JSONContent[] | undefined): Run[] {
 }
 
 function plainText(node: JSONContent): string {
-  if (node.type === 'text') return node.text ?? ''
+  if (node.type === 'text') return (node.text ?? '').replace(/<br\s*\/?>/gi, '\n')
+  if (node.type === 'hardBreak') return '\n'
+  if (node.type === 'inlineMath') return String(node.attrs?.latex ?? '')
   return (node.content ?? []).map(plainText).join('')
 }
 

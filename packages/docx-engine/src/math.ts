@@ -405,6 +405,28 @@ const LATEX_SYMBOLS: Record<string, string> = {
   aleph: 'ℵ',
   therefore: '∴',
   because: '∵',
+  triangle: '△',
+  bigtriangleup: '△',
+  measuredangle: '∡',
+  sphericalangle: '∢',
+  cong: '≅',
+  simeq: '≃',
+  nsim: '≁',
+  ncong: '≇',
+  mid: '∣',
+  nmid: '∤',
+  nparallel: '∦',
+  varnothing: '∅',
+  implies: '⇒',
+  iff: '⇔',
+  mapsto: '↦',
+  longmapsto: '⟼',
+  longrightarrow: '⟶',
+  longleftarrow: '⟵',
+  longleftrightarrow: '⟷',
+  Longrightarrow: '⟹',
+  Longleftarrow: '⟸',
+  Longleftrightarrow: '⟺',
 }
 
 const LATEX_FUNCTIONS = new Set([
@@ -451,13 +473,21 @@ const NARY_OPS: Record<string, { chr: string; limLoc: 'undOvr' | 'subSup' }> = {
 
 const ACCENT_CHARS: Record<string, string> = {
   hat: '\u0302',
+  widehat: '\u0302',
   bar: '\u0304',
   vec: '\u20D7',
+  overrightarrow: '\u20D7',
+  overleftarrow: '\u20D6',
+  overleftrightarrow: '\u20E1',
   dot: '\u0307',
   ddot: '\u0308',
   tilde: '\u0303',
+  widetilde: '\u0303',
   check: '\u030C',
   breve: '\u0306',
+  acute: '\u0301',
+  grave: '\u0300',
+  mathring: '\u030A',
 }
 
 const MATRIX_DELIMS: Record<string, { beg: string; end: string } | null> = {
@@ -1065,9 +1095,26 @@ function parseControl(p: LatexParser): string {
         `<m:e>${parseGroup(p)}</m:e></m:groupChr>`
       )
     case 'text':
+    case 'textbf':
+    case 'textit':
+    case 'textrm':
+    case 'textsf':
+    case 'texttt':
     case 'mathrm':
+    case 'mathbf':
+    case 'mathit':
+    case 'mathsf':
+    case 'mathtt':
+    case 'mathcal':
+    case 'mathbb':
+    case 'mathfrak':
     case 'operatorname':
       return mathRun(readBraceText(p), true)
+    case 'displaystyle':
+    case 'textstyle':
+    case 'scriptstyle':
+    case 'scriptscriptstyle':
+      return ''
     case 'lim': {
       skipSpaces(p)
       if (peek(p) === '_') {
@@ -1097,6 +1144,8 @@ function parseControl(p: LatexParser): string {
     }
     case ',':
     case ';':
+    case ':':
+    case '!':
     case ' ':
     case 'quad':
     case 'qquad':

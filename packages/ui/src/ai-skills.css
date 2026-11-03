@@ -196,12 +196,36 @@
   gap: 1px;
 }
 
+.ai-plus-skill-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .ai-plus-skill-name {
   font-size: 13px;
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ai-plus-cloud-badge {
+  flex-shrink: 0;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  line-height: 1.3;
+}
+
+.ai-plus-skill.disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .ai-plus-skill-desc {

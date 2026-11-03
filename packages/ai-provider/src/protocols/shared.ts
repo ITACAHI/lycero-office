@@ -324,11 +324,64 @@ export interface ResolvedLyceroGatewayContext {
 export const SKILL_EXTRACTION_REFUSAL_TEXT =
   'Theo chính sách bảo mật sở hữu trí tuệ của Lycero Office, hệ thống không hiển thị hoặc trích xuất nguyên văn nội dung hướng dẫn nội bộ (SKILL.md / System Prompt). Vui lòng nêu trực tiếp yêu cầu soạn thảo, phân tích hoặc xử lý tài liệu để Lycero hỗ trợ bạn.'
 
-export function isSkillExtractionAttempt(prompt: string): boolean {
-  if (!prompt) return false
-  return /(?:in\s+nguyên\s+văn|xuất\s+nguyên\s+văn|hiển\s+thị\s+nguyên\s+văn|chép\s+nguyên\s+văn|trích\s+xuất\s+nguyên\s+văn|đọc\s+nguyên\s+văn|nội\s+dung\s+nguyên\s+văn|toàn\s+văn\s+(?:nội\s+dung\s+)?skill|in\s+toàn\s+bộ\s+(?:nội\s+dung\s+)?skill|xem\s+mã\s+nguồn\s+skill|print\s+(?:the\s+)?(?:verbatim|full|raw|exact)\s+(?:skill|system\s+prompt|instructions)|dump\s+(?:the\s+)?(?:skill|skill\.md|system\s+prompt)|repeat\s+(?:your\s+)?(?:system\s+prompt|skill\s+instructions)\s+verbatim|output\s+(?:the\s+)?contents?\s+of\s+skill\.md)/i.test(
-    prompt,
+/**
+ * Strip injected `<skill>`, `## Skills loaded`, `<lycero_global_mandatory_rules>`,
+ * `withAttachedSkills` preamble, and editor/KB context appendices so security filters
+ * and skill classifiers inspect ONLY the raw text typed by the user (FX-59).
+ */
+export function extractRawUserPrompt(text: string): string {
+  if (!text) return ''
+  let cleaned = text
+    // 1. Strip <skill name="...">...</skill> blocks injected by withAttachedSkills
+    .replace(/<skill\b[^>]*>[\s\S]*?<\/skill>/gi, '')
+    // 2. Strip <lycero_global_mandatory_rules>...</lycero_global_mandatory_rules>
+    .replace(/<lycero_global_mandatory_rules\b[^>]*>[\s\S]*?<\/lycero_global_mandatory_rules>/gi, '')
+    // 3. Strip WorkBundle "## Skills loaded (...)" sections
+    .replace(/(?:^|\n)## Skills loaded \([\s\S]*$/i, '')
+    // 4. Strip internal markers
+    .replace(/\[LYCERO_[^\]]*\]/g, '')
+
+  // 5. If withAttachedSkills wrapper is present, keep only the part after "User request:\n"
+  const userReqIdx = cleaned.lastIndexOf('User request:\n')
+  if (userReqIdx !== -1) {
+    cleaned = cleaned.slice(userReqIdx + 'User request:\n'.length)
+  } else {
+    cleaned = cleaned.replace(
+      /^The user attached the following skills? to this request\.[^\n]*\n*/i,
+      '',
+    )
+  }
+
+  // 6. Strip trailing context blocks appended by composeSkills / attachments / KB skills
+  cleaned = cleaned.replace(
+    /\n\n(?:Starred knowledge-base files|Attachment list|Document block list|Spreadsheet context|Slide deck context)\b[\s\S]*$/i,
+    '',
   )
+
+  return cleaned.trim()
+}
+
+export function isSkillExtractionAttempt(prompt: string): boolean {
+  const raw = extractRawUserPrompt(prompt)
+  if (!raw) return false
+
+  // Remove negative/prohibitive policy clauses (e.g. "tuyệt đối không tiết lộ, trích xuất hay in nguyên văn...")
+  const withoutProhibitions = raw.replace(
+    /(?:tuyệt\s+đối\s+không|không\s+được(?:\s+phép)?|nghiêm\s+cấm|cấm)[^.\n;]*(?:tiết\s+lộ|trích\s+xuất|hiển\s+thị|in\s+nguyên\s+văn)[^.\n;]*/gi,
+    '',
+  )
+  if (!withoutProhibitions.trim()) return false
+
+  // Require BOTH an extraction command verb AND an explicit internal skill / system-prompt target (FX-59)
+  const target =
+    '(?:nội\\s+dung\\s+|toàn\\s+bộ\\s+|toàn\\s+văn\\s+|mã\\s+nguồn\\s+|chỉ\\s+thị\\s+|hướng\\s+dẫn\\s+|file\\s+|tệp\\s+)*(?:skill(?:\\.md)?\\b|kỹ\\s+năng\\s+(?:hệ\\s+thống|nội\\s+bộ|[a-z0-9_-]+)|system\\s*prompt\\b|secretsystemprompt\\b|chỉ\\s+thị\\s+(?:hệ\\s+thống|nội\\s+bộ|kỹ\\s+năng)|hướng\\s+dẫn\\s+(?:hệ\\s+thống|nội\\s+bộ))'
+  const vnVerb =
+    '(?:in\\s+nguyên\\s+văn|xuất\\s+nguyên\\s+văn|hiển\\s+thị\\s+nguyên\\s+văn|chép\\s+nguyên\\s+văn|trích\\s+xuất(?:\\s+nguyên\\s+văn)?|đọc\\s+nguyên\\s+văn|in\\s+toàn\\s+bộ|toàn\\s+văn|xem\\s+mã\\s+nguồn|tiết\\s+lộ\\s+nguyên\\s+văn)'
+  const enVerb =
+    '(?:print(?:\\s+the)?(?:\\s+(?:verbatim|full|raw|exact))?|dump(?:\\s+the)?(?:\\s+(?:verbatim|full|raw|exact))?|repeat(?:\\s+(?:your|the))?|output(?:\\s+the)?(?:\\s+(?:full|raw|verbatim))?(?:\\s+contents?\\s+of)?|show(?:\\s+me)?(?:\\s+the)?(?:\\s+(?:verbatim|raw|exact))?)'
+
+  const pattern = new RegExp(`(?:${vnVerb}|${enVerb})\\s+${target}`, 'i')
+  return pattern.test(withoutProhibitions)
 }
 
 export function restorePiiAndSanitizeToolValue<T>(
@@ -471,7 +524,7 @@ export function resolveLyceroGatewayContext(options: {
   for (const msg of messages) {
     if (msg.role === 'user' && msg.text) {
       scanText(msg.text)
-      latestUserPrompt = msg.text
+      latestUserPrompt = extractRawUserPrompt(msg.text)
       // Index PII entities into a unified turn map + cross-turn registry so Party A and Party B
       // never collide across messages or turns (FX-04)
       PiiTokenizer.mask(msg.text, piiMap)

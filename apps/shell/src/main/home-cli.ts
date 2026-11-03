@@ -322,7 +322,16 @@ function normalizeOutputArgPaths(
         return baseCandidate
       }
     }
-    if (createdInSession.has(resolvedTarget) && existsSync(resolvedTarget)) {
+    // FX-50: If the target output file inside ctx.outDir or ctx.workDir already exists
+    // (either from an earlier step in this session or a previous test/user run),
+    // remove it before running create/convert so the CLI never fails with `output_exists`
+    // and never silently points to a stale file from a previous session.
+    if (
+      existsSync(resolvedTarget) &&
+      (createdInSession.has(resolvedTarget) ||
+        isInside(ctx.outDir, resolvedTarget) ||
+        isInside(ctx.workDir, resolvedTarget))
+    ) {
       try {
         rmSync(resolvedTarget, { force: true })
       } catch {

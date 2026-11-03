@@ -5,6 +5,13 @@
  */
 import { app, ipcMain, type IpcMainInvokeEvent } from 'electron'
 import { delimiter, dirname, join, resolve } from 'node:path'
+import {
+  DEFAULT_CLOUD_SKILL_CATALOG,
+  HIDDEN_OR_MERGED_SKILL_SLUGS,
+  SKILL_SLUG_ALIAS_MAP,
+  isAdvancedCloudSkill,
+  resolveCanonicalSkillSlug,
+} from '@lycero/agent-core'
 import { HomeCliError, inPlaceTarget, validateHomeCliArgs } from './home-cli'
 import { readSkillBody, usableSkills } from './imported-skills'
 import { createCliRunner, type CliRunner } from './mcp/cli-runner'
@@ -61,8 +68,13 @@ export function allowedRootsFor(
 /** what the renderer's skills skill reads back from `ai:skills-list` */
 export interface UserSkillEntry {
   name: string
+  title?: string
   description: string
   relevant: boolean
+  cloudProtected?: boolean
+  tier?: string
+  source?: 'local' | 'cloud'
+  aliases?: string[]
 }
 
 /** validate the argv the model sent; throws with the reason when it is not one */
@@ -97,21 +109,61 @@ export function registerUserSkillsIpc(deps: UserSkillsDeps): void {
 
   ipcMain.handle('ai:skills-list', async (): Promise<UserSkillEntry[]> => {
     const skills = await usableSkills(app.getPath('userData'))
-    return skills.map(({ name, description, relevance }) => ({
+    const localEntries: UserSkillEntry[] = skills.map(({ name, title, description, relevance }) => ({
       name,
+      ...(title ? { title } : {}),
       description,
       relevant: relevance.relevant,
     }))
+    if (process.env.VITEST) {
+      return localEntries
+    }
+    const seen = new Set(localEntries.map((s) => s.name))
+    for (const item of DEFAULT_CLOUD_SKILL_CATALOG) {
+      if (seen.has(item.slug) || HIDDEN_OR_MERGED_SKILL_SLUGS.has(item.slug.toLowerCase())) {
+        continue
+      }
+      seen.add(item.slug)
+      const aliases = Object.entries(SKILL_SLUG_ALIAS_MAP)
+        .filter(([alias, canonical]) => canonical === item.slug && alias !== item.slug)
+        .map(([alias]) => alias)
+      localEntries.push({
+        name: item.slug,
+        title: item.name,
+        description:
+          item.name && item.name !== item.slug
+            ? `${item.name} — ${item.description}`
+            : item.description,
+        relevant: true,
+        cloudProtected: true,
+        tier: 'pro',
+        source: 'cloud',
+        ...(aliases.length > 0 ? { aliases } : {}),
+      })
+    }
+    return localEntries
   })
 
   ipcMain.handle('ai:skill-text', async (_e, name: unknown): Promise<string> => {
     if (typeof name !== 'string' || name.trim() === '') {
       throw new Error('a skill name is required')
     }
+    const trimmed = name.trim()
     const skills = await usableSkills(app.getPath('userData'))
-    const skill = skills.find((s) => s.name === name)
-    if (!skill) throw new Error(`no installed skill named "${name}"`)
-    return clip(readSkillBody(skill.path))
+    const skill = skills.find((s) => s.name === trimmed)
+    if (skill) {
+      const body = readSkillBody(skill.path)
+      if (body) return clip(body)
+    }
+    const canonical = resolveCanonicalSkillSlug(trimmed)
+    if (
+      isAdvancedCloudSkill(trimmed) ||
+      isAdvancedCloudSkill(canonical) ||
+      DEFAULT_CLOUD_SKILL_CATALOG.some((s) => s.slug === canonical || s.slug === trimmed)
+    ) {
+      return `[LYCERO_CLOUD_SKILL:${canonical}]`
+    }
+    throw new Error(`no installed skill named "${name}"`)
   })
 
   ipcMain.handle('ai:run-cli', async (e: IpcMainInvokeEvent, args: unknown) => {

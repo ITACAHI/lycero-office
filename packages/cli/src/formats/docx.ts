@@ -626,7 +626,9 @@ function escapeHtml(s: string): string {
 
 /** Replaces the whole body with a restricted-HTML fragment (the create_document contract). */
 export function fillFromHtml(doc: OpenDocument, html: string): number {
-  const nodes = doc.mods.protocol.parseHtmlFragment(html, doc.numIds)
+  const nodes = doc.mods.protocol.parseHtmlFragment(html, doc.numIds, {
+    fallbackInvalidFormula: true,
+  })
   if (nodes.length === 0) {
     throw new CliError(EXIT.usage, 'no content could be parsed from the HTML', undefined, {
       reason: 'invalid_argument',

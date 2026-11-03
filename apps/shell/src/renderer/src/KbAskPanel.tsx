@@ -13,7 +13,12 @@ import {
   createDocumentSkill,
   createIpcTransport,
   createKnowledgeBaseSkill,
+  DEFAULT_CLOUD_SKILL_CATALOG,
+  HIDDEN_OR_MERGED_SKILL_SLUGS,
+  isAdvancedCloudSkill,
+  resolveCanonicalSkillSlug,
   RUN_GENOFFICE_TOOL,
+  SKILL_SLUG_ALIAS_MAP,
   withAttachedSkills,
   type AgentImage,
   type AttachmentInfo,
@@ -212,6 +217,31 @@ export function KbAskPanel({
   const scrollRef = useRef<HTMLDivElement>(null)
   /** bumped by Stop: an ask still refreshing the corpus must not start its run */
   const askSeqRef = useRef(0)
+  const watchdogTimerRef = useRef<number | null>(null)
+  const clearWatchdog = (): void => {
+    if (watchdogTimerRef.current !== null) {
+      window.clearTimeout(watchdogTimerRef.current)
+      watchdogTimerRef.current = null
+    }
+  }
+  const touchWatchdog = (): void => {
+    clearWatchdog()
+    watchdogTimerRef.current = window.setTimeout(() => {
+      watchdogTimerRef.current = null
+      askSeqRef.current++
+      loopRef.current?.cancel()
+      const timeoutMsg =
+        lang === 'vi'
+          ? 'Phiên xử lý đã quá thời gian chờ phản hồi (180 giây) và được dừng tự động. Vui lòng thử lại hoặc chia nhỏ yêu cầu.'
+          : 'The session timed out after 180 seconds of inactivity and was stopped automatically. Please retry.'
+      patchLast((last) => ({
+        text: last.text ? `${last.text}\n\n⚠️ ${timeoutMsg}` : timeoutMsg,
+        streaming: false,
+        isError: !last.text,
+      }))
+      setBusy(false)
+    }, 180_000)
+  }
   /** tokens billed so far in the in-flight answer (summed across turns) */
   const runUsageRef = useRef<AiTokenUsageView | undefined>(undefined)
   /** tokens billed across the panel's session (the composer chip) */
@@ -441,11 +471,20 @@ export function KbAskPanel({
         cliSkill,
       ]),
       events: {
-        onText: (text) => patchLast({ text }),
-        onReasoning: (reasoning) => patchLast({ reasoning }),
-        onToolExecuted: ({ call, execution }) =>
-          patchLast((last) => ({ artifacts: settleArtifact(last.artifacts, call, execution) })),
-        onToolStart: (call) =>
+        onText: (text) => {
+          touchWatchdog()
+          patchLast({ text })
+        },
+        onReasoning: (reasoning) => {
+          touchWatchdog()
+          patchLast({ reasoning })
+        },
+        onToolExecuted: ({ call, execution }) => {
+          touchWatchdog()
+          patchLast((last) => ({ artifacts: settleArtifact(last.artifacts, call, execution) }))
+        },
+        onToolStart: (call) => {
+          touchWatchdog()
           patchLast((last) => ({
             artifacts: (() => {
               const started = artifactFromCall(call, cliContextRef.current?.outDir)
@@ -461,22 +500,31 @@ export function KbAskPanel({
               ),
               count: 1,
             }),
-          })),
-        onDone: () => finishLast(),
+          }))
+        },
+        onDone: () => {
+          clearWatchdog()
+          finishLast()
+        },
         onUsage: (usage) => {
           runUsageRef.current = addTokenUsage(runUsageRef.current, usage)
           setSessionUsage((prev) => addTokenUsage(prev, usage))
           patchLast({ usage: runUsageRef.current })
         },
-        onError: (error) =>
+        onError: (error) => {
+          clearWatchdog()
           patchLast((last) => ({
             text: last.text || error,
             streaming: false,
             isError: !last.text,
-          })),
+          }))
+        },
       },
     })
-    return () => loopRef.current?.cancel()
+    return () => {
+      clearWatchdog()
+      loopRef.current?.cancel()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only; the loop reads live refs
   }, [])
 
@@ -501,6 +549,7 @@ export function KbAskPanel({
   }
 
   const finishLast = (): void => {
+    clearWatchdog()
     // The answer is whole for the first time here; streaming it as it grows
     // would store every intermediate state. The `streaming` guard is what
     // keeps a second finish (Stop, then the loop's own onDone) from storing
@@ -584,10 +633,20 @@ export function KbAskPanel({
     const bodies = await Promise.all(
       names.map(async (name) => {
         try {
-          return { name, body: await window.aiOffice.skillText(name) }
+          const text = await window.aiOffice.skillText(name)
+          if (text) return { name, body: text }
         } catch {
-          return null
+          // fall through to cloud catalog lookup
         }
+        const canonical = resolveCanonicalSkillSlug(name)
+        if (
+          isAdvancedCloudSkill(name) ||
+          isAdvancedCloudSkill(canonical) ||
+          DEFAULT_CLOUD_SKILL_CATALOG.some((s) => s.slug === canonical || s.slug === name)
+        ) {
+          return { name: canonical, body: `[LYCERO_CLOUD_SKILL:${canonical}]` }
+        }
+        return null
       }),
     )
     return withAttachedSkills(
@@ -596,8 +655,49 @@ export function KbAskPanel({
     )
   }
 
-  const listSkillsForMenu = async () =>
-    (await window.aiOffice.skillsList()).map(({ name, description }) => ({ name, description }))
+  const listSkillsForMenu = async () => {
+    const rawList = await window.aiOffice.skillsList()
+    const out = rawList.map((entry) => {
+      const e = entry as {
+        name: string
+        title?: string
+        description: string
+        cloudProtected?: boolean
+        tier?: string
+        aliases?: readonly string[]
+      }
+      return {
+        name: e.name,
+        ...(e.title ? { title: e.title } : {}),
+        description: e.description,
+        ...(e.cloudProtected ? { cloudProtected: true } : {}),
+        ...(e.tier ? { tier: e.tier } : {}),
+        ...(e.aliases ? { aliases: e.aliases } : {}),
+      }
+    })
+    const seen = new Set(out.map((s) => s.name))
+    for (const item of DEFAULT_CLOUD_SKILL_CATALOG) {
+      if (seen.has(item.slug) || HIDDEN_OR_MERGED_SKILL_SLUGS.has(item.slug.toLowerCase())) {
+        continue
+      }
+      seen.add(item.slug)
+      const aliases = Object.entries(SKILL_SLUG_ALIAS_MAP)
+        .filter(([alias, canonical]) => canonical === item.slug && alias !== item.slug)
+        .map(([alias]) => alias)
+      out.push({
+        name: item.slug,
+        title: item.name,
+        description:
+          item.name && item.name !== item.slug
+            ? `${item.name} — ${item.description}`
+            : item.description,
+        cloudProtected: true,
+        tier: 'pro',
+        ...(aliases.length > 0 ? { aliases } : {}),
+      })
+    }
+    return out
+  }
   const toggleSkill = (name: string) =>
     setAttachedSkills((prev) =>
       prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
@@ -656,13 +756,20 @@ export function KbAskPanel({
     ])
     persist({ role: 'user', text: instruction })
     try {
+      touchWatchdog()
       const [text, images] = await Promise.all([
         withSkillBodies(instruction, skills),
         collectImages(files),
       ])
       if (askSeqRef.current !== seq) return
       await loopRef.current!.run(text, images)
-    } catch {
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : t('askUnknownError')
+      patchLast((last) => ({
+        text: last.text || errMsg,
+        streaming: false,
+        isError: !last.text,
+      }))
       finishLast()
     }
   }

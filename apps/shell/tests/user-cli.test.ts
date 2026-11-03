@@ -33,7 +33,7 @@ vi.mock('../src/main/mcp/cli-runner', () => ({
   createCliRunner: () => ({ run: (...a: unknown[]) => runnerRun(...a) }),
 }))
 
-import { delimiter } from 'node:path'
+import { delimiter, resolve } from 'node:path'
 import {
   allowedRootsFor,
   cliCwdFor,
@@ -135,6 +135,13 @@ describe('the ai: channels', () => {
     const body = (await invoke('ai:skill-text', 'batch-pdf')) as string
     expect(body).toBe('the body')
     expect(readBody).toHaveBeenCalledWith(expect.stringContaining('batch-pdf'))
+    // FX-60: Cloud Pro skills and merged aliases resolve to server-side marker
+    expect(await invoke('ai:skill-text', 'vn-gdpt2018-lesson-plan-cv5512')).toBe(
+      '[LYCERO_CLOUD_SKILL:vn-gdpt2018-lesson-plan-cv5512]',
+    )
+    expect(
+      await invoke('ai:skill-text', 'vn-periodic-exam-7991-true-false-short-answer'),
+    ).toBe('[LYCERO_CLOUD_SKILL:vn-exam-matrix-specification-tt22]')
     await expect(invoke('ai:skill-text', 'nope')).rejects.toThrow('no installed skill named')
     await expect(invoke('ai:skill-text', '/etc/passwd')).rejects.toThrow('no installed skill named')
   })
@@ -147,21 +154,27 @@ describe('the ai: channels', () => {
     expect(out).toMatchObject({
       ok: true,
       code: 0,
-      cwd: '/docs/open',
-      allowedRoots: ['/home/u/Lycero Office', '/docs/open'],
+      cwd: resolve('/docs/open'),
+      allowedRoots: [resolve('/home/u/Lycero Office'), resolve('/docs/open')],
     })
     // relative paths in the argv resolve in the open document's folder
     expect(runnerRun).toHaveBeenCalledWith(['convert', 'a.docx', '--to', 'pdf'], {
       timeoutMs: 120_000,
-      cwd: '/docs/open',
-      env: { GENOFFICE_ALLOWED_ROOTS: ['/home/u/Lycero Office', '/docs/open'].join(delimiter) },
+      cwd: resolve('/docs/open'),
+      env: {
+        GENOFFICE_ALLOWED_ROOTS: [resolve('/home/u/Lycero Office'), resolve('/docs/open')].join(
+          delimiter,
+        ),
+      },
     })
     await expect(invoke('ai:run-cli', ['--version'])).rejects.toThrow('not available here')
   })
 
   it('confines a window without a file to the folder roots alone', () => {
-    expect(allowedRootsFor(['/a', '/b'], undefined)).toBe(['/a', '/b'].join(delimiter))
-    expect(cliCwdFor(['/a', '/b'], undefined)).toBe('/a')
+    expect(allowedRootsFor(['/a', '/b'], undefined)).toBe(
+      [resolve('/a'), resolve('/b')].join(delimiter),
+    )
+    expect(cliCwdFor(['/a', '/b'], undefined)).toBe(resolve('/a'))
     expect(cliCwdFor([], undefined)).toBeUndefined()
   })
 })
