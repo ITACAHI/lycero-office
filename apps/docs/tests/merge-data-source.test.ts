@@ -59,6 +59,36 @@ describe('readMergeDataSource', () => {
     expect(source.records).toEqual([{ Name: 'Ada', Column2: 'x', Name2: 'y' }])
   })
 
+  it('ignores trailing empty rows and trailing empty columns (FX-90)', async () => {
+    const dir = await tempDir()
+    const path = join(dir, 'recipients.csv')
+    await writeFile(path, 'Họ tên,Email,,\nAn,an@example.com,,\nBình,binh@example.com,,\n,,,\n,,,\n', 'utf8')
+    const source = await readMergeDataSource(path)
+    expect(source.fields).toEqual(['Họ tên', 'Email'])
+    expect(source.records).toHaveLength(2)
+    expect(source.records).toEqual([
+      { 'Họ tên': 'An', Email: 'an@example.com' },
+      { 'Họ tên': 'Bình', Email: 'binh@example.com' },
+    ])
+  })
+
+  it('preserves all 4 columns including Email across CSV and XLSX (FX-93)', async () => {
+    const dir = await tempDir()
+    const csvPath = join(dir, 'recipients4.csv')
+    const csvText =
+      'Họ tên,Chức vụ,Đơn vị,Email\nNguyễn Văn An,Giám đốc,Công ty A,an@congtya.vn\nTrần Thị Bình,Trưởng phòng,Công ty B,binh@congtyb.vn\n'
+    await writeFile(csvPath, csvText, 'utf8')
+    const csvSource = await readMergeDataSource(csvPath)
+    expect(csvSource.fields).toEqual(['Họ tên', 'Chức vụ', 'Đơn vị', 'Email'])
+    expect(csvSource.records).toHaveLength(2)
+
+    const xlsxPath = join(dir, 'recipients4.xlsx')
+    await writeFile(xlsxPath, await csvToXlsxBuffer(csvText))
+    const xlsxSource = await readMergeDataSource(xlsxPath)
+    expect(xlsxSource.fields).toEqual(['Họ tên', 'Chức vụ', 'Đơn vị', 'Email'])
+    expect(xlsxSource.records).toHaveLength(2)
+  })
+
   it('refuses a format it cannot read', async () => {
     const dir = await tempDir()
     const path = join(dir, 'recipients.txt')

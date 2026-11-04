@@ -50,10 +50,12 @@ async function click(selector: string): Promise<void> {
 }
 
 describe('analytics consent in onboarding', () => {
-  it('explains default-on analytics without an onboarding control', () => {
+  it('explains default-off analytics with an explicit consent switch', () => {
     renderOnboarding(vi.fn(async () => true))
-    expect(host.querySelector('[role="switch"]')).toBeNull()
-    expect(host.textContent).toContain('Enabled by default')
+    const sw = host.querySelector('[role="switch"]')
+    expect(sw).not.toBeNull()
+    expect(sw?.getAttribute('aria-checked')).toBe('false')
+    expect(host.textContent).toContain('Disabled by default')
     expect(host.textContent).toContain('Settings → General')
   })
 

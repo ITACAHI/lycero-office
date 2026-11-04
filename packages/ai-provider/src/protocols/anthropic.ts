@@ -293,6 +293,8 @@ async function anthropicTurn(
     if (event.type === 'message_start') {
       mergeAnthropicUsage(turnUsage, event.message?.usage)
     } else if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
+      wd.setToolCallActive?.(true)
+      wd.touchContent()
       const toolIndex = event.index ?? 0
       currentToolIndex = toolIndex
       if (!pendingTools.has(toolIndex)) {
@@ -303,12 +305,17 @@ async function anthropicTurn(
         name: event.content_block.name ?? '',
         json: '',
       })
+      cb.onToolArgsProgress?.({
+        name: event.content_block.name || undefined,
+        bytes: 0,
+      })
     } else if (event.type === 'content_block_delta') {
       if (event.delta?.type === 'text_delta' && event.delta.text) {
         emitted = true
         wd.touchContent()
         cb.onDelta(event.delta.text)
       } else if (event.delta?.type === 'input_json_delta') {
+        wd.setToolCallActive?.(true)
         wd.touchContent()
         const pending = pendingTools.get(event.index ?? currentToolIndex)
         if (pending) {
@@ -325,6 +332,7 @@ async function anthropicTurn(
       const pending = pendingTools.get(stopIndex)
       if (pending) {
         pendingTools.delete(stopIndex)
+        if (pendingTools.size === 0) wd.setToolCallActive?.(false)
         // Match the OpenAI route: drop nameless tool calls instead of feeding
         // an empty-name call to the loop (which would always fail as unknown)
         if (pending.name) {

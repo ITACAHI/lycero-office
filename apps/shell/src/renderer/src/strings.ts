@@ -811,7 +811,7 @@ export const strings = {
       'Turn on AutoSave by default in every editor. You can still switch it off for a single window.',
     setAnalytics: 'Send anonymous usage statistics',
     setAnalyticsDesc:
-      'Enabled by default and can be turned off anytime in Settings → General. Uses Google Analytics 4; Google receives your public IP address and transport metadata, but document contents and file names are never collected.',
+      'Disabled by default until you consent, and can be changed anytime in Settings → General. Uses Google Analytics 4 (sends anonymous install ID, OS country code, public IP address, and event type such as opening a document; document contents and file names are never collected).',
     setSearchRerank: 'Jev search reranking',
     setSearchRerankDesc:
       "Sends the top 20 local hits' excerpts to TypeSafe's Jev model and reorders them by relevance. Off by default; when on, excerpts leave this device.",
@@ -1420,7 +1420,7 @@ export const strings = {
       'Bật Tự động lưu theo mặc định trong mọi trình soạn thảo. Bạn vẫn có thể tắt tính năng này cho từng cửa sổ riêng lẻ.',
     setAnalytics: 'Gửi số liệu thống kê sử dụng ẩn danh',
     setAnalyticsDesc:
-      'Được bật theo mặc định và có thể tắt bất cứ lúc nào trong Cài đặt → Chung. Sử dụng Google Analytics 4; Google nhận địa chỉ IP công khai và siêu dữ liệu truyền tải của bạn, nhưng nội dung tài liệu và tên tệp không bao giờ bị thu thập.',
+      'Tắt theo mặc định cho tới khi bạn đồng ý và có thể thay đổi bất cứ lúc nào trong Cài đặt → Chung. Sử dụng Google Analytics 4 (chỉ gửi mã cài đặt ẩn danh, mã quốc gia hệ điều hành, địa chỉ IP công khai và loại sự kiện như mở tài liệu; nội dung tài liệu và tên tệp không bao giờ bị thu thập).',
     setSearchRerank: 'Sắp xếp lại kết quả tìm kiếm Jev',
     setSearchRerankDesc:
       'Gửi đoạn trích của 20 kết quả hàng đầu cục bộ tới mô hình Jev của TypeSafe và sắp xếp lại theo mức độ liên quan. Tắt theo mặc định; khi bật, các đoạn trích sẽ được gửi ra ngoài thiết bị này.',
@@ -1867,7 +1867,7 @@ export const strings = {
     askStep3Title: 'Alıntıları açın',
     askStep3Desc: 'Yanıtlar kaynak dosyayı belirtir; oraya gitmek için birine tıklayın',
     askCtaRecents: 'Son kullanılanlardan dosya yıldızlayın',
-    askNoSave: 'Konuşma kaydedilmez; uygulama yeniden başlatıldığında silinir.',
+    askNoSave: 'Konuşmalar bu cihazda yerel olarak kaydedilir; geçmişi istediğiniz zaman temizleyebilirsiniz.',
     askUnknownError: 'AI isteği başarısız oldu. Yeniden deneyin.',
     navCloud: 'Lycero Projeleri',
     cloudSubtitle:
@@ -2483,7 +2483,7 @@ export const strings = {
     askStep3Title: '出典をクリック',
     askStep3Desc: '回答には来源ファイルが示され、クリックで開きます',
     askCtaRecents: '「最近」からスターを付ける',
-    askNoSave: '会話は保存されません。アプリを再起動すると消えます。',
+    askNoSave: '会話はこの端末にローカル保存されます。履歴はいつでも消去できます。',
     askUnknownError: 'AI リクエストに失敗しました。もう一度お試しください。',
     navCloud: 'Lycero Projects',
     cloudSubtitle:
@@ -3108,7 +3108,7 @@ export const strings = {
     askStep3Title: '인용 클릭',
     askStep3Desc: '답변에 출처 파일이 표시되고, 클릭하면 바로 이동해요',
     askCtaRecents: '최근 파일에 별표하기',
-    askNoSave: '대화는 저장되지 않으며, 앱을 다시 시작하면 지워집니다.',
+    askNoSave: '대화는 이 기기에 로컬로 저장되며, 언제든지 기록을 지울 수 있습니다.',
     askUnknownError: 'AI 요청에 실패했습니다. 다시 시도해 주세요.',
     navCloud: 'Lycero Projects',
     cloudSubtitle:
@@ -3725,7 +3725,7 @@ export const strings = {
     askStep3Title: 'Ouvrez les citations',
     askStep3Desc: 'Les réponses citent le fichier source ; cliquez pour y aller',
     askCtaRecents: 'Ajouter depuis Récents',
-    askNoSave: 'La conversation n’est pas enregistrée ; elle s’efface au redémarrage de l’app.',
+    askNoSave: 'Les conversations sont enregistrées localement sur cet appareil ; vous pouvez effacer l’historique à tout moment.',
     askUnknownError: 'La requête IA a échoué. Réessayez.',
     navCloud: 'Lycero Projects',
     cloudSubtitle:
@@ -4358,7 +4358,7 @@ export const strings = {
     askStep3Title: 'Verweise öffnen',
     askStep3Desc: 'Antworten nennen die Quelldatei; ein Klick springt dorthin',
     askCtaRecents: 'Aus Zuletzt verwendet markieren',
-    askNoSave: 'Die Unterhaltung wird nicht gespeichert; sie wird beim Neustart der App gelöscht.',
+    askNoSave: 'Unterhaltungen werden lokal auf diesem Gerät gespeichert; der Verlauf kann jederzeit gelöscht werden.',
     askUnknownError: 'Die KI-Anfrage ist fehlgeschlagen. Bitte erneut versuchen.',
     navCloud: 'Lycero Projects',
     cloudSubtitle:
@@ -4991,7 +4991,7 @@ export const strings = {
     askStep3Title: 'Abre las citas',
     askStep3Desc: 'Las respuestas citan el archivo fuente; haz clic para ir a él',
     askCtaRecents: 'Marcar desde Recientes',
-    askNoSave: 'La conversación no se guarda; se borra al reiniciar la aplicación.',
+    askNoSave: 'Las conversaciones se guardan localmente en este dispositivo; puedes borrar el historial en cualquier momento.',
     askUnknownError: 'La solicitud de IA falló. Inténtalo de nuevo.',
     navCloud: 'Lycero Projects',
     cloudSubtitle:
@@ -5620,7 +5620,7 @@ export const strings = {
     askStep3Title: 'คลิกการอ้างอิง',
     askStep3Desc: 'คำตอบระบุไฟล์ต้นทาง คลิกเพื่อไปที่ไฟล์นั้น',
     askCtaRecents: 'ให้ดาวจากเมนูล่าสุด',
-    askNoSave: 'บทสนทนาจะไม่ถูกบันทึก และจะล้างเมื่อรีสตาร์ทแอป',
+    askNoSave: 'บทสนทนาจะถูกบันทึกไว้ในอุปกรณ์นี้ และคุณสามารถล้างประวัติได้ทุกเมื่อ',
     askUnknownError: 'คำขอ AI ล้มเหลว โปรดลองอีกครั้ง',
     navCloud: 'Lycero Projects',
     cloudSubtitle:
@@ -6231,7 +6231,7 @@ export const strings = {
     askStep3Title: 'Klik sitasi',
     askStep3Desc: 'Jawaban menyebut berkas sumbernya; klik untuk membukanya',
     askCtaRecents: 'Tandai dari Terbaru',
-    askNoSave: 'Percakapan tidak disimpan; akan hilang saat aplikasi dimulai ulang.',
+    askNoSave: 'Percakapan disimpan secara lokal di perangkat ini; Anda dapat menghapus riwayat kapan saja.',
     askUnknownError: 'Permintaan AI gagal. Coba lagi.',
     navCloud: 'Lycero Projects',
     cloudSubtitle:
@@ -6854,7 +6854,7 @@ export const strings = {
     askStep3Title: 'Открывайте источники',
     askStep3Desc: 'В ответах указан файл-источник; нажмите, чтобы перейти к нему',
     askCtaRecents: 'Добавить из «Недавних»',
-    askNoSave: 'Диалог не сохраняется и очищается при перезапуске приложения.',
+    askNoSave: 'Диалоги сохраняются локально на этом устройстве; историю можно очистить в любое время.',
     askUnknownError: 'Запрос к ИИ не удался. Попробуйте снова.',
     navCloud: 'Lycero Projects',
     cloudSubtitle:
@@ -7476,7 +7476,7 @@ export const strings = {
     askStep3Title: 'افتح الاستشهادات',
     askStep3Desc: 'تذكر الإجابات ملف المصدر؛ انقر للانتقال إليه',
     askCtaRecents: 'أضف نجمة من الملفات الأخيرة',
-    askNoSave: 'لا يتم حفظ المحادثة؛ تُمسح عند إعادة تشغيل التطبيق.',
+    askNoSave: 'يتم حفظ المحادثات محليًا على هذا الجهاز؛ يمكنك مسح السجل في أي وقت.',
     askUnknownError: 'فشل طلب الذكاء الاصطناعي. حاول مجدداً.',
     navCloud: 'Lycero Projects',
     cloudSubtitle:
@@ -8089,7 +8089,7 @@ export const strings = {
     askStep3Title: 'Abrir citações',
     askStep3Desc: 'As respostas citam o arquivo de origem; clique para ir até ele',
     askCtaRecents: 'Marcar de Recentes',
-    askNoSave: 'A conversa não é salva; ela é apagada quando o app reinicia.',
+    askNoSave: 'As conversas são salvas localmente neste dispositivo; você pode limpar o histórico a qualquer momento.',
     askUnknownError: 'A solicitação de IA falhou. Tente novamente.',
     navCloud: 'Lycero Projects',
     cloudSubtitle:
@@ -8709,7 +8709,7 @@ export const strings = {
     askStep3Title: 'Apri le citazioni',
     askStep3Desc: 'Le risposte citano il file di origine; fai clic per aprirlo',
     askCtaRecents: 'Stella da Recenti',
-    askNoSave: 'La conversazione non viene salvata; si cancella al riavvio dell’app.',
+    askNoSave: 'Le conversazioni vengono salvate localmente su questo dispositivo; puoi cancellare la cronologia in qualsiasi momento.',
     askUnknownError: 'La richiesta IA non è riuscita. Riprova.',
     navCloud: 'Lycero Projects',
     cloudSubtitle:
@@ -9327,7 +9327,7 @@ export const strings = {
     askStep3Title: 'Otwórz przypisy',
     askStep3Desc: 'Odpowiedzi podają plik źródłowy; kliknij, aby go otworzyć',
     askCtaRecents: 'Oznacz z Ostatnich',
-    askNoSave: 'Rozmowa nie jest zapisywana; znika po ponownym uruchomieniu aplikacji.',
+    askNoSave: 'Rozmowy są zapisywane lokalnie na tym urządzeniu; historię można wyczyścić w dowolnym momencie.',
     askUnknownError: 'Żądanie AI nie powiodło się. Spróbuj ponownie.',
     navCloud: 'Lycero Projects',
     cloudSubtitle:
@@ -9941,7 +9941,7 @@ export const strings = {
     askStep3Title: 'Otevírejte odkazy',
     askStep3Desc: 'Odpovědi uvádějí zdrojový soubor; kliknutím na něj přejdete',
     askCtaRecents: 'Označit z Nedávných',
-    askNoSave: 'Konverzace se neukládá; po restartu aplikace se vymaže.',
+    askNoSave: 'Konverzace se ukládají lokálně v tomto zařízení; historii můžete kdykoli vymazat.',
     askUnknownError: 'Požadavek na AI selhal. Zkuste to znovu.',
     navCloud: 'Lycero Projects',
     cloudSubtitle:
@@ -10552,7 +10552,7 @@ export const strings = {
     askStep3Title: 'Open verwijzingen',
     askStep3Desc: 'Antwoorden noemen het bronbestand; klik om erheen te gaan',
     askCtaRecents: 'Sterren vanuit Onlangs',
-    askNoSave: 'Het gesprek wordt niet opgeslagen; het wordt gewist bij herstart van de app.',
+    askNoSave: 'Gesprekken worden lokaal op dit apparaat opgeslagen; u kunt de geschiedenis op elk moment wissen.',
     askUnknownError: 'De AI-aanvraag is mislukt. Probeer het opnieuw.',
     navCloud: 'Lycero Projects',
     cloudSubtitle:
@@ -11168,7 +11168,7 @@ export const strings = {
     askStep3Title: 'Buka petikan',
     askStep3Desc: 'Jawaban menyatakan fail sumber; klik untuk terus ke sana',
     askCtaRecents: 'Tandakan dari Terkini',
-    askNoSave: 'Perbualan tidak disimpan; ia dikosongkan apabila aplikasi dimulakan semula.',
+    askNoSave: 'Perbualan disimpan secara setempat pada peranti ini; anda boleh mengosongkan sejarah pada bila-bila masa.',
     askUnknownError: 'Permintaan AI gagal. Cuba lagi.',
     navCloud: 'Lycero Projects',
     cloudSubtitle:
@@ -11785,7 +11785,7 @@ export const strings = {
     askStep3Title: 'פתחו ציטוטים',
     askStep3Desc: 'התשובות מציינות את קובץ המקור; לחצו כדי לדלג אליו',
     askCtaRecents: 'סימון מ״אחרונים״',
-    askNoSave: 'השיחה אינה נשמרת; היא מתנקה כשהאפליקציה מופעלת מחדש.',
+    askNoSave: 'השיחות נשמרות מקומית במכשיר זה; ניתן לנקות את ההיסטוריה בכל עת.',
     askUnknownError: 'בקשת ה-AI נכשלה. נסה שוב.',
     navCloud: 'Lycero Projects',
     cloudSubtitle:
@@ -12384,7 +12384,7 @@ export const strings = {
     askStep3Title: 'उद्धरण खोलें',
     askStep3Desc: 'उत्तर स्रोत फ़ाइल बताते हैं; वहाँ जाने के लिए क्लिक करें',
     askCtaRecents: 'हाल की फ़ाइलों को तारांकित करें',
-    askNoSave: 'बातचीत सहेजी नहीं जाती; ऐप पुनः आरंभ होने पर साफ़ हो जाती है।',
+    askNoSave: 'बातचीत इस डिवाइस पर स्थानीय रूप से सहेजी जाती है; आप किसी भी समय इतिहास साफ़ कर सकते हैं।',
     askUnknownError: 'AI अनुरोध विफल रहा। फिर से प्रयास करें।',
     navCloud: 'Lycero Projects',
     cloudSubtitle:
@@ -12993,7 +12993,7 @@ export const strings = {
     askStep3Title: '點擊引用',
     askStep3Desc: '回答標註來源檔案,點引用直接跳過去',
     askCtaRecents: '去最近檔案收藏',
-    askNoSave: '對話不會保存,重啟應用程式後清空。',
+    askNoSave: '對話儲存在本機，可隨時清除歷史記錄。',
     askUnknownError: 'AI 請求失敗,請重試。',
     navCloud: 'Lycero Projects',
     cloudSubtitle: '在網頁端用 Lycero AI 建立的專案。編輯在瀏覽器中繼續——點擊任意專案即可開啟。',

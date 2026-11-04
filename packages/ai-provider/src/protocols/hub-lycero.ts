@@ -66,11 +66,12 @@ interface HubToolCallPayload {
 }
 
 interface HubToolCallDeltaPayload {
-  type: 'tool_call_delta' | 'tool_args_delta'
+  type: 'tool_call_delta' | 'tool_args_delta' | 'tool_call_start' | 'content_block_start'
   id?: string
   name?: string
   delta?: string
   arguments?: string
+  content_block?: { type?: string; id?: string; name?: string }
 }
 
 interface HubErrorPayload {
@@ -322,7 +323,13 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
     const onStreamBodyBytes = (bufferedLine?: string) => {
       receivedAnyByte = true
       onBytes()
-      if (bufferedLine && /^\s*data:\s*\{[\s\S]*?"type"\s*:\s*"tool_call/.test(bufferedLine)) {
+      if (
+        bufferedLine &&
+        /^\s*data:\s*\{[\s\S]*?"type"\s*:\s*"(?:tool_call|tool_args|content_block_start)/.test(
+          bufferedLine,
+        )
+      ) {
+        wd.setToolCallActive?.(true)
         wd.touchContent()
         const nameMatch = bufferedLine.match(/"name"\s*:\s*"([^"]+)"/)
         cb.onToolArgsProgress?.({
@@ -461,10 +468,23 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
                 ),
               )
               break
+            case 'tool_call_start':
+            case 'content_block_start': {
+              emitted = true
+              receivedAnyByte = true
+              wd.setToolCallActive?.(true)
+              wd.touchContent()
+              cb.onToolArgsProgress?.({
+                name: payload.name ?? payload.content_block?.name,
+                bytes: streamedToolBytes,
+              })
+              break
+            }
             case 'tool_call_delta':
             case 'tool_args_delta': {
               emitted = true
               receivedAnyByte = true
+              wd.setToolCallActive?.(true)
               wd.touchContent()
               const frag = String(payload.delta ?? payload.arguments ?? '')
               streamedToolBytes += Buffer.byteLength(frag, 'utf8')
@@ -477,6 +497,7 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
             case 'tool_call': {
               emitted = true
               receivedAnyByte = true
+              wd.setToolCallActive?.(false)
               wd.touchContent()
               const rawArgs = payload.input ?? payload.arguments ?? {}
               const rawSerialized =
@@ -513,6 +534,7 @@ export async function streamHubChat(params: StreamHubChatParams): Promise<void> 
             case 'finish': {
               sawFinish = true
               receivedAnyByte = true
+              wd.setToolCallActive?.(false)
               const tailDelta = unmaskDelta('', true)
               if (tailDelta) cb.onDelta(tailDelta)
               const tailReasoning = unmaskReasoning('', true)

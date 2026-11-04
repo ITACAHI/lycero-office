@@ -479,4 +479,50 @@ describe('runHomeCli', () => {
     })
     expect(runs.at(-1)!.args.at(-1)).toBe(pptx2026Path)
   })
+
+  it('FX-50b: never overwrites an attached file even if --out or in-place apply targets it, creating " (1)" instead', async () => {
+    const attachDir = join(root, 'Fixtures')
+    await mkdir(attachDir, { recursive: true })
+    const attached = join(attachDir, 'congvan_nd30.docx')
+    await writeFile(attached, 'original-attached-bytes')
+
+    const expectedCopy = join(attachDir, 'congvan_nd30 (1).docx')
+    await runHomeCli(deps, 'kb-ask-fx50b', {
+      args: ['docs', 'replace', attached, '--ops', 'ops.json', '--out', attached],
+      files: [{ name: 'ops.json', content: '[]' }],
+      sources: [attached],
+    })
+    expect(await readFile(attached, 'utf8')).toBe('original-attached-bytes')
+    expect(runs[0]!.args).toEqual([
+      'docs',
+      'replace',
+      attached,
+      '--ops',
+      'ops.json',
+      '--out',
+      expectedCopy,
+    ])
+
+    // In-place apply without --out on an attached file inside outDir also redirects to " (1)"
+    const outDir = join(root, 'Documents')
+    await mkdir(outDir, { recursive: true })
+    const attachedInOut = join(outDir, 'congvan_out.docx')
+    await writeFile(attachedInOut, 'original-out-attached')
+    const expectedOutCopy = join(outDir, 'congvan_out (1).docx')
+    await runHomeCli(deps, 'kb-ask-fx50b-2', {
+      args: ['docs', 'apply', attachedInOut, '--ops', 'ops.json'],
+      files: [{ name: 'ops.json', content: '[]' }],
+      sources: [attachedInOut],
+    })
+    expect(await readFile(attachedInOut, 'utf8')).toBe('original-out-attached')
+    expect(runs[1]!.args).toEqual([
+      'docs',
+      'apply',
+      attachedInOut,
+      '--ops',
+      'ops.json',
+      '--out',
+      expectedOutCopy,
+    ])
+  })
 })

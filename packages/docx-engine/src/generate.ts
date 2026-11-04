@@ -2118,8 +2118,12 @@ function revisionPPrChangeXml(changeJson: string): string | null {
   }
   children.push(...formatPPrChildren(oldFormat))
   children.sort((a, b) => PPR_CHILD_ORDER.indexOf(a.name) - PPR_CHILD_ORDER.indexOf(b.name))
+  const revId =
+    change.id && String(change.id) !== '0'
+      ? String(change.id)
+      : String(++standaloneBookmarkSeq + 100000)
   const attrs =
-    ` w:id="${escapeXmlAttr(String(change.id ?? '0'))}"` +
+    ` w:id="${escapeXmlAttr(revId)}"` +
     ` w:author="${escapeXmlAttr(String(change.author ?? ''))}"` +
     (change.date ? ` w:date="${escapeXmlAttr(String(change.date))}"` : '') +
     (change.dateUtc ? ` w16du:dateUtc="${escapeXmlAttr(String(change.dateUtc))}"` : '')
@@ -2606,6 +2610,23 @@ export function generateTableModelXml(model: TableModel, originalTableXml?: stri
       } else if (trPr) {
         trPr = trPr.replace(/<w:trHeight[^>]*\/>/, '')
         if (/^<w:trPr(?:\s[^>]*)?>\s*<\/w:trPr>$/.test(trPr)) trPr = ''
+      }
+      const rowRev = model.rowRevisions?.[ri]
+      if (rowRev) {
+        const revId =
+          rowRev.id && String(rowRev.id) !== '0'
+            ? String(rowRev.id)
+            : String(++standaloneBookmarkSeq + 100000)
+        const revTag =
+          `<w:${rowRev.kind} w:id="${escapeXmlAttr(revId)}"` +
+          ` w:author="${escapeXmlAttr(rowRev.author)}"` +
+          (rowRev.date ? ` w:date="${escapeXmlAttr(rowRev.date)}"` : '') +
+          (rowRev.dateUtc ? ` w16du:dateUtc="${escapeXmlAttr(rowRev.dateUtc)}"` : '') +
+          '/>'
+        if (!trPr) trPr = `<w:trPr>${revTag}</w:trPr>`
+        else if (new RegExp(`<w:${rowRev.kind}\\b[^>]*/>`).test(trPr))
+          trPr = trPr.replace(new RegExp(`<w:${rowRev.kind}\\b[^>]*/>`), revTag)
+        else trPr = trPr.replace('</w:trPr>', `${revTag}</w:trPr>`)
       }
       return `<w:tr>${trPr}${cells.join('')}</w:tr>`
     })
@@ -3398,8 +3419,12 @@ function revisionRPrChangeXml(run: Run): string | null {
   if (old.highlight) props.push(`<w:highlight w:val="${escapeXmlAttr(old.highlight)}"/>`)
   if (old.underline) props.push('<w:u w:val="single"/>')
   if (old.vertAlign) props.push(`<w:vertAlign w:val="${old.vertAlign}"/>`)
+  const revId =
+    change.id && String(change.id) !== '0'
+      ? String(change.id)
+      : String(++standaloneBookmarkSeq + 100000)
   const attrs =
-    ` w:id="${escapeXmlAttr(change.id ?? '0')}"` +
+    ` w:id="${escapeXmlAttr(revId)}"` +
     ` w:author="${escapeXmlAttr(change.author)}"` +
     (change.date ? ` w:date="${escapeXmlAttr(change.date)}"` : '') +
     (change.dateUtc ? ` w16du:dateUtc="${escapeXmlAttr(change.dateUtc)}"` : '')

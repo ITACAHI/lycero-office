@@ -2438,7 +2438,7 @@ export function SettingsModal({
   const [theme, setTheme] = useState<UiTheme>('system')
   const [docTheme, setDocTheme] = useState<DocTheme>('follow')
   const [saveDir, setSaveDir] = useState('')
-  const [analyticsOn, setAnalyticsOn] = useState(true)
+  const [analyticsOn, setAnalyticsOn] = useState(false)
   const [analyticsSaving, setAnalyticsSaving] = useState(false)
   const [autoSaveOn, setAutoSaveOn] = useState(true)
   const [tabSleepOn, setTabSleepOn] = useState(true)
@@ -2465,7 +2465,7 @@ export function SettingsModal({
       if (alive && dir) setSaveDir(dir)
     })
     void window.aiOffice.getAnalyticsEnabled?.().then((on) => {
-      if (alive) setAnalyticsOn(on !== false)
+      if (alive) setAnalyticsOn(on === true)
     })
     void window.aiOffice.getAutoSaveDefault?.().then((v) => {
       if (alive) setAutoSaveOn(v.on)
@@ -2930,11 +2930,17 @@ export function SettingsModal({
               <>
                 <h3 className="set-pane-title">{t('setSecAbout')}</h3>
                 <Field label={t('versionLabel')} value={appVersion || '—'} />
-                {updateState && (
-                  <div className="set-field">
-                    <div className="set-field-text">
-                      <label className="set-field-label">{t('setUpdateAvailableLabel')}</label>
-                    </div>
+                <div className="set-field">
+                  <div className="set-field-text">
+                    <label className="set-field-label">
+                      {updateState
+                        ? t('setUpdateAvailableLabel')
+                        : lang === 'vi'
+                          ? 'Cập nhật phần mềm'
+                          : 'Software Updates'}
+                    </label>
+                  </div>
+                  {updateState ? (
                     <button
                       type="button"
                       className="set-update-btn"
@@ -2948,8 +2954,16 @@ export function SettingsModal({
                           ? t('setUpdateRestart')
                           : t('setUpdateTo', { version: updateState.version })}
                     </button>
-                  </div>
-                )}
+                  ) : (
+                    <button
+                      type="button"
+                      className="set-update-btn"
+                      onClick={() => void window.aiOffice.checkForUpdates?.()}
+                    >
+                      {lang === 'vi' ? 'Kiểm tra cập nhật ngay' : 'Check for updates now'}
+                    </button>
+                  )}
+                </div>
                 <div className="set-field">
                   <div className="set-field-text">
                     <label className="set-field-label">{t('updateChannel')}</label>

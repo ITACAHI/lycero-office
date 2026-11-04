@@ -9,11 +9,14 @@
 /// restore the pre-43 behavior the way the Electron breaking-changes guide
 /// recommends: remember the directory of the last confirmed pick and thread
 /// it into the next dialog's `defaultPath`.
+import { existsSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 
+import { getUiLang } from '@lycero/i18n'
 import type {
   BrowserWindow,
   Dialog,
+  MessageBoxOptions,
   OpenDialogOptions,
   OpenDialogReturnValue,
   SaveDialogOptions,
@@ -77,6 +80,29 @@ export function saveAsSuggestion(
   return sourcePath ? join(dirname(sourcePath), defaultName) : defaultName
 }
 
+function overwritePromptLabels(): { message: string; yes: string; no: string } {
+  const lang = getUiLang()
+  if (lang === 'zh' || lang === 'zh-TW') {
+    return {
+      message: lang === 'zh-TW' ? '檔案已存在。要取代嗎？' : '文件已存在。是否替换？',
+      yes: lang === 'zh-TW' ? '是' : '是',
+      no: lang === 'zh-TW' ? '否' : '否',
+    }
+  }
+  if (lang === 'en') {
+    return {
+      message: 'File already exists. Replace it?',
+      yes: 'Yes',
+      no: 'No',
+    }
+  }
+  return {
+    message: 'Tệp đã tồn tại. Thay thế?',
+    yes: 'Có',
+    no: 'Không',
+  }
+}
+
 export async function showSaveDialogWithMemory(
   dialog: Dialog,
   parent: BrowserWindow | null | undefined,
@@ -89,6 +115,25 @@ export async function showSaveDialogWithMemory(
     : await dialog.showSaveDialog(withDir)
   if (!result.canceled && result.filePath) {
     lastUsedDirectoryByDialog.set(dialog, dirname(result.filePath))
+    if (typeof dialog.showMessageBox === 'function' && existsSync(result.filePath)) {
+      const labels = overwritePromptLabels()
+      const msgOpts: MessageBoxOptions = {
+        type: 'question',
+        message: labels.message,
+        detail: basename(result.filePath),
+        buttons: [labels.yes, labels.no],
+        defaultId: 0,
+        cancelId: 1,
+        noLink: true,
+      }
+      const confirm =
+        parent && (typeof parent.isDestroyed !== 'function' || !parent.isDestroyed())
+          ? await dialog.showMessageBox(parent, msgOpts)
+          : await dialog.showMessageBox(msgOpts)
+      if (confirm.response !== 0) {
+        return { canceled: true, filePath: '' }
+      }
+    }
   }
   return result
 }

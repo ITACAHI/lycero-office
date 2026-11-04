@@ -3205,16 +3205,36 @@ export function App({
         ) {
           return
         }
+        const sheetDataRowMax = (() => {
+          const sheetMeta = state.file.sheets.find((s) => s.id === params.subUnitId)
+          let maxRow = Math.max(0, (sheetMeta?.rowCount ?? 1) - 1)
+          const sheetEntries = state.editJournal.cells.get(params.subUnitId)
+          if (sheetEntries) {
+            for (const entry of sheetEntries.values()) {
+              if (entry.hasValue || entry.formula !== undefined) {
+                if (entry.row > maxRow) maxRow = entry.row
+              }
+            }
+          }
+          const fills = state.editJournal.bulkConstantFills.get(params.subUnitId)
+          if (fills) {
+            for (const fill of fills) {
+              if (fill.value !== null && fill.endRow > maxRow) maxRow = fill.endRow
+            }
+          }
+          return maxRow
+        })()
         const recorded =
           event.id === SET_NUMFMT_MUTATION
-            ? recordSetNumfmt(state.editJournal, params.subUnitId, params)
+            ? recordSetNumfmt(state.editJournal, params.subUnitId, params, sheetDataRowMax)
             : event.id === REMOVE_NUMFMT_MUTATION
-              ? recordRemoveNumfmt(state.editJournal, params.subUnitId, params)
+              ? recordRemoveNumfmt(state.editJournal, params.subUnitId, params, sheetDataRowMax)
               : recordSetRangeValues(
                   state.editJournal,
                   params.subUnitId,
                   params.cellValue,
                   sharedFormulaResolverFor(runtime, params.subUnitId),
+                  sheetDataRowMax,
                 )
         if (recorded.length === 0) return
         setPendingEdits(journalSize(state.editJournal))

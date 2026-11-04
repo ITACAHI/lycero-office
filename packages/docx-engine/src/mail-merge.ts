@@ -529,12 +529,15 @@ export function mergeBlockTree(blocks: readonly Block[], data: MergeData): Block
 export function mergeDataFromRows(rows: readonly (readonly string[])[]): MergeData {
   if (rows.length === 0) return { fields: [], records: [] }
   const header = (rows[0] ?? []).map((h) => h.trim())
-  const records = rows.slice(1).map((row) => {
-    const record: MergeRecord = {}
-    header.forEach((name, i) => {
-      record[name] = row[i] ?? ''
+  const records = rows
+    .slice(1)
+    .filter((row) => row.some((cell) => cell.trim() !== ''))
+    .map((row) => {
+      const record: MergeRecord = {}
+      header.forEach((name, i) => {
+        record[name] = row[i] ?? ''
+      })
+      return record
     })
-    return record
-  })
   return { fields: header, records }
 }

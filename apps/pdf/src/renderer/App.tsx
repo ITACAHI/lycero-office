@@ -1666,14 +1666,13 @@ export default function App() {
   /** Reserve the WPS-style comments margin while the doc has notes or one is being added */
   const noteMarginOn = useMemo(
     () =>
-      drawTool === 'note' ||
       noteDraft !== null ||
       drawings.some((d) => d.input.kind === 'note') ||
       (() => {
         const deletedObjs = new Set(annotDeletes.map((d) => d.annot.objNum))
         return [...savedNotes.values()].some((l) => l.some((a) => !deletedObjs.has(a.objNum)))
       })(),
-    [drawTool, noteDraft, drawings, annotDeletes, savedNotes],
+    [noteDraft, drawings, annotDeletes, savedNotes],
   )
 
   const recomputeFit = useCallback(() => {
@@ -1682,8 +1681,8 @@ export default function App() {
     if (!mode || !el || rows.length === 0) return
     const dims = rows.map((r) => rowSize(r))
     const maxW = Math.max(...dims.map((s) => s.width))
-    // The comments margin sits beside the pages and must fit inside the same viewport
-    const availW = el.clientWidth - SCROLL_PAD * 2 - (noteMarginOn ? NOTE_MARGIN_W + PAGE_GAP : 0)
+    // Keep zoom independent of whether the Sticky Note tool or comments margin is active (FX-94)
+    const availW = el.clientWidth - SCROLL_PAD * 2
     const next =
       mode === 'width'
         ? clampScale(availW / maxW)
@@ -1695,7 +1694,7 @@ export default function App() {
           )
     anchorZoomScroll(next)
     setScale(next)
-  }, [rows, rowSize, anchorZoomScroll, noteMarginOn])
+  }, [rows, rowSize, anchorZoomScroll])
 
   useEffect(() => {
     if (status !== 'ready') return
@@ -2736,17 +2735,10 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [textDraft])
 
-  /** Markup overlays don't take pointer events (text under them must stay selectable),
-   *  so a bare click on the page content hit-tests them here. Only a true click counts:
-   *  a drag that produced a text selection goes to the markup bar instead. Pending
-   *  (unsaved) markups win over saved annotations; last added wins within each group,
-   *  matching visual stacking order. */
-  const handlePageClick = (origIdx: number, e: ReactMouseEvent<HTMLDivElement>) => {
-    // Only clicks that land on the rendered page (canvas/text layer); overlays like
-    // draw shapes, note pins, stamps and previews handle their own selection
-    if (!(e.target as Element).closest?.('.pdf-page-content')) return
-    const sel = window.getSelection()
-    if (sel && !sel.isCollapsed) return
+  const hitPageMarkup = (
+    origIdx: number,
+    e: ReactMouseEvent<HTMLDivElement>,
+  ): AnnotSelection | null => {
     const box = e.currentTarget.getBoundingClientRect()
     const g = pageGeom(origIdx)
     const [px, py] = viewToPdf(g, (e.clientX - box.left) / scale, (e.clientY - box.top) / scale)
@@ -2755,25 +2747,52 @@ export default function App() {
         const r = quadToRect(q)
         return px >= r[0] && px <= r[2] && py >= r[1] && py <= r[3]
       })
-    const select = (selection: AnnotSelection) => {
-      e.stopPropagation() // keep the scroll container from clearing the selection we just set
-      setSelected(selection)
-    }
     const at = popupPos(e.clientX, e.clientY)
     const onPage = markups.filter((m) => m.pageIndex === origIdx)
     for (let i = onPage.length - 1; i >= 0; i--) {
       const m = onPage[i]!
-      if (hitQuads(m.quads)) return select({ kind: 'markup', id: m.id, ...at })
+      if (hitQuads(m.quads)) return { kind: 'markup', id: m.id, ...at }
     }
-    if (readOnly) return
-    // Markup annotations already saved in the file (skipping ones pending deletion)
+    if (readOnly) return null
     const pendingDeleted = new Set(annotDeletes.map((d) => d.annot.objNum))
     const saved = savedMarkups.get(origIdx) ?? []
     for (let i = saved.length - 1; i >= 0; i--) {
       const a = saved[i]!
       if (pendingDeleted.has(a.objNum) || !hitQuads(a.quads)) continue
-      return select({ kind: 'savedMarkup', annot: a, ...at })
+      return { kind: 'savedMarkup', annot: a, ...at }
     }
+    return null
+  }
+
+  /** Markup overlays don't take pointer events (text under them must stay selectable),
+   *  so a bare click on the page content hit-tests them here. Only a true click counts:
+   *  a drag that produced a text selection goes to the markup bar instead. Pending
+   *  (unsaved) markups win over saved annotations; last added wins within each group,
+   *  matching visual stacking order. */
+  const handlePageClick = (origIdx: number, e: ReactMouseEvent<HTMLDivElement>) => {
+    // Only clicks that land on the rendered page (canvas/text layer or empty draw layer);
+    // overlays like draw shapes, note pins, stamps and previews handle their own selection
+    const target = e.target as Element
+    if (!target.closest?.('.pdf-page-content') && !target.classList?.contains('pdf-draw-layer'))
+      return
+    const sel = window.getSelection()
+    if (sel && !sel.isCollapsed) return
+    const hit = hitPageMarkup(origIdx, e)
+    if (!hit) return
+    e.stopPropagation() // keep the scroll container from clearing the selection we just set
+    setSelected(hit)
+  }
+
+  /** Right-clicking a markup annotation selects it and opens its delete popup (FX-94) */
+  const handlePageContextMenu = (origIdx: number, e: ReactMouseEvent<HTMLDivElement>) => {
+    const target = e.target as Element
+    if (!target.closest?.('.pdf-page-content') && !target.classList?.contains('pdf-draw-layer'))
+      return
+    const hit = hitPageMarkup(origIdx, e)
+    if (!hit) return
+    e.preventDefault()
+    e.stopPropagation()
+    setSelected(hit)
   }
 
   /** Shift a drawing by a PDF-space delta (drag-to-move on the page) */
@@ -4192,6 +4211,12 @@ export default function App() {
   const deleteSelected = () => {
     const sel = selected
     if (!sel) return
+    if (sel.kind === 'note') {
+      const root = noteThreadsOn(sel.origIdx).find((r) => r.key === sel.rootKey)
+      setSelected(null)
+      if (root) deleteNoteItem(root)
+      return
+    }
     const op: Op =
       sel.kind === 'markup'
         ? { op: 'removeMarkup', id: sel.id }
@@ -5871,6 +5896,7 @@ export default function App() {
   const confirmNoteDraft = (text: string) => {
     const target = noteDraft
     setNoteDraft(null)
+    setDrawTool((cur) => (cur === 'note' ? null : cur))
     if (!target || !text) return
     const id = newId()
     applyEditOps([
@@ -7123,9 +7149,14 @@ export default function App() {
         nudgeSelectedFormFields(vx, vy)
         return
       }
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selected) {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && (selected || activeNote)) {
         e.preventDefault()
-        deleteSelected()
+        if (selected) {
+          deleteSelected()
+        } else if (activeNote) {
+          const root = noteThreadsOn(activeNote.origIdx).find((r) => r.key === activeNote.rootKey)
+          if (root) deleteNoteItem(root)
+        }
         return
       }
       // Shift+navigation extends the text layer's native selection (Excel/
@@ -8945,6 +8976,10 @@ export default function App() {
                             } else if (editTextMode && !readOnly) startTextEdit(origIdx, e)
                             else handlePageClick(origIdx, e)
                           }}
+                          onContextMenu={(e) => {
+                            if (editTextMode || pendingTextInsert) return
+                            handlePageContextMenu(origIdx, e)
+                          }}
                           onMouseMove={(e) => {
                             if (pendingTextInsert && !readOnly) {
                               const pageBox = e.currentTarget.getBoundingClientRect()
@@ -9899,13 +9934,21 @@ export default function App() {
                                   setActiveNote(null)
                                   setNoteDraft({ origIdx, at })
                                 }}
-                                onNoteOpen={(key) => {
+                                onNoteOpen={(key, x, y) => {
                                   setNoteDraft(null)
                                   setActiveNote((prev) =>
                                     prev?.origIdx === origIdx && prev.rootKey === key
                                       ? null
                                       : { origIdx, rootKey: key },
                                   )
+                                  if (!readOnly) {
+                                    setSelected({
+                                      kind: 'note',
+                                      origIdx,
+                                      rootKey: key,
+                                      ...popupPos(x, y),
+                                    })
+                                  }
                                 }}
                                 onSelect={(id, x, y) =>
                                   setSelected({ kind: 'drawing', id, ...popupPos(x, y) })

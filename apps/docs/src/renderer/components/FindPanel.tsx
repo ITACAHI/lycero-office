@@ -357,7 +357,7 @@ export function FindPanel({
   /** insert the replacement, splitting the block wherever the template had a paragraph mark */
   const applyReplacement = useCallback(
     (tr: Transaction, m: FindMatch) => {
-      const segs = expandReplacement(replacement, m, mode)
+      const segs = expandReplacement(replacement, m, mode, matchCase)
       const joined = segs.join('\u0000')
       tr.insertText(joined, m.from, m.to)
       const splitsAt: number[] = []
@@ -372,7 +372,7 @@ export function FindPanel({
         tr.split(p)
       }
     },
-    [replacement, mode],
+    [replacement, mode, matchCase],
   )
 
   const replaceOne = useCallback(() => {

@@ -3,7 +3,7 @@
  * Copyright © 2026 ITAC AI Heavy Industries.
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
-import { existsSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { copyFile, mkdir, writeFile } from 'node:fs/promises'
 import {
   basename,
@@ -267,8 +267,33 @@ export interface HomeCliContext {
   outDir: string
 }
 
+export function pruneAskAiWork(workRoot: string, keepActiveId = '', maxDirs = 50): void {
+  try {
+    if (!existsSync(workRoot)) return
+    const entries = readdirSync(workRoot, { withFileTypes: true })
+      .filter((d) => d.isDirectory() && d.name.startsWith('kb-ask') && d.name !== keepActiveId)
+      .map((d) => {
+        const full = join(workRoot, d.name)
+        let mtimeMs = 0
+        try {
+          mtimeMs = statSync(full).mtimeMs
+        } catch {}
+        return { full, mtimeMs }
+      })
+      .sort((a, b) => b.mtimeMs - a.mtimeMs)
+    for (const old of entries.slice(maxDirs)) {
+      try {
+        rmSync(old.full, { recursive: true, force: true })
+      } catch {}
+    }
+  } catch {}
+}
+
 export function homeCliContext(deps: HomeCliDeps, sessionId: string): HomeCliContext {
-  return { workDir: join(deps.workRoot(), validateSessionId(sessionId)), outDir: deps.outDir() }
+  const validId = validateSessionId(sessionId)
+  const root = deps.workRoot()
+  pruneAskAiWork(root, validId, 50)
+  return { workDir: join(root, validId), outDir: deps.outDir() }
 }
 
 /** PATH-style GENOFFICE_ALLOWED_ROOTS for one run */
@@ -325,8 +350,10 @@ function normalizeOutputArgPaths(
   args: string[],
   ctx: HomeCliContext,
   sessionId: string,
+  attachedSources: readonly string[] = [],
 ): string[] {
   const normalized = [...args]
+  const attachedSet = new Set(attachedSources.map((p) => resolve(p)))
   let createdInSession = sessionCreatedOutputs.get(sessionId)
   if (!createdInSession) {
     createdInSession = new Set<string>()
@@ -364,7 +391,7 @@ function normalizeOutputArgPaths(
     if (dupMatch) {
       const rawBase = resolve(dirname(resolvedTarget), `${dupMatch[1]}${dupMatch[2]}`)
       const baseCandidate = redirects.get(rawBase) ?? rawBase
-      if (createdInSession.has(baseCandidate)) {
+      if (createdInSession.has(baseCandidate) && !attachedSet.has(baseCandidate)) {
         return baseCandidate
       }
     }
@@ -372,19 +399,18 @@ function normalizeOutputArgPaths(
     // so the CLI updates it in place via atomic temp-file + rename when `status: ok`.
     if (isEditCommand) {
       const existingRedirect = redirects.get(resolvedTarget)
-      if (existingRedirect) {
+      if (existingRedirect && !attachedSet.has(existingRedirect)) {
         return existingRedirect
       }
-      if (createdInSession.has(resolvedTarget)) {
+      if (createdInSession.has(resolvedTarget) && !attachedSet.has(resolvedTarget)) {
         return targetPath
       }
     }
-    // FX-50: If the file already exists in ctx.outDir (even if created earlier in this session),
-    // do not overwrite it on `create` / `convert` — add a `" (1)"` (or `" (2)"`, ...) suffix instead.
+    // FX-50 & FX-50b: If the file is an attached file or already exists on disk (outside workDir),
+    // do not overwrite it — add a `" (1)"` (or `" (2)"`, ...) suffix instead.
     if (
-      existsSync(resolvedTarget) &&
-      isInside(ctx.outDir, resolvedTarget) &&
-      !isInside(ctx.workDir, resolvedTarget)
+      !isInside(ctx.workDir, resolvedTarget) &&
+      (attachedSet.has(resolvedTarget) || existsSync(resolvedTarget))
     ) {
       const suffixed = uniqueOutputPathWithSuffix(targetPath)
       const resolvedSuffixed = resolve(ctx.workDir, suffixed)
@@ -394,23 +420,51 @@ function normalizeOutputArgPaths(
     }
     return targetPath
   }
-  for (let i = 0; i < normalized.length; i++) {
-    if (normalized[i] === '--out' && normalized[i + 1]) {
-      normalized[i + 1] = rewriteOut(normalized[i + 1]!)
-    } else if (normalized[i]!.startsWith('--out=')) {
-      normalized[i] = `--out=${rewriteOut(normalized[i]!.slice(6))}`
-    } else if (i > 0 && !normalized[i]!.startsWith('-') && /\.(docx|xlsx|pptx|pdf)$/i.test(normalized[i]!)) {
+  // 1. Redirect input positionals to an already-created session redirect (only if it already exists on disk)
+  for (let i = 1; i < normalized.length; i++) {
+    if (!normalized[i]!.startsWith('-') && /\.(docx|xlsx|pptx|pdf)$/i.test(normalized[i]!)) {
       const prev = normalized[i - 1]
       if (prev !== '--out' && prev !== '--ops' && prev !== '--spec' && prev !== '--outline') {
         const resolvedArg = resolve(ctx.workDir, normalized[i]!)
         const redirected = redirects.get(resolvedArg)
-        if (redirected) {
+        if (redirected && existsSync(redirected)) {
           normalized[i] = redirected
         }
       }
     }
   }
+  // 2. Rewrite --out arguments (may register a new redirect for an existing/attached target)
+  for (let i = 0; i < normalized.length; i++) {
+    if (normalized[i] === '--out' && normalized[i + 1]) {
+      normalized[i + 1] = rewriteOut(normalized[i + 1]!)
+    } else if (normalized[i]!.startsWith('--out=')) {
+      normalized[i] = `--out=${rewriteOut(normalized[i]!.slice(6))}`
+    }
+  }
+  // 3. FX-50b: An in-place apply/replace without --out on an attached file must not overwrite the attachment;
+  // redirect its output to a " (1)" copy instead.
+  const inPlace = inPlaceTarget(normalized)
+  if (inPlace) {
+    const resolvedInPlace = resolve(ctx.workDir, inPlace)
+    if (attachedSet.has(resolvedInPlace)) {
+      normalized.push('--out', rewriteOut(inPlace))
+    }
+  }
   return normalized
+}
+
+function resolveOutTarget(args: readonly string[], workDir: string): string | null {
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]!
+    if (arg === '--out' && args[i + 1]) {
+      return resolve(workDir, args[i + 1]!)
+    }
+    if (arg.startsWith('--out=')) {
+      return resolve(workDir, arg.slice(6))
+    }
+  }
+  const inPlace = inPlaceTarget(args)
+  return inPlace ? resolve(workDir, inPlace) : null
 }
 
 export async function runHomeCli(
@@ -419,7 +473,13 @@ export async function runHomeCli(
   request: HomeCliRunRequest,
 ): Promise<CliRunResult> {
   const ctx = homeCliContext(deps, sessionId)
-  const args = normalizeOutputArgPaths(validateHomeCliArgs(request.args), ctx, sessionId)
+  const attachedSources = validateSources(request.sources)
+  const args = normalizeOutputArgPaths(
+    validateHomeCliArgs(request.args),
+    ctx,
+    sessionId,
+    attachedSources,
+  )
   const files = validateStagedFiles(request.files)
   await mkdir(ctx.workDir, { recursive: true })
   for (const file of files) {
@@ -441,15 +501,13 @@ export async function runHomeCli(
       throw new HomeCliError(`${inPlace} does not exist`)
     })
   }
-  const attachedSources = validateSources(request.sources)
   // FX-35: When the user explicitly attached files to the turn, restrict source roots to
   // those attached files rather than exposing every unrelated starred folder.
   const effectiveSources = attachedSources.length > 0 ? attachedSources : deps.sourcePaths()
+  const attachedSet = new Set(attachedSources.map((p) => resolve(p)))
+  const createdInSession = sessionCreatedOutputs.get(sessionId) ?? new Set<string>()
   if (!process.env.VITEST) {
-    const allowedExistingFiles = new Set<string>([
-      ...attachedSources.map((p) => resolve(p)),
-      ...(sessionCreatedOutputs.get(sessionId) ?? []),
-    ])
+    const allowedExistingFiles = new Set<string>([...attachedSet, ...createdInSession])
     for (let i = 1; i < args.length; i++) {
       const tok = args[i]!
       if (tok.startsWith('-')) {
@@ -473,9 +531,16 @@ export async function runHomeCli(
     }
   }
   const piiRegistry = PiiTokenizer.exportGlobalRegistry()
+  const resolvedOut = resolveOutTarget(args, ctx.workDir)
+  // FX-50b: Only enable LYCERO_HOME_CLI_OVERWRITE when the output target is a file created by this session
+  // (or an allowed in-place backup edit in outDir), never for an attached file or pre-existing unrelated file.
+  const allowSessionOverwrite =
+    resolvedOut !== null &&
+    !attachedSet.has(resolvedOut) &&
+    (createdInSession.has(resolvedOut) || inPlace !== null)
   const extraEnv: Record<string, string> = {
     GENOFFICE_ALLOWED_ROOTS: allowedRootsFor(ctx, effectiveSources),
-    LYCERO_HOME_CLI_OVERWRITE: '1',
+    ...(allowSessionOverwrite ? { LYCERO_HOME_CLI_OVERWRITE: '1' } : {}),
   }
   if (Object.keys(piiRegistry).length > 0) {
     extraEnv.LYCERO_PII_MAP = JSON.stringify(piiRegistry)

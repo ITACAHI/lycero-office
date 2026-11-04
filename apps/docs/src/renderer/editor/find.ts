@@ -509,20 +509,69 @@ export function findInDocAsync(
 }
 
 /**
+ * FX-86: When `matchCase` is false, preserve ALL-CAPS (`"UBND TỈNH BÌNH DƯƠNG"` -> `"UBND TỈNH ĐỒNG NAI"`)
+ * and Title Case / Sentence Case of the matched text.
+ */
+export function preserveMatchedCase(
+  matched: string,
+  replacement: string,
+  matchCase = true,
+): string {
+  if (matchCase || !matched || !replacement) return replacement
+  const letters = matched.match(/\p{L}/gu)
+  if (!letters || letters.length === 0) return replacement
+  const upper = matched.toLocaleUpperCase('vi')
+  const lower = matched.toLocaleLowerCase('vi')
+  if (letters.length >= 2 && matched === upper && matched !== lower) {
+    return replacement.toLocaleUpperCase('vi')
+  }
+  if (replacement === replacement.toLocaleLowerCase('vi')) {
+    const words = matched.trim().split(/\s+/)
+    const isTitleCase =
+      words.length > 0 &&
+      words.every((w) => {
+        const fl = w.match(/\p{L}/u)?.[0]
+        return fl ? fl === fl.toLocaleUpperCase('vi') && fl !== fl.toLocaleLowerCase('vi') : true
+      })
+    if (isTitleCase) {
+      return replacement.replace(
+        /(^|\s)(\p{L})/gu,
+        (_m, sep: string, ch: string) => sep + ch.toLocaleUpperCase('vi'),
+      )
+    }
+    const firstLetter = letters[0]!
+    if (
+      firstLetter === firstLetter.toLocaleUpperCase('vi') &&
+      firstLetter !== firstLetter.toLocaleLowerCase('vi')
+    ) {
+      return replacement.replace(/\p{L}/u, (ch) => ch.toLocaleUpperCase('vi'))
+    }
+  }
+  return replacement
+}
+
+/**
  * Replacement text for one match. Segments are separated where the template
  * asks for a paragraph mark (`^p`): the caller splits the block there.
  * Regex mode: `$1`…`$9`, `$&`, `$$`, `\1`…`\9`. Wildcard / literal: `\1`…`\9`,
  * `^&` (the found text), `^t`, `^p`, `\\`.
  */
-export function expandReplacement(template: string, m: FindMatch, mode: FindMode): string[] {
+export function expandReplacement(
+  template: string,
+  m: FindMatch,
+  mode: FindMode,
+  matchCase = true,
+): string[] {
+  const effectiveTemplate =
+    mode === 'literal' && !matchCase ? preserveMatchedCase(m.text, template, false) : template
   const segs: string[] = ['']
   const add = (s: string) => {
     segs[segs.length - 1] += s
   }
   const group = (n: number) => (n === 0 ? m.text : (m.groups?.[n - 1] ?? ''))
-  for (let i = 0; i < template.length; i++) {
-    const ch = template[i]
-    const next = template[i + 1]
+  for (let i = 0; i < effectiveTemplate.length; i++) {
+    const ch = effectiveTemplate[i]
+    const next = effectiveTemplate[i + 1]
     if (ch === '\\' && next !== undefined) {
       if (/[1-9]/.test(next)) add(group(Number(next)))
       else add(next)

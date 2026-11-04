@@ -23,6 +23,11 @@ export const AI_IDLE_TIMEOUT_MS = 120_000
  */
 export const AI_CONTENT_IDLE_TIMEOUT_MS = 105_000
 /**
+ * FX-83: Extended content-idle timeout (240s) while a tool-call is active
+ * (from `content_block_start` / first `tool_calls[0]` until tool-call arguments finish).
+ */
+export const AI_TOOL_CALL_CONTENT_IDLE_TIMEOUT_MS = 240_000
+/**
  * Hard wall-clock cap for a single streaming request (15 minutes), even if the
  * server keeps sending pings or partial deltas.
  */
@@ -87,6 +92,8 @@ export interface StreamWatchdog {
   touch(): void
   /** content delta arrived (text, reasoning, tool_call, tool-arg delta): re-arm both idle and no-content timeout */
   touchContent(): void
+  /** FX-83: toggle extended 240s content-idle window during tool-call argument generation */
+  setToolCallActive?(active: boolean): void
   /** run the request; a timeout abort surfaces as AiTimeoutError; always disposes the timer */
   guard<T>(run: () => Promise<T>): Promise<T>
 }
@@ -112,9 +119,20 @@ export function createStreamWatchdog(
   const controller = new AbortController()
   let timedOutAfter = 0
   let timedOutKind: AiTimeoutKind = 'idle'
+  let inToolCall = false
   let timer: ReturnType<typeof setTimeout> | undefined
   let contentTimer: ReturnType<typeof setTimeout> | undefined
   let totalTimer: ReturnType<typeof setTimeout> | undefined
+  const currentIdleBudget = (): number =>
+    inToolCall
+      ? Math.max(normalizedIdleMs, AI_TOOL_CALL_CONTENT_IDLE_TIMEOUT_MS)
+      : normalizedIdleMs
+  const currentContentIdleBudget = (): number | undefined => {
+    if (normalizedContentIdleMs === undefined) return undefined
+    return inToolCall
+      ? Math.max(normalizedContentIdleMs, AI_TOOL_CALL_CONTENT_IDLE_TIMEOUT_MS)
+      : normalizedContentIdleMs
+  }
   const arm = (ms: number) => {
     clearTimeout(timer)
     timer = setTimeout(() => {
@@ -126,15 +144,16 @@ export function createStreamWatchdog(
     }, ms)
   }
   const armContent = () => {
-    if (normalizedContentIdleMs === undefined) return
+    const budget = currentContentIdleBudget()
+    if (budget === undefined) return
     clearTimeout(contentTimer)
     contentTimer = setTimeout(() => {
-      timedOutAfter = normalizedContentIdleMs
+      timedOutAfter = budget
       timedOutKind = 'no_content'
       clearTimeout(timer)
       clearTimeout(totalTimer)
       controller.abort()
-    }, normalizedContentIdleMs)
+    }, budget)
   }
   const onParentAbort = () => controller.abort()
   if (parent?.aborted) controller.abort()
@@ -150,13 +169,18 @@ export function createStreamWatchdog(
   return {
     signal: controller.signal,
     touch: () => {
-      arm(normalizedIdleMs)
+      arm(currentIdleBudget())
       if (normalizedContentIdleMs !== undefined && contentTimer === undefined) {
         armContent()
       }
     },
     touchContent: () => {
-      arm(normalizedIdleMs)
+      arm(currentIdleBudget())
+      armContent()
+    },
+    setToolCallActive: (active: boolean) => {
+      inToolCall = active
+      arm(currentIdleBudget())
       armContent()
     },
     async guard<T>(run: () => Promise<T>): Promise<T> {

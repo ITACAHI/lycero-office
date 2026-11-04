@@ -4172,6 +4172,15 @@ export function registerSheetsAiIpc(): void {
         onDelta: (text) => send({ requestId, type: 'delta', text }),
         onReasoningDelta: (text) => send({ requestId, type: 'reasoning', text }),
         onToolCall: (toolCall) => send({ requestId, type: 'tool-call', toolCall }),
+        onToolArgsProgress: ({ name, bytes }) => {
+          ping()
+          send({
+            requestId,
+            type: 'tool-progress',
+            ...(name ? { toolName: name } : {}),
+            toolBytes: bytes,
+          })
+        },
         onActivity: ping,
         onStopReason: (reason) => {
           stopReason = reason

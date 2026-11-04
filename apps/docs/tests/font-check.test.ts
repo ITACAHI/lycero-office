@@ -99,4 +99,54 @@ describe('collectDocFonts', () => {
       'Noto Sans CJK SC',
     ])
   })
+
+  it('FX-88: ignores unused fonts that only appear in theme script table (ＭＳ ゴシック) or unused styles', () => {
+    const parsed = {
+      blocks: [
+        {
+          type: 'paragraph',
+          styleId: 'Normal',
+          text: 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM',
+          runs: [
+            {
+              text: 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM',
+              font: 'Times New Roman',
+              fontAscii: 'Times New Roman',
+            },
+          ],
+        },
+      ],
+      docDefaults: {
+        asciiFont: 'Times New Roman',
+        eastAsiaFont: 'ＭＳ ゴシック',
+        eaSlotEmpty: true,
+        eaFromLang: true,
+      },
+      styles: new Map([
+        [
+          'Normal',
+          {
+            styleId: 'Normal',
+            isDefault: true,
+            display: {
+              font: 'ＭＳ ゴシック',
+              fontAscii: 'Times New Roman',
+              eaSlotEmpty: true,
+            },
+          },
+        ],
+        [
+          'UnusedHeading',
+          {
+            styleId: 'UnusedHeading',
+            display: {
+              font: 'ＭＳ ゴシック',
+              fontAscii: 'Arial',
+            },
+          },
+        ],
+      ]),
+    } as never
+    expect(collectDocFonts(parsed)).toEqual(['Times New Roman'])
+  })
 })

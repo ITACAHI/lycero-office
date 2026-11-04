@@ -89,4 +89,21 @@ describe('effectiveSizeHalfPoints', () => {
     const editor = createEditor()
     expect(effectiveSizeHalfPoints(editor, undefined, { sizeHalfPoints: 21 })).toBe(21)
   })
+
+  it('FX-87: resolves default paragraph style (Normal, sz=26 -> 13pt) before docDefaults (sz=22 -> 11pt)', () => {
+    const editor = createEditor()
+    const styleMap = new Map<string, StyleInfo>([
+      [
+        'Normal',
+        {
+          styleId: 'Normal',
+          name: 'Normal',
+          type: 'paragraph',
+          isDefault: true,
+          display: { sizeHalfPoints: 26 },
+        },
+      ],
+    ])
+    expect(effectiveSizeHalfPoints(editor, styleMap, { sizeHalfPoints: 22 })).toBe(26)
+  })
 })

@@ -25,6 +25,8 @@ describe('categoryOptionForPattern', () => {
     ['0.0', 'Number'],
     ['0.00_);[Red](0.00)', 'Number'],
     ['#,##0 "units"', 'Number'],
+    ['#,##0 "₫"', 'Currency'],
+    ['_(* #,##0 "₫"_);_(* \\(#,##0 "₫"\\);_(* "-" "₫"_);_(@_)', 'Accounting'],
   ])('%s → %s', (pattern, label) => {
     expect(categoryOptionForPattern(pattern)).toBe(label)
   })

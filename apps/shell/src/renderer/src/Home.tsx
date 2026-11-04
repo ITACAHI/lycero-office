@@ -3162,13 +3162,17 @@ export function Home() {
 
   const renderSearchResults = () => {
     const page = searchPage
-    const busy = !!page && (page.index.pending > 0 || page.index.scanning)
+    const busy = !!page && (page.index.pending > 0 || (page.index.scanning && page.hits.length === 0))
     return (
       <div className="search-results" aria-live="polite">
         {busy && (
           <div className="search-status">
             <span className="load-more-spinner" />
-            {t('searchIndexing', { n: page.index.pending })}
+            {page.index.pending > 0
+              ? t('searchIndexing', { n: page.index.pending })
+              : i18n.lang === 'vi'
+                ? 'Đang quét tài liệu…'
+                : 'Scanning files…'}
           </div>
         )}
         {page && page.hits.length === 0 && !busy

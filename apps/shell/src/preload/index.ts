@@ -393,6 +393,9 @@ const homeApi: HomeApi = {
     if (typeof on !== 'boolean') throw new Error('Invalid update check setting.')
     await ipcRenderer.invoke(HOME_CHANNELS.setAutoUpdateCheck, on)
   },
+  async checkForUpdates() {
+    await ipcRenderer.invoke(HOME_CHANNELS.checkForUpdates)
+  },
   async accountStatus() {
     const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.accountStatus)
     return (result ?? { loggedIn: false }) as AccountStatus
@@ -627,7 +630,7 @@ const homeApi: HomeApi = {
   },
   async getAnalyticsEnabled() {
     const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.getAnalyticsEnabled)
-    return result !== false
+    return result === true
   },
   async setAnalyticsEnabled(enabled) {
     if (typeof enabled !== 'boolean') throw new Error('Invalid analytics consent.')

@@ -1740,9 +1740,14 @@ export function handleRibbonCommand(ctx: RibbonCommandContext, command: string):
         }
         break
       }
-      case 'format':
+      case 'format': {
+        const undoTopBefore = topUndoElement(runtime)
         range.setNumberFormat(argument)
+        if (argument.length > 0 && argument.length <= 255) {
+          recordFullHeightColumnStyle({ numberFormat: argument }, undoTopBefore)
+        }
         break
+      }
       case 'font-family': {
         const undoTopBefore = topUndoElement(runtime)
         range.setFontFamily(argument)

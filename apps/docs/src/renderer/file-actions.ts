@@ -767,6 +767,71 @@ function deriveAutoFileName(editor: Editor): string | null {
 }
 
 /**
+ * Update top-level block anchors (docxIndex, table signatures, newly minted
+ * heading styleId) in place after a save without replacing the ProseMirror
+ * document, preserving undo/redo history, selection, scroll, and preventing
+ * Track Changes from seeing a whole-document rewrite.
+ */
+function rebaseSavedDocInPlace(editor: Editor, rebasedPm: PmNode): boolean {
+  const rebasedBlocks = rebasedPm.content
+  const liveDoc = editor.state.doc
+  if (!Array.isArray(rebasedBlocks) || rebasedBlocks.length !== liveDoc.childCount) {
+    return false
+  }
+  for (let i = 0; i < liveDoc.childCount; i++) {
+    if (liveDoc.child(i).type.name !== rebasedBlocks[i]?.type) return false
+  }
+  const tr = editor.state.tr
+  tr.setMeta('addToHistory', false)
+  tr.setMeta(TRACK_IGNORE, true)
+  let mutated = false
+  liveDoc.forEach((child, pos, index) => {
+    const rebased = rebasedBlocks[index]
+    const rebasedAttrs = (rebased?.attrs ?? {}) as Record<string, unknown>
+    if (child.type.name === 'docProtected') {
+      const nextAttrs = { ...child.attrs, ...rebasedAttrs }
+      if (JSON.stringify(child.attrs) !== JSON.stringify(nextAttrs)) {
+        tr.setNodeMarkup(pos, undefined, nextAttrs)
+        mutated = true
+      }
+      return
+    }
+    const nextAttrs: Record<string, unknown> = { ...child.attrs }
+    let blockChanged = false
+    for (const key of ['docxIndex', 'originalStructure', 'originalFormatting'] as const) {
+      if (key in rebasedAttrs && child.attrs[key] !== rebasedAttrs[key]) {
+        nextAttrs[key] = rebasedAttrs[key]
+        blockChanged = true
+      }
+    }
+    if (
+      child.type.name === 'docHeading' &&
+      child.attrs.styleId == null &&
+      rebasedAttrs.styleId != null
+    ) {
+      nextAttrs.styleId = rebasedAttrs.styleId
+      blockChanged = true
+    }
+    if (blockChanged) {
+      tr.setNodeMarkup(pos, undefined, nextAttrs)
+      mutated = true
+    }
+  })
+  if (mutated) {
+    const trackStorage = editor.storage.trackChanges as
+      | { enabled: boolean; suppress?: boolean }
+      | undefined
+    if (trackStorage) trackStorage.suppress = true
+    try {
+      editor.view.dispatch(tr)
+    } finally {
+      if (trackStorage) trackStorage.suppress = false
+    }
+  }
+  return true
+}
+
+/**
  * Serialize the current editor/document state to .docx bytes — the shared
  * serialization half of save(); no dialogs, no state changes. Also used for
  * crash-recovery copies.
@@ -1199,9 +1264,9 @@ async function saveOnce(
     editor.storage.listNumbering.defs = reparsed.numbering
     applyDocLayoutSettings(editor, reparsed)
     const rebasedPm = blocksToPmDoc(reparsed.blocks, readSections(reparsed), pmDocOptions(reparsed))
-    let unchanged = false
+    let unchanged = rebaseSavedDocInPlace(editor, rebasedPm)
     try {
-      unchanged = editor.state.doc.eq(editor.schema.nodeFromJSON(rebasedPm))
+      unchanged ||= editor.state.doc.eq(editor.schema.nodeFromJSON(rebasedPm))
     } catch {
       /* unrepresentable → rewrite */
     }
@@ -1215,8 +1280,15 @@ async function saveOnce(
       // win, and the marks must belong to the position they are restored at.
       const selectionPos = editor.state.selection.from
       const caretMarks = caretMarksSnapshot(editor)
-      editor.commands.setContent(rebasedPm as never)
-      resetEditorHistory(editor)
+      const trackStorage = editor.storage.trackChanges as
+        | { enabled: boolean; suppress?: boolean }
+        | undefined
+      if (trackStorage) trackStorage.suppress = true
+      try {
+        editor.commands.setContent(rebasedPm as never)
+      } finally {
+        if (trackStorage) trackStorage.suppress = false
+      }
       const chain = editor
         .chain()
         .setTextSelection(Math.min(selectionPos, editor.state.doc.content.size))

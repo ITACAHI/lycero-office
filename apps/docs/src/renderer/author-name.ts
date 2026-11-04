@@ -10,7 +10,8 @@ const listeners = new Set<() => void>()
 
 /** Settings → General user name; the generic label until the shell has answered */
 export function authorName(): string {
-  return current || t('editorDefaultAuthor')
+  if (current && !/^(box|root|ubuntu)$/i.test(current)) return current
+  return t('editorDefaultAuthor')
 }
 
 export function setAuthorName(name: string): void {

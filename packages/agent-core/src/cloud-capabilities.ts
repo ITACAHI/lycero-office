@@ -197,8 +197,11 @@ export async function fetchCloudSkillCatalog(options?: {
     const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null
     const timer = ctrl ? setTimeout(() => ctrl.abort(), timeoutMs) : null
     try {
-      const headers: Record<string, string> = { Accept: 'application/json' }
-      if (options?.token) headers.Authorization = `Bearer ${options.token}`
+      const authToken = typeof options?.token === 'string' ? options.token.trim() : ''
+      const headers: Record<string, string> = {
+        Accept: 'application/json',
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      }
       const res = await fetch(targetUrl, {
         method: 'GET',
         headers,

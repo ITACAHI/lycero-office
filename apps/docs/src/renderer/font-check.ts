@@ -7,37 +7,90 @@ import type { ParsedDoc, TableModel } from '@lycero/docx-engine'
 import { BUNDLED_FONTS, cssFontFamily, isBundledFont } from './line-metrics'
 
 const GENERIC = new Set(['serif', 'sans-serif', 'monospace'])
+const CJK_CHAR_RE = /[\u2E80-\u9FFF\u3040-\u30FF\uAC00-\uD7AF\uF900-\uFAFF]/
 
-/** every distinct font family the document declares */
+/** every distinct font family the document actually uses */
 export function collectDocFonts(parsed: ParsedDoc): string[] {
   const names = new Set<string>()
+  const usedStyleIds = new Set<string>()
+  let hasCjkText = false
   const add = (font?: string) => {
     if (font) names.add(font)
   }
-  const addRuns = (runs: readonly { font?: string; fontAscii?: string }[]) => {
+  const addRuns = (
+    runs: readonly {
+      text?: string
+      font?: string
+      fontAscii?: string
+      styleId?: string
+      themeRFonts?: { font?: string; fontAscii?: string }
+    }[],
+  ) => {
     for (const r of runs) {
-      add(r.font)
+      if (r.styleId) usedStyleIds.add(r.styleId)
+      const runHasCjk = CJK_CHAR_RE.test(r.text ?? '')
+      if (runHasCjk) hasCjkText = true
       add(r.fontAscii)
+      if (r.font) {
+        const isThemeEa = Boolean(r.themeRFonts?.font && r.font === r.themeRFonts.font)
+        const isUnusedEaSlot = Boolean(r.fontAscii && r.font !== r.fontAscii && !runHasCjk)
+        if (!isThemeEa && !isUnusedEaSlot) {
+          add(r.font)
+        }
+      }
     }
   }
   const addTable = (table: TableModel) => {
     for (const row of table.rows) {
       for (const cell of row) {
-        for (const p of cell.richParas ?? []) addRuns(p.runs)
+        for (const p of cell.richParas ?? []) {
+          if (p.styleId) usedStyleIds.add(p.styleId)
+          addRuns(p.runs)
+        }
         for (const nt of cell.nestedTables ?? []) addTable(nt)
       }
     }
   }
   for (const b of parsed.blocks) {
+    if (b.styleId) usedStyleIds.add(b.styleId)
     addRuns(b.runs ?? [])
-    for (const tb of b.textboxes ?? []) for (const p of tb.paras) addRuns(p.runs)
+    for (const tb of b.textboxes ?? []) {
+      for (const p of tb.paras) {
+        if (p.styleId) usedStyleIds.add(p.styleId)
+        addRuns(p.runs)
+      }
+    }
     if (b.table) addTable(b.table)
   }
-  add(parsed.docDefaults?.asciiFont)
-  add(parsed.docDefaults?.eastAsiaFont)
   for (const s of parsed.styles.values()) {
-    add(s.display?.font)
+    if (s.isDefault && s.styleId) usedStyleIds.add(s.styleId)
+  }
+  // Expand basedOn chain for used styles
+  const queue = [...usedStyleIds]
+  while (queue.length > 0) {
+    const id = queue.pop()!
+    const parent = parsed.styles.get(id)?.basedOn
+    if (parent && !usedStyleIds.has(parent)) {
+      usedStyleIds.add(parent)
+      queue.push(parent)
+    }
+  }
+  add(parsed.docDefaults?.asciiFont)
+  if (
+    hasCjkText &&
+    !parsed.docDefaults?.eaSlotEmpty &&
+    !parsed.docDefaults?.eaFromLang &&
+    !parsed.docDefaults?.eaThemeSlot
+  ) {
+    add(parsed.docDefaults?.eastAsiaFont)
+  }
+  for (const s of parsed.styles.values()) {
+    // Synthetic test fixtures may omit s.styleId; real parsed styles carry s.styleId
+    if (s.styleId && !usedStyleIds.has(s.styleId)) continue
     add(s.display?.fontAscii)
+    if (!s.display?.eaSlotEmpty && (hasCjkText || !s.styleId || !s.display?.fontAscii)) {
+      add(s.display?.font)
+    }
   }
   return [...names]
 }

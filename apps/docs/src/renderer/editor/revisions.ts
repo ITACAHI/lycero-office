@@ -317,12 +317,18 @@ export function applyRevisions(
         if (tr.doc.childCount > 1) tr.delete(nodePos, nodePos + node.nodeSize)
       } else {
         tr.setNodeMarkup(nodePos, undefined, { ...node.attrs, blockRevision: null })
+        if (state.schema.marks.ins)
+          tr.removeMark(nodePos, nodePos + node.nodeSize, state.schema.marks.ins)
+        if (state.schema.marks.del)
+          tr.removeMark(nodePos, nodePos + node.nodeSize, state.schema.marks.del)
       }
       continue
     }
 
     if (r.kind === 'pPrChange') {
-      const $pos = state.doc.resolve(r.from + 1)
+      const mappedFrom = tr.mapping.map(r.from + 1, 1)
+      if (mappedFrom < 0 || mappedFrom > tr.doc.content.size) continue
+      const $pos = tr.doc.resolve(mappedFrom)
       if ($pos.parent.attrs && $pos.parent.attrs.pPrChange != null) {
         const nodePos = $pos.before($pos.depth)
         if (mode === 'reject') {
@@ -448,16 +454,18 @@ export function applyRevisions(
       const isRow = r.kind === 'rowIns' || r.kind === 'rowDel'
       const revKind = r.kind === 'rowIns' || r.kind === 'cellIns' ? 'ins' : 'del'
       const removeNode = mode === 'accept' ? revKind === 'del' : revKind === 'ins'
-      const node = state.doc.nodeAt(r.from)
+      const mappedFrom = tr.mapping.map(r.from, 1)
+      const node = tr.doc.nodeAt(mappedFrom)
       if (!node) continue
+      const mappedTo = mappedFrom + node.nodeSize
       if (removeNode && isRow) {
         // accepting a deleted row / rejecting an inserted row = remove the whole row; if it is the only row, remove the whole table
-        const $pos = state.doc.resolve(r.from)
+        const $pos = tr.doc.resolve(mappedFrom)
         if ($pos.parent.childCount <= 1) tr.delete($pos.before(), $pos.after())
-        else tr.delete(r.from, r.to)
+        else tr.delete(mappedFrom, mappedTo)
       } else if (removeNode) {
         // a cell cannot be removed outright (table grid self-repair would re-add an empty one): clear it in place and strip the marker
-        tr.setNodeMarkup(r.from, undefined, {
+        tr.setNodeMarkup(mappedFrom, undefined, {
           ...node.attrs,
           cellRevision: null,
           rawTcPr: stripTrackMarker(
@@ -467,7 +475,7 @@ export function applyRevisions(
           ),
         })
         const empty = state.schema.nodes.docParagraph.createAndFill()
-        if (empty) tr.replaceWith(r.from + 1, r.to - 1, empty)
+        if (empty) tr.replaceWith(mappedFrom + 1, mappedTo - 1, empty)
       } else {
         // keep the content: clear the revision marker and strip the record from the raw trPr/tcPr bytes (takes effect on save)
         const attrs = isRow
@@ -489,9 +497,9 @@ export function applyRevisions(
                 'w:tcPr',
               ),
             }
-        tr.setNodeMarkup(r.from, undefined, attrs)
+        tr.setNodeMarkup(mappedFrom, undefined, attrs)
         const markType = state.schema.marks[revKind]
-        if (markType) tr.removeMark(r.from + 1, r.to - 1, markType)
+        if (markType) tr.removeMark(mappedFrom + 1, mappedTo - 1, markType)
       }
       continue
     }
@@ -510,33 +518,39 @@ export function applyRevisions(
         else tr.setNodeMarkup(pos, undefined, { ...node.attrs, moveRevision: null })
         continue
       }
-      const $para = state.doc.resolve(r.from)
-      if ($para.parent.attrs?.moveRevision)
-        tr.setNodeMarkup($para.before(), undefined, { ...$para.parent.attrs, moveRevision: null })
+      const mappedMovePos = tr.mapping.map(r.from, 1)
+      if (mappedMovePos >= 0 && mappedMovePos <= tr.doc.content.size) {
+        const $para = tr.doc.resolve(mappedMovePos)
+        if ($para.depth >= 1 && $para.parent.attrs?.moveRevision)
+          tr.setNodeMarkup($para.before(), undefined, { ...$para.parent.attrs, moveRevision: null })
+      }
     }
+    const mappedFrom = tr.mapping.map(r.from, 1)
+    const mappedTo = tr.mapping.map(r.to, -1)
+    if (mappedFrom >= mappedTo) continue
     const removeText = mode === 'accept' ? textKind !== 'ins' : textKind !== 'del'
     if (removeText) {
       // a revision covering a block's entire content removes the block itself
       // (Word: rejecting an inserted paragraph deletes the paragraph, not just
       // its text), unless it is the document's last remaining block
-      const $from = state.doc.resolve(r.from)
-      const $to = state.doc.resolve(r.to)
+      const $from = tr.doc.resolve(mappedFrom)
+      const $to = tr.doc.resolve(mappedTo)
       if (
         $from.parent.isTextblock &&
         $from.sameParent($to) &&
-        r.from === $from.start() &&
-        r.to === $to.end() &&
+        mappedFrom === $from.start() &&
+        mappedTo === $to.end() &&
         $from.depth === 1 &&
-        state.doc.childCount > 1
+        tr.doc.childCount > 1
       ) {
         tr.delete($from.before(), $to.after())
       } else {
-        tr.delete(r.from, r.to)
+        tr.delete(mappedFrom, mappedTo)
       }
     } else if (mode === 'accept') {
-      tr.removeMark(r.from, r.to, state.schema.marks.ins)
+      tr.removeMark(mappedFrom, mappedTo, state.schema.marks.ins)
     } else {
-      tr.removeMark(r.from, r.to, state.schema.marks.del)
+      tr.removeMark(mappedFrom, mappedTo, state.schema.marks.del)
     }
   }
   editor.view.dispatch(tr)
@@ -615,6 +629,7 @@ export function gotoRevision(editor: Editor, dir: 1 | -1): RevisionRange | null 
 export interface TrackChangesStorage {
   enabled: boolean
   author: string
+  suppress?: boolean
 }
 
 declare module '@tiptap/core' {
@@ -734,7 +749,7 @@ export const TrackChangesExtension = Extension.create<object, TrackChangesStorag
           },
         },
         appendTransaction: (transactions, oldState, newState) => {
-          if (!storage.enabled) {
+          if (!storage.enabled || storage.suppress) {
             pendingIme = null
             return null
           }
@@ -746,7 +761,11 @@ export const TrackChangesExtension = Extension.create<object, TrackChangesStorag
             }
           }
           const tracked = transactions.filter(
-            (t) => t.docChanged && !t.getMeta(TRACK_IGNORE) && !t.getMeta('history$'),
+            (t) =>
+              t.docChanged &&
+              !t.getMeta(TRACK_IGNORE) &&
+              !t.getMeta('history$') &&
+              t.getMeta('preventUpdate') === undefined,
           )
           let composing = false
           try {
@@ -947,9 +966,15 @@ export const TrackChangesExtension = Extension.create<object, TrackChangesStorag
             }
             return false
           })
-          for (const { node, pos } of deletedBlocks.sort((a, b) => b.pos - a.pos)) {
-            tr.insert(
-              tr.mapping.map(pos, -1),
+          const deletedByPos = new Map<number, PmNode[]>()
+          for (const { node, pos } of deletedBlocks) {
+            const list = deletedByPos.get(pos)
+            if (list) list.push(node)
+            else deletedByPos.set(pos, [node])
+          }
+          for (const [pos, group] of [...deletedByPos.entries()].sort((a, b) => b[0] - a[0])) {
+            const mappedPos = tr.mapping.map(pos, -1)
+            const nodes = group.map((node) =>
               node.type.create(
                 {
                   ...node.attrs,
@@ -959,6 +984,7 @@ export const TrackChangesExtension = Extension.create<object, TrackChangesStorag
                 node.marks,
               ),
             )
+            tr.insert(mappedPos, nodes)
             changed = true
           }
           newState.doc.nodesBetween(newFrom, newTo, (node, pos) => {

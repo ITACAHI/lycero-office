@@ -73,9 +73,9 @@ export function extractPackagedAnalyticsKeys(
   return isPackaged ? extractAnalyticsKeys(pkg) : null
 }
 
-/** Reporting is on by default; only an explicit persisted false disables it. */
+/** Reporting is off by default; only an explicit persisted true enables it. */
 export function analyticsEnabledFrom(settings: Record<string, unknown>): boolean {
-  return settings[ANALYTICS_ENABLED_KEY] !== false
+  return settings[ANALYTICS_ENABLED_KEY] === true
 }
 
 /**

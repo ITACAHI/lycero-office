@@ -9,11 +9,13 @@ import {
   DEFAULT_CLOUD_SKILL_CATALOG,
   HIDDEN_OR_MERGED_SKILL_SLUGS,
   SKILL_SLUG_ALIAS_MAP,
+  fetchCloudSkillCatalog,
   isAdvancedCloudSkill,
   resolveCanonicalSkillSlug,
 } from '@lycero/agent-core'
 import { HomeCliError, inPlaceTarget, validateHomeCliArgs } from './home-cli'
 import { readSkillBody, usableSkills } from './imported-skills'
+import { getSession } from './lycero-auth-bridge'
 import { createCliRunner, type CliRunner } from './mcp/cli-runner'
 
 /**
@@ -73,6 +75,7 @@ export interface UserSkillEntry {
   relevant: boolean
   cloudProtected?: boolean
   tier?: string
+  locked?: boolean
   source?: 'local' | 'cloud'
   aliases?: string[]
 }
@@ -118,8 +121,16 @@ export function registerUserSkillsIpc(deps: UserSkillsDeps): void {
     if (process.env.VITEST) {
       return localEntries
     }
+    const session = getSession()
+    const rawTier = session?.license?.tier
+    const userTier: 'free' | 'pro' | 'plus' | undefined =
+      rawTier === 'free' ? 'free' : rawTier === 'plus' ? 'plus' : rawTier ? 'pro' : undefined
+    const cloudCatalog = await fetchCloudSkillCatalog({
+      ...(session?.token ? { token: session.token } : {}),
+      ...(userTier ? { userTier } : {}),
+    }).catch(() => DEFAULT_CLOUD_SKILL_CATALOG)
     const seen = new Set(localEntries.map((s) => s.name))
-    for (const item of DEFAULT_CLOUD_SKILL_CATALOG) {
+    for (const item of cloudCatalog) {
       if (seen.has(item.slug) || HIDDEN_OR_MERGED_SKILL_SLUGS.has(item.slug.toLowerCase())) {
         continue
       }
@@ -135,8 +146,9 @@ export function registerUserSkillsIpc(deps: UserSkillsDeps): void {
             ? `${item.name} — ${item.description}`
             : item.description,
         relevant: true,
-        cloudProtected: true,
-        tier: 'pro',
+        cloudProtected: item.tier !== 'free',
+        tier: item.tier ?? 'pro',
+        ...(item.locked ? { locked: true } : {}),
         source: 'cloud',
         ...(aliases.length > 0 ? { aliases } : {}),
       })

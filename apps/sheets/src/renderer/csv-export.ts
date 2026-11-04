@@ -137,6 +137,24 @@ export function cellPatternLookup(
   }
 }
 
+/// FX-89: Raw numeric export lookup for CSV. Keeps date/time formatted strings
+/// intact while returning null for numeric/currency/accounting formats so CSV
+/// exports raw numbers (e.g. 1250 instead of " $1,250.00 ").
+export function rawCellPatternLookup(
+  runtime: UniverRuntime,
+  sheetId: string,
+  date1904 = false,
+): CellPatternLookup {
+  const base = cellPatternLookup(runtime, sheetId, date1904)
+  return (row, column, raw) => {
+    const fmt = base?.(row, column, raw) ?? null
+    if (!fmt) return null
+    const type = patternType(fmt.pattern)
+    if (type === 'date' || type === 'datetime' || type === 'time') return fmt
+    return null
+  }
+}
+
 /// A display string Univer substituted for a value that does not fit the
 /// column ("########") — never a real cell text worth exporting.
 const isHashOverflow = (text: string): boolean => text.length > 0 && /^#+$/.test(text)
@@ -158,44 +176,63 @@ export function serializeActiveSheetCsv(
 ): string | 'too-large' {
   const rowCount = Math.max(sheet.getLastRow(), 0) + 1
   const columnCount = Math.max(sheet.getLastColumn(), 0) + 1
-  const parts: string[] = []
-  let length = 0
+  const allRows: string[][] = []
+  let lastNonEmptyRow = -1
+  let lastNonEmptyCol = -1
+  let estimatedLength = 0
   const tooLarge = withoutFormulaView(formulaViewSheets(state), sheet.getSheetId(), () => {
     for (let start = 0; start < rowCount; start += EXPORT_ROW_BLOCK) {
       const blockRows = Math.min(EXPORT_ROW_BLOCK, rowCount - start)
       const range = sheet.getRange(start, 0, blockRows, columnCount)
       const displays = range.getDisplayValues()
-      if (patternOf) {
-        const raws = range.getRawValues()
-        for (let rowOffset = 0; rowOffset < displays.length; rowOffset += 1) {
-          const displayRow = displays[rowOffset]
-          if (!displayRow) continue
-          for (let column = 0; column < displayRow.length; column += 1) {
+      const raws = patternOf ? range.getRawValues() : null
+      for (let rowOffset = 0; rowOffset < displays.length; rowOffset += 1) {
+        const displayRow = displays[rowOffset]
+        if (!displayRow) continue
+        let rowHasData = false
+        for (let column = 0; column < displayRow.length; column += 1) {
+          if (patternOf && raws) {
             const raw = raws[rowOffset]?.[column]
-            if (typeof raw !== 'number' || !Number.isFinite(raw)) continue
-            const display = displayRow[column] ?? ''
-            const full = String(raw)
-            if (display === full) continue
-            const format = patternOf(start + rowOffset, column, raw)
-            if (format === null) displayRow[column] = full
-            else if (isHashOverflow(display) && format.renderValue !== null) {
-              try {
-                displayRow[column] = numfmt.format(format.pattern, format.renderValue)
-              } catch {
-                displayRow[column] = full
+            if (typeof raw === 'number' && Number.isFinite(raw)) {
+              const display = displayRow[column] ?? ''
+              const full = String(raw)
+              if (display !== full) {
+                const format = patternOf(start + rowOffset, column, raw)
+                if (format === null) displayRow[column] = full
+                else if (isHashOverflow(display) && format.renderValue !== null) {
+                  try {
+                    displayRow[column] = numfmt.format(format.pattern, format.renderValue)
+                  } catch {
+                    displayRow[column] = full
+                  }
+                }
               }
             }
           }
+          const cellText = displayRow[column] ?? ''
+          if (cellText !== '') {
+            rowHasData = true
+            if (column > lastNonEmptyCol) lastNonEmptyCol = column
+          }
         }
+        if (rowHasData) {
+          lastNonEmptyRow = allRows.length
+          for (const cellText of displayRow) estimatedLength += cellText.length + 1
+          estimatedLength += 2
+          if (estimatedLength > MAX_CSV_EXPORT_CHARS * 2) return true
+        }
+        allRows.push(displayRow)
       }
-      const part = csvFromDisplayRows(displays)
-      length += part.length
-      if (length > MAX_CSV_EXPORT_CHARS) return true
-      parts.push(part)
     }
     return false
   })
-  return tooLarge ? 'too-large' : parts.join('')
+  if (tooLarge) return 'too-large'
+  if (lastNonEmptyRow < 0 || lastNonEmptyCol < 0) return ''
+  const trimmedRows = allRows
+    .slice(0, lastNonEmptyRow + 1)
+    .map((row) => row.slice(0, lastNonEmptyCol + 1))
+  const out = csvFromDisplayRows(trimmedRows)
+  return out.length > MAX_CSV_EXPORT_CHARS ? 'too-large' : out
 }
 
 /// The active FWorksheet through the structural CsvWorksheet slice, plus the
@@ -234,7 +271,11 @@ export function sheetHasFormulas(sheet: CsvWorksheet): boolean {
   return found
 }
 
-export async function handleExportCsv(ctx: CsvExportContext, targetPath?: string): Promise<void> {
+export async function handleExportCsv(
+  ctx: CsvExportContext,
+  targetPath?: string,
+  options?: { asDisplayed?: boolean },
+): Promise<void> {
   const runtime = ctx.univerRef.current
   const active = activeCsvSheet(runtime)
   if (!runtime || !active) return
@@ -245,10 +286,13 @@ export async function handleExportCsv(ctx: CsvExportContext, targetPath?: string
     return
   }
   try {
+    const date1904 = state?.file.date1904 === true
     const content = serializeActiveSheetCsv(
       sheet,
       state,
-      cellPatternLookup(runtime, sheet.getSheetId()),
+      options?.asDisplayed
+        ? cellPatternLookup(runtime, sheet.getSheetId(), date1904)
+        : rawCellPatternLookup(runtime, sheet.getSheetId(), date1904),
     )
     if (content === 'too-large') {
       ctx.setMessage(t('appCsvExportTooLarge'))

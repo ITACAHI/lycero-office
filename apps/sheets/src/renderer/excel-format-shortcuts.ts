@@ -11,11 +11,17 @@ export const PERCENT_STYLE = '0%'
 export const COMMA_STYLE = '_(* #,##0.00_);_(* \\(#,##0.00\\);_(* "-"??_);_(@_)'
 
 export function accountingStyle(symbol: string): string {
+  if (symbol === '₫') {
+    return '_(* #,##0 "₫"_);_(* \\(#,##0\\) "₫";_(* "-" "₫"_);_(@_)'
+  }
   const s = `"${symbol}"`
   return `_(${s}* #,##0.00_);_(${s}* \\(#,##0.00\\);_(${s}* "-"??_);_(@_)`
 }
 
 export function currencyStyle(symbol: string): string {
+  if (symbol === '₫') {
+    return '#,##0 "₫"_);(#,##0 "₫")'
+  }
   const s = symbol.length === 1 ? symbol : `"${symbol}"`
   return `${s}#,##0.00_);(${s}#,##0.00)`
 }

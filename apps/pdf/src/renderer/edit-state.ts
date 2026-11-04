@@ -132,5 +132,6 @@ export type AnnotSelection =
       y: number
     }
   | { kind: 'savedMarkup'; annot: SavedMarkupAnnot; x: number; y: number }
+  | { kind: 'note'; origIdx: number; rootKey: string; x: number; y: number }
   | { kind: 'pageImage'; ref: PageImageRef; x: number; y: number }
   | { kind: 'stamp'; x: number; y: number }

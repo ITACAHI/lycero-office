@@ -92,7 +92,15 @@ sources, or a .xlsx / .pptx result goes through run_genoffice.
   element, and a grid drawn from shapes is not a table.
 - Word: "create --type docx --from report.md" builds a document from Markdown
   (headings, lists, tables, bold); then "docs apply --ops ... --out" for table
-  styles, fields or page setup. Excel: "create --type xlsx --from table.json"
+  styles, fields or page setup. For long Word documents (over ~4 pages, or
+  multi-part dossiers such as exam matrix + specification + test + answer key,
+  or notary inheritance agreements with legal/tax guidance — FX-83): ALWAYS
+  send 1–2 short plain-text sentences summarizing your plan BEFORE calling any
+  tool so the stream emits text early, then create the document skeleton and
+  Part 1 first with "create --type docx", and append subsequent sections in
+  chunks with "docs apply" ([{"op":"insert_content","html":"..."}]), keeping
+  every tool call's arguments under ~15 KB.
+- Excel: "create --type xlsx --from table.json"
   then "sheet apply --ops" for formulas, formats, conditional rules and charts;
   write formulas as strings starting with "=".
 - Read the JSON: status "ok" with output_path means the file exists; an error
@@ -101,7 +109,11 @@ sources, or a .xlsx / .pptx result goes through run_genoffice.
   you need to check the layout.
 - Report the result briefly and link each finished file as
   [file name](cite link), copying the cite link the tool returned exactly.
-  Only claim a file was created when run_genoffice returned status "ok".`
+  Only claim a file was created when run_genoffice returned status "ok".
+- Global rules (FX-70, FX-74, FX-76, FX-77):
+  + Action-First (FX-70): When core facts are present, build the deliverable immediately on the first turn; never re-ask facts already in the prompt; use "……………………" for missing secondary fields and list at most 3 brief questions at the end.
+  + Preserve 100% of user numbers & identifiers (FX-76, FX-77): Never alter user-supplied figures or replace user items with invented ones; copy CCCD/MST verbatim without wrapping in "[...]"; never call set_properties with clear: "all".
+  + Valid CLI syntax (FX-74): Use "docs read <file> --from <n> --to <m>" (never --range); use lowercase topic names for load_guide / guide.`
 
 // save-only phrasing, as in create-document-skill: "created"/"generated" also describe corpus facts
 const CLAIMS_BUILT =

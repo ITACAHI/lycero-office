@@ -40,9 +40,9 @@ beforeEach(() => {
 })
 
 describe('analytics consent preload API', () => {
-  it('defaults malformed main-process state to on', async () => {
+  it('defaults malformed main-process state to off', async () => {
     electronMocks.invoke.mockResolvedValue('invalid')
-    await expect(homeApi.getAnalyticsEnabled()).resolves.toBe(true)
+    await expect(homeApi.getAnalyticsEnabled()).resolves.toBe(false)
   })
 
   it('rejects non-boolean consent before invoking the main process', async () => {

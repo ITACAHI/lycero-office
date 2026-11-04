@@ -70,13 +70,13 @@ describe('extractAnalyticsKeys', () => {
 })
 
 describe('analyticsEnabledFrom', () => {
-  it('defaults to on when the key is absent or malformed', () => {
-    expect(analyticsEnabledFrom({})).toBe(true)
-    expect(analyticsEnabledFrom({ [ANALYTICS_ENABLED_KEY]: 'no' })).toBe(true)
-    expect(analyticsEnabledFrom({ [ANALYTICS_ENABLED_KEY]: 1 })).toBe(true)
+  it('defaults to off when the key is absent or malformed', () => {
+    expect(analyticsEnabledFrom({})).toBe(false)
+    expect(analyticsEnabledFrom({ [ANALYTICS_ENABLED_KEY]: 'yes' })).toBe(false)
+    expect(analyticsEnabledFrom({ [ANALYTICS_ENABLED_KEY]: 1 })).toBe(false)
   })
 
-  it('disables only an explicit boolean opt-out', () => {
+  it('enables only an explicit boolean opt-in', () => {
     expect(analyticsEnabledFrom({ [ANALYTICS_ENABLED_KEY]: false })).toBe(false)
     expect(analyticsEnabledFrom({ [ANALYTICS_ENABLED_KEY]: true })).toBe(true)
   })

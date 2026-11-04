@@ -379,6 +379,12 @@ export function KbAskPanel({
       }>
     >
   } | null>(null)
+  /** FX-69: attached skills belong to each thread rather than resetting on thread switch */
+  const skillsByThreadRef = useRef<Map<string, string[]>>(new Map())
+
+  useEffect(() => {
+    skillsByThreadRef.current.set(activeChat, attachedSkills)
+  }, [activeChat, attachedSkills])
 
   const persist = (entry: PersistChatEntry): void => {
     const ids = chatIdsRef.current
@@ -433,9 +439,19 @@ export function KbAskPanel({
       const metas = panelThreads(await api.listChats({ projectId: ids.projectId }))
       // Labels ride on the listing itself, so a refresh is one call however
       // many threads are stored.
-      setThreads(
-        listThreads(metas, (chatId) => metas.find((meta) => meta.chatId === chatId)?.firstQuestion),
+      const listed = listThreads(
+        metas,
+        (chatId) => metas.find((meta) => meta.chatId === chatId)?.firstQuestion,
       )
+      // FX-68: Cap stored kb-ask threads at 50, pruning oldest overflow
+      if (listed.length > 50) {
+        for (const stale of listed.slice(50)) {
+          if (stale.chatId !== activeChatRef.current) {
+            void api.deleteChat({ projectId: ids.projectId, chatId: stale.chatId }).catch(() => {})
+          }
+        }
+      }
+      setThreads(listed.slice(0, 50))
     } catch {
       setThreads([])
     }
@@ -443,7 +459,8 @@ export function KbAskPanel({
 
   // The model's history and the stored ids belong to the thread being left;
   // a question typed before the next claim resolves queues in pendingRef.
-  const leaveThread = (): void => {
+  const leaveThread = (nextChatId?: string): void => {
+    skillsByThreadRef.current.set(activeChatRef.current, attachedSkills)
     askSeqRef.current++
     loopRef.current?.reset()
     setBusy(false)
@@ -451,7 +468,7 @@ export function KbAskPanel({
     pendingRef.current = []
     messagesRef.current = []
     setMessages([])
-    setAttachedSkills([])
+    setAttachedSkills(nextChatId ? (skillsByThreadRef.current.get(nextChatId) ?? []) : [])
     // staged files belong to the thread they were dropped into
     setAttachments([])
     sentAttachmentsRef.current = []
@@ -459,14 +476,15 @@ export function KbAskPanel({
 
   /** Switching is a state change: the effect re-reads whichever thread is now active. */
   const openThread = (chatId: string): void => {
-    leaveThread()
+    leaveThread(chatId)
     setActiveChat(chatId)
   }
 
   /** A fresh id, so a new thread does not append to the one being read. */
   const startThread = (): void => {
-    leaveThread()
-    setActiveChat(`kb-ask-${Date.now()}`)
+    const nextId = `kb-ask-${Date.now()}`
+    leaveThread(nextId)
+    setActiveChat(nextId)
   }
 
   const removeThread = async (chatId: string, label: string): Promise<void> => {
@@ -812,9 +830,14 @@ export function KbAskPanel({
       return skillsMenuCacheRef.current.promise
     }
     const promise = (async () => {
+      const acct = await window.aiOffice.accountStatus?.().catch(() => null)
+      const userTier: 'free' | 'pro' | 'plus' | undefined =
+        acct?.tier === 'free' ? 'free' : acct?.tier === 'plus' ? 'plus' : acct?.tier ? 'pro' : undefined
       const [rawList, cloudCatalog] = await Promise.all([
         window.aiOffice.skillsList(),
-        fetchCloudSkillCatalog().catch(() => DEFAULT_CLOUD_SKILL_CATALOG),
+        fetchCloudSkillCatalog({
+          ...(userTier ? { userTier } : {}),
+        }).catch(() => DEFAULT_CLOUD_SKILL_CATALOG),
       ])
       const out = rawList.map((entry) => {
         const e = entry as {
@@ -988,6 +1011,14 @@ export function KbAskPanel({
   })
 
   const clearHistory = async (): Promise<void> => {
+    const count = Math.max(1, threads.length || (messages.length > 0 ? 1 : 0))
+    const confirmMsg =
+      lang === 'vi'
+        ? `Xóa toàn bộ ${count} cuộc trò chuyện? Không thể hoàn tác.`
+        : `Delete all ${count} conversations? This cannot be undone.`
+    if (!window.confirm(confirmMsg)) {
+      return
+    }
     const api = window.projectApi
     askSeqRef.current++
     loopRef.current?.reset()
@@ -996,6 +1027,8 @@ export function KbAskPanel({
     pendingRef.current = []
     messagesRef.current = []
     setMessages([])
+    skillsByThreadRef.current.clear()
+    setAttachedSkills([])
     if (!api) return
     try {
       const ids = chatIdsRef.current ?? (await api.resolveChat({ filePath: null, tempChatId: CHAT_ID }))
@@ -1239,7 +1272,14 @@ export function KbAskPanel({
             )}
             {m.text ? (
               m.role === 'assistant' ? (
-                <Markdown text={m.text} navs={[fileNav]} />
+                <>
+                  <Markdown text={m.text} navs={[fileNav]} />
+                  {m.streaming && toolProgressBytes > 0 && (
+                    <AiTypingIndicator
+                      label={`Đang soạn tài liệu… ${Math.max(1, Math.round(toolProgressBytes / 1024))} KB`}
+                    />
+                  )}
+                </>
               ) : (
                 m.text
               )

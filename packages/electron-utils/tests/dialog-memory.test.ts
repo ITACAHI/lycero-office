@@ -119,6 +119,28 @@ describe('showSaveDialogWithMemory', () => {
     await showSaveDialogWithMemory(dialog, undefined, { defaultPath: '/docs/tab.pdf' }, '/default')
     expect(dialog.showSaveDialog).toHaveBeenCalledWith({ defaultPath: '/docs/tab.pdf' })
   })
+
+  it('FX-95: asks for overwrite confirmation when the chosen file already exists and cancels on No', async () => {
+    const existingFile = __filename
+    const showMessageBox = vi.fn().mockResolvedValueOnce({ response: 1 }).mockResolvedValueOnce({
+      response: 0,
+    })
+    const dialog = fakeDialog({
+      showSaveDialog: pickedSave(existingFile),
+      showMessageBox,
+    })
+    const rejected = await showSaveDialogWithMemory(dialog, undefined, {
+      defaultPath: existingFile,
+    })
+    expect(showMessageBox).toHaveBeenCalledTimes(1)
+    expect(rejected).toEqual({ canceled: true, filePath: '' })
+
+    const accepted = await showSaveDialogWithMemory(dialog, undefined, {
+      defaultPath: existingFile,
+    })
+    expect(showMessageBox).toHaveBeenCalledTimes(2)
+    expect(accepted).toEqual({ canceled: false, filePath: existingFile })
+  })
 })
 
 describe('saveAsSuggestion', () => {

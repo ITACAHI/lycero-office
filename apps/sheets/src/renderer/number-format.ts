@@ -6,7 +6,7 @@
 import { getSystemShortDate } from '@lycero/xlsx-gateway/shared/short-date'
 import { DEFAULT_NUMFMT_OPTIONS, numfmtPattern, type NumfmtOptions } from './numfmt-dialog'
 import { numberFormatLabel } from './selection-format'
-import type { StringKey } from './i18n/locale'
+import { getLang, type StringKey } from './i18n/locale'
 
 // display only — option values keep the English label as the command identity
 export const NUMBER_FORMAT_LABEL: Record<string, StringKey> = {
@@ -33,11 +33,13 @@ export function numberFormatCategories(): ReadonlyArray<{
   readonly label: string
   readonly pattern: string
 }> {
+  const isVi = getLang() === 'vi'
+  const currencyLocale: Partial<NumfmtOptions> = isVi ? { symbol: '₫', decimals: 0 } : {}
   return [
     { label: 'General', pattern: pattern({ category: 'general' }) },
     { label: 'Number', pattern: pattern({ category: 'number' }) },
-    { label: 'Currency', pattern: pattern({ category: 'currency' }) },
-    { label: 'Accounting', pattern: pattern({ category: 'accounting' }) },
+    { label: 'Currency', pattern: pattern({ category: 'currency', ...currencyLocale }) },
+    { label: 'Accounting', pattern: pattern({ category: 'accounting', ...currencyLocale }) },
     {
       label: 'Short Date',
       pattern: pattern({ category: 'date', datePattern: getSystemShortDate() }),

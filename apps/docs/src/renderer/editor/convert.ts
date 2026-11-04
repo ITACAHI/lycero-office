@@ -2297,6 +2297,26 @@ export function pmDocToSavePlan(inputDoc: PmNode, originalBlocks: Block[]): Save
   const saveBlockIndexByDocx = new Map<number, number>()
   let changedCount = 0
   const usedIndexes = new Set<number>()
+  // Pre-scan duplicate docxIndex anchors (e.g. after Undo across a save or a
+  // paragraph split): if one of the nodes carrying `idx` still matches the
+  // original block's signature, reserve `idx` for that node so an earlier edited
+  // or resurrected twin does not steal the original anchor.
+  const indexCounts = new Map<number, number>()
+  for (const n of doc.content ?? []) {
+    const idx = n.attrs?.docxIndex as number | null | undefined
+    if (typeof idx === 'number') indexCounts.set(idx, (indexCounts.get(idx) ?? 0) + 1)
+  }
+  const preferredNodeForIndex = new Map<number, PmNode>()
+  for (const n of doc.content ?? []) {
+    const idx = n.attrs?.docxIndex as number | null | undefined
+    if (typeof idx !== 'number' || (indexCounts.get(idx) ?? 0) <= 1) continue
+    if (preferredNodeForIndex.has(idx) || n.type === 'docTable' || n.type === 'docProtected')
+      continue
+    const orig = originalByIndex.get(idx)
+    if (orig && signatureOfBlock(orig) === signatureOfGenerated(pmNodeToGeneratedBlock(n))) {
+      preferredNodeForIndex.set(idx, n)
+    }
+  }
   /** record where an original anchor ended up in saveBlocks (set before push) */
   const mapAnchor = (idx: number) => saveBlockIndexByDocx.set(idx, saveBlocks.length)
 
@@ -2720,7 +2740,10 @@ export function pmDocToSavePlan(inputDoc: PmNode, originalBlocks: Block[]): Save
     }
 
     const generated = pmNodeToGeneratedBlock(node)
-    const idx = node.attrs?.docxIndex as number | null
+    const rawIdx = node.attrs?.docxIndex as number | null
+    const preferred =
+      rawIdx !== null && rawIdx !== undefined ? preferredNodeForIndex.get(rawIdx) : undefined
+    const idx = preferred && preferred !== node ? null : rawIdx
     const original = idx !== null && idx !== undefined ? originalByIndex.get(idx) : undefined
     if (
       original &&
@@ -3379,10 +3402,8 @@ function applyRawPPr(generated: GeneratedBlock, original: Block): void {
   } else if (generated.pPrChange) {
     rawPPr = setPPrChange(rawPPr, generated.pPrChange)
   }
-  if (generated.paraMarkDel === null && original.paraMarkDel)
-    rawPPr = stripParaMarkRevision(rawPPr, 'del')
-  if (generated.paraMarkIns === null && original.paraMarkIns)
-    rawPPr = stripParaMarkRevision(rawPPr, 'ins')
+  if (generated.paraMarkDel === null) rawPPr = stripParaMarkRevision(rawPPr, 'del')
+  if (generated.paraMarkIns === null) rawPPr = stripParaMarkRevision(rawPPr, 'ins')
   if (original.paraMarkRPrChange) {
     if (generated.paraMarkRPrChange === null) rawPPr = resolveParaMarkRPrChange(rawPPr, 'accept')
     else if (generated.paraMarkRPrChange?.includes('"resolved":"reject"'))

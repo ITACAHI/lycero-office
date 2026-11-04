@@ -8,7 +8,9 @@ import type { AgentToolCall } from '@lycero/agent-core'
 import { streamForProvider } from '../src/stream'
 import {
   AI_CONNECT_TIMEOUT_MS,
+  AI_CONTENT_IDLE_TIMEOUT_MS,
   AI_IDLE_TIMEOUT_MS,
+  AI_TOOL_CALL_CONTENT_IDLE_TIMEOUT_MS,
   AI_TOTAL_TIMEOUT_MS,
   AiTimeoutError,
   createStreamWatchdog,
@@ -206,5 +208,95 @@ describe('stream timeouts end to end', () => {
     // a ping-only stream carries no content, so the turn itself rejects
     await expect(run).rejects.toThrow(/returned no content/)
     expect(onActivity).toHaveBeenCalled()
+  })
+
+  it('FX-83: waits through 150s silence during tool-call argument generation (up to 240s), but errors at 105s outside tool-call', async () => {
+    expect(AI_CONTENT_IDLE_TIMEOUT_MS).toBe(105_000)
+    expect(AI_TOOL_CALL_CONTENT_IDLE_TIMEOUT_MS).toBe(240_000)
+    const encoder = new TextEncoder()
+
+    // 1. Outside tool-call: aborts at 105s even if pings arrive
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+        const signal = init.signal!
+        const body = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(
+              encoder.encode(
+                'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hi"}}\n\n',
+              ),
+            )
+            signal.addEventListener('abort', () => controller.error(new Error('aborted')))
+          },
+        })
+        return Promise.resolve(new Response(body, { status: 200 }))
+      }),
+    )
+    const runOutside = streamForProvider(
+      'anthropic',
+      { apiKey: 'k', model: 'claude-sonnet-5' },
+      'system',
+      [{ role: 'user', text: 'hi' }],
+      [],
+      100,
+      collector().cb,
+    )
+    const outsideResult = expect(runOutside).rejects.toThrow(/105s/)
+    await vi.advanceTimersByTimeAsync(105_000)
+    await outsideResult
+
+    // 2. Inside tool-call (after content_block_start of tool_use): still alive at 150s, completes when delta arrives
+    let streamCtrl: ReadableStreamDefaultController<Uint8Array> | undefined
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+        const signal = init.signal!
+        const body = new ReadableStream<Uint8Array>({
+          start(controller) {
+            streamCtrl = controller
+            controller.enqueue(
+              encoder.encode(
+                'data: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"call_1","name":"create_document"}}\n\n',
+              ),
+            )
+            signal.addEventListener('abort', () => controller.error(new Error('aborted')))
+          },
+        })
+        return Promise.resolve(new Response(body, { status: 200 }))
+      }),
+    )
+    const toolCalls: AgentToolCall[] = []
+    const progressEvents: Array<{ name?: string; bytes: number }> = []
+    const runInside = streamForProvider(
+      'anthropic',
+      { apiKey: 'k', model: 'claude-sonnet-5' },
+      'system',
+      [{ role: 'user', text: 'create' }],
+      [],
+      100,
+      {
+        ...collector().cb,
+        onToolCall: (call) => toolCalls.push(call),
+        onToolArgsProgress: (info) => progressEvents.push(info),
+      },
+    )
+    // Flush headers + content_block_start chunk
+    await vi.advanceTimersByTimeAsync(10)
+    // Simulate 150s of server silence while generating tool arguments
+    await vi.advanceTimersByTimeAsync(150_000)
+    // Stream is still alive! Now emit the buffered arguments and close cleanly
+    streamCtrl!.enqueue(
+      encoder.encode(
+        'data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\\"title\\":\\"Report\\"}"}}\n\n' +
+          'data: {"type":"content_block_stop","index":0}\n\n' +
+          'data: {"type":"message_delta","delta":{"stop_reason":"tool_use"}}\n\n',
+      ),
+    )
+    streamCtrl!.close()
+    await runInside
+    expect(toolCalls).toHaveLength(1)
+    expect(toolCalls[0]?.name).toBe('create_document')
+    expect(progressEvents.length).toBeGreaterThanOrEqual(2)
   })
 })

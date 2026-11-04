@@ -15,6 +15,7 @@ import { tabSpecsToStops, validateTabs, type TabSpec } from './tab-stops'
 import { styleOpDefs, type AiStyleAccess } from './style-ops'
 import { fieldOpDefs } from './field-ops'
 import { tableOpDefs } from './table-ops'
+import { preserveMatchedCase } from '../editor/find'
 
 /**
  * Canonical edit ops for the document. The model (apply_ops) and, later, the
@@ -1005,7 +1006,12 @@ function runFindReplace(op: Op, env: RunEnv): OpResult {
   const needle = matchCase ? find : find.toLowerCase()
   const blocks = op.target ? matchTarget(tr.doc, targetOf(op), sel) : topLevelBlocks(tr.doc)
   const scoped = op.target ? scopedRange(targetOf(op), sel) : null
-  const replacements: Array<{ from: number; to: number; marks: PmDocNode['marks'] }> = []
+  const replacements: Array<{
+    from: number
+    to: number
+    matched: string
+    marks: PmDocNode['marks']
+  }> = []
   const touchedIndexes = new Set<number>()
   let skippedProtected = 0
   let skippedDeleted = 0
@@ -1028,7 +1034,12 @@ function runFindReplace(op: Op, env: RunEnv): OpResult {
           if (struck) {
             skippedDeleted++
           } else if (insideScope(b, scoped, from, from + needle.length)) {
-            replacements.push({ from, to: from + needle.length, marks: child.marks })
+            replacements.push({
+              from,
+              to: from + needle.length,
+              matched: child.text.slice(at, at + needle.length),
+              marks: child.marks,
+            })
             touchedIndexes.add(b.index)
           }
           at = hay.indexOf(needle, at + needle.length)
@@ -1085,7 +1096,8 @@ function runFindReplace(op: Op, env: RunEnv): OpResult {
     // the redaction mark belongs to the reader, so a rewrite never inherits it
     for (const r of [...replacements].reverse()) {
       const marks = r.marks.filter((m) => m.type.name !== REDACT_MARK)
-      if (replace) tr.replaceWith(r.from, r.to, schema.text(replace, marks))
+      const effectiveReplace = preserveMatchedCase(r.matched, replace, matchCase)
+      if (effectiveReplace) tr.replaceWith(r.from, r.to, schema.text(effectiveReplace, marks))
       else tr.delete(r.from, r.to)
     }
 

@@ -389,7 +389,9 @@ import {
 } from './folder-roots'
 import extractWorkerPath from './file-index/extract-worker?modulePath'
 import { FileIndexer } from './file-index/indexer'
-import { FileIndexStore } from './file-index/store'
+import { scanFiles, statOrNull, type ScannedFile } from './file-index/scan'
+import { FileIndexStore, type SearchHit } from './file-index/store'
+import { parseQuery } from './file-index/tokenize'
 import { normalizeFileSearchSettings, probeDecision, SearchReranker } from './file-index/rerank'
 import {
   createKnowledgeDocument,
@@ -3908,6 +3910,83 @@ function ensureFolderWatchers(): void {
     })
     folderWatchers.set(root, watcher)
   }
+  ensureFileIndexer()?.refreshIfStale(60_000)
+}
+
+function foldSearchText(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .toLowerCase()
+}
+
+function fallbackFilenameSearch(
+  q: string,
+  exts: readonly string[] | undefined,
+  existingHits: readonly SearchHit[],
+): SearchHit[] {
+  const parsed = parseQuery(q)
+  if (parsed.include.length === 0) return []
+  const allowedExts = exts?.length ? new Set(exts.map((e) => e.toLowerCase())) : null
+  const seenPaths = new Set(existingHits.map((h) => h.path))
+  const candidates: ScannedFile[] = []
+  for (const root of folderRootPaths()) {
+    if (!existsSync(root)) continue
+    for (const f of scanFiles(root, { maxDepth: 8, maxFiles: 5_000 }).files) {
+      if (!seenPaths.has(f.path)) {
+        seenPaths.add(f.path)
+        candidates.push(f)
+      }
+    }
+  }
+  for (const p of [...readRecentFiles(), ...readStarredFiles()]) {
+    if (seenPaths.has(p)) continue
+    const st = statOrNull(p)
+    if (st) {
+      seenPaths.add(p)
+      candidates.push(st)
+    }
+  }
+  const incTerms = parsed.include.map((t) => ({
+    raw: t.text.toLowerCase(),
+    folded: foldSearchText(t.text),
+  }))
+  const excTerms = parsed.exclude.map((t) => ({
+    raw: t.text.toLowerCase(),
+    folded: foldSearchText(t.text),
+  }))
+  const hits: SearchHit[] = []
+  for (const f of candidates) {
+    const name = basename(f.path)
+    const ext = extname(name).slice(1).toLowerCase()
+    if (allowedExts && !allowedExts.has(ext)) continue
+    const rawHay = `${name.toLowerCase()} ${f.path.toLowerCase()}`
+    const foldedHay = foldSearchText(`${name} ${f.path}`)
+    if (excTerms.some((t) => rawHay.includes(t.raw) || foldedHay.includes(t.folded))) continue
+    const needles: string[] = []
+    let matchedAll = true
+    for (const t of incTerms) {
+      if (rawHay.includes(t.raw) || foldedHay.includes(t.folded)) {
+        needles.push(t.raw)
+      } else {
+        matchedAll = false
+        break
+      }
+    }
+    if (!matchedAll) continue
+    hits.push({
+      path: f.path,
+      name,
+      ext,
+      mtimeMs: f.mtimeMs,
+      sizeBytes: f.sizeBytes,
+      snippet: null,
+      needles,
+    })
+  }
+  hits.sort((a, b) => b.mtimeMs - a.mtimeMs)
+  return hits
 }
 
 /**
@@ -5108,6 +5187,9 @@ function registerHomeIpc(): void {
   })
 
   ipcMain.handle(HOME_CHANNELS.getAppVersion, (): string => app.getVersion())
+  ipcMain.handle(HOME_CHANNELS.checkForUpdates, async (): Promise<void> => {
+    await checkForUpdatesNow()
+  })
 
   ipcMain.handle(HOME_CHANNELS.recents, (_event, query: unknown): RecentPage =>
     pageRecentPaths(readRecentFiles(), query, new Set(readStarredFiles())),
@@ -5128,9 +5210,20 @@ function registerHomeIpc(): void {
     const limit = Number.isFinite(query.limit) ? Math.max(0, Math.floor(query.limit!)) : 50
     const starred = new Set(readStarredFiles())
     const result = q ? fileIndexStore.search(q, { exts, offset, limit }) : { hits: [], total: 0 }
+    let mergedHits = result.hits
+    let mergedTotal = result.total
+    if (q && mergedHits.length < limit) {
+      const extra = fallbackFilenameSearch(q, exts, mergedHits)
+      if (extra.length > 0) {
+        const start = Math.max(0, offset - result.total)
+        const slice = extra.slice(start, start + Math.max(0, limit - mergedHits.length))
+        mergedHits = [...mergedHits, ...slice]
+        mergedTotal = result.total + extra.length
+      }
+    }
     return {
-      hits: result.hits.map((h) => ({ ...h, starred: starred.has(h.path) })),
-      total: result.total,
+      hits: mergedHits.map((h) => ({ ...h, starred: starred.has(h.path) })),
+      total: mergedTotal,
       index: indexer.progress(),
     }
   })
@@ -5529,9 +5622,21 @@ function registerHomeIpc(): void {
 
   // comment / tracked-change author (Word: Options → General → User name);
   // the editor mains resolve the same key via configuredAuthorName
+  const fallbackAuthorName = (): string => {
+    const sess = getSession()
+    const accountName = sanitizeAuthorName(
+      sess?.user?.name || (sess?.user?.email ? sess.user.email.split('@')[0] : ''),
+    )
+    if (accountName) return accountName
+    const osName = systemAuthorName()
+    if (osName && !/^(box|root|ubuntu)$/i.test(osName)) {
+      return osName
+    }
+    return 'Lycero User'
+  }
   const authorNameSetting = (): AuthorNameSetting => ({
     value: readAuthorNameSetting(APP_SETTINGS_PATH()),
-    fallback: systemAuthorName(),
+    fallback: fallbackAuthorName(),
   })
   ipcMain.handle(HOME_CHANNELS.getAuthorName, (): AuthorNameSetting => authorNameSetting())
   ipcMain.handle('app:get-author-name', (): string => {
@@ -5542,7 +5647,7 @@ function registerHomeIpc(): void {
     const value = sanitizeAuthorName(raw)
     if (value !== readAuthorNameSetting(APP_SETTINGS_PATH())) {
       writeAppSetting(APP_SETTINGS_PATH(), AUTHOR_NAME_KEY, value)
-      const effective = value || systemAuthorName()
+      const effective = value || fallbackAuthorName()
       for (const wc of webContents.getAllWebContents())
         wc.send('app:author-name-changed', effective)
     }

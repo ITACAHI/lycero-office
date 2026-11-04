@@ -396,6 +396,7 @@ async function openAiCompatibleTurn(
       }
     }
     for (const tc of choice.delta?.tool_calls ?? []) {
+      wd.setToolCallActive?.(true)
       wd.touchContent()
       if (!pendingTools.has(tc.index)) {
         throwIfToolCountOverBudget(pendingTools.size + 1, 'openai-compatible')
@@ -419,14 +420,15 @@ async function openAiCompatibleTurn(
       if (tc.function?.arguments) {
         pending.json += tc.function.arguments
         throwIfToolJsonOverBudget(pending.json.length, 'openai-compatible')
-        cb.onToolArgsProgress?.({
-          name: pending.name || undefined,
-          bytes: Buffer.byteLength(pending.json, 'utf8'),
-        })
       }
+      cb.onToolArgsProgress?.({
+        name: pending.name || undefined,
+        bytes: Buffer.byteLength(pending.json, 'utf8'),
+      })
       pendingTools.set(tc.index, pending)
     }
     if (choice.finish_reason) {
+      wd.setToolCallActive?.(false)
       sawFinish = true
       if (choice.finish_reason === 'length') stopReason = 'max_tokens'
       else if (choice.finish_reason !== 'stop' && choice.finish_reason !== 'tool_calls') {

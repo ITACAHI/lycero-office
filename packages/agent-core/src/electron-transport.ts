@@ -73,7 +73,7 @@ export interface IpcStreamStart<S> {
  * lost chunks) and the run must fail instead of leaving the UI busy forever.
  * Longer than the main-process idle timeout (180s) so that one (localized) wins.
  */
-export const IPC_STREAM_SILENCE_TIMEOUT_MS = 240_000
+export const IPC_STREAM_SILENCE_TIMEOUT_MS = 300_000
 
 export interface IpcTransportOptions<S> {
   /** subscribe to stream chunks; returns the unsubscribe function */
@@ -118,16 +118,18 @@ export interface IpcTransportOptions<S> {
  * Each app wires in its own preload bridge and i18n via the options.
  */
 export function createIpcTransport<S>(options: IpcTransportOptions<S>): AgentTransport {
-  const timeoutText = (detail?: string) => {
-    if (
+  const timeoutText = (detail?: string, reqId?: string) => {
+    const base =
       detail &&
       (detail.includes('Máy chủ không phản hồi') ||
         detail.includes('Yêu cầu chạy quá lâu') ||
         detail.includes('Stream closed without a finish event'))
-    ) {
-      return detail
+        ? detail
+        : (options.timeoutErrorText?.() ?? detail ?? 'Máy chủ không phản hồi')
+    if (reqId && !base.includes(reqId) && !/\(requestId:\s*[^)]+\)/i.test(base)) {
+      return `${base} (requestId: ${reqId})`
     }
-    return options.timeoutErrorText?.() ?? detail ?? 'Máy chủ không phản hồi'
+    return base
   }
   const sessionId = crypto.randomUUID()
   return {
@@ -150,7 +152,7 @@ export function createIpcTransport<S>(options: IpcTransportOptions<S>): AgentTra
         clearTimeout(silenceTimer)
         silenceTimer = setTimeout(() => {
           options.cancel(requestId)
-          fail(timeoutText())
+          fail(timeoutText(undefined, requestId))
         }, IPC_STREAM_SILENCE_TIMEOUT_MS)
       }
       const unsubscribe = options.onStream((chunk) => {
@@ -182,7 +184,7 @@ export function createIpcTransport<S>(options: IpcTransportOptions<S>): AgentTra
             (chunk.error.includes('Mã yêu cầu:') || chunk.error.includes('requestId:'))
           cb.onError(
             chunk.errorCode === 'timeout'
-              ? timeoutText(chunk.error)
+              ? timeoutText(chunk.error, requestId)
               : hasRequestIdMsg
                 ? chunk.error!
                 : chunk.errorCode === 'credits'

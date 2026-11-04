@@ -36,6 +36,9 @@ export function effectiveSizeHalfPoints(
     break
   }
 
+  const defParaSize = defaultParagraphStyle(styles)?.display?.sizeHalfPoints
+  if (typeof defParaSize === 'number' && defParaSize > 0) return defParaSize
+
   const defaultSize = docDefaults?.sizeHalfPoints
   return typeof defaultSize === 'number' && defaultSize > 0 ? defaultSize : null
 }
@@ -50,6 +53,8 @@ function runSizeHalfPoints(
   if (Number.isFinite(direct) && direct > 0) return direct
   const styled = styleSize(attrs.styleId, styles) ?? styleSize(paraStyleId, styles)
   if (styled !== null) return styled
+  const defParaSize = defaultParagraphStyle(styles)?.display?.sizeHalfPoints
+  if (typeof defParaSize === 'number' && defParaSize > 0) return defParaSize
   const d = defaults?.sizeHalfPoints
   return typeof d === 'number' && d > 0 ? d : null
 }

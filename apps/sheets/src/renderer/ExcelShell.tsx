@@ -54,7 +54,7 @@ import {
   type PasteSpecialSource,
 } from './paste-special'
 import { COLOR_SCHEMES, FONT_SCHEMES, THEME_PRESETS } from './themes'
-import { useI18n, type StringKey } from './i18n/locale'
+import { getLang, useI18n, type StringKey } from './i18n/locale'
 import { NameManagerDialog, type DefinedNameAction, type DefinedNameRow } from './NameManagerDialog'
 import {
   NUMBER_FORMAT_LABEL,
@@ -3823,9 +3823,13 @@ function Ribbon({
             <button
               data-tip={t('appCurrency')}
               aria-label={t('appCurrency')}
-              onClick={() => onCommand(`format:${accountingStyle(RIBBON_CURRENCY_SYMBOL)}`)}
+              onClick={() =>
+                onCommand(
+                  `format:${accountingStyle(getLang() === 'vi' ? '₫' : RIBBON_CURRENCY_SYMBOL)}`,
+                )
+              }
             >
-              $
+              {getLang() === 'vi' ? '₫' : '$'}
             </button>
             <button
               data-tip={t('appPercentTitle')}

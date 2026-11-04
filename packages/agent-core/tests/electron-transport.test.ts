@@ -129,9 +129,9 @@ describe('createIpcTransport', () => {
   })
 
   it('maps a timeout error code to the localized timeout message, preserving specific FX-62 watchdog messages', () => {
-    const { cb, emit } = setup()
+    const { cb, emit, started } = setup()
     emit({ type: 'error', error: 'AI request timed out: no data received', errorCode: 'timeout' })
-    expect(cb.onError).toHaveBeenCalledWith('timed out')
+    expect(cb.onError).toHaveBeenCalledWith(`timed out (requestId: ${started[0]!.requestId})`)
 
     const { cb: cbIdle, emit: emitIdle } = setup()
     emitIdle({
@@ -224,7 +224,7 @@ describe('createIpcTransport', () => {
       vi.advanceTimersByTime(IPC_STREAM_SILENCE_TIMEOUT_MS - 1)
       expect(cb.onError).not.toHaveBeenCalled()
       vi.advanceTimersByTime(IPC_STREAM_SILENCE_TIMEOUT_MS)
-      expect(cb.onError).toHaveBeenCalledWith('timed out')
+      expect(cb.onError).toHaveBeenCalledWith(`timed out (requestId: ${started[0]!.requestId})`)
       expect(cancelled).toEqual([started[0]!.requestId])
     } finally {
       vi.useRealTimers()

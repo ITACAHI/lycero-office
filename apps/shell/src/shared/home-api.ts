@@ -427,6 +427,8 @@ export interface HomeApi {
   /** whether the launch and periodic background update checks run (default on) */
   getAutoUpdateCheck(): Promise<boolean>
   setAutoUpdateCheck(on: boolean): Promise<void>
+  /** trigger an explicit update check from Settings → About */
+  checkForUpdates?(): Promise<void>
   /** Lycero account status (gsk login state; to be upgraded to a signup/account system later) */
   accountStatus(): Promise<AccountStatus>
   /** start Lycero login (opens the browser; accountStatus flips to logged-in on completion); returns whether the launch succeeded */
@@ -795,6 +797,7 @@ export const HOME_CHANNELS = {
   setUpdateChannel: 'home:set-update-channel',
   getAutoUpdateCheck: 'home:get-auto-update-check',
   setAutoUpdateCheck: 'home:set-auto-update-check',
+  checkForUpdates: 'home:check-for-updates',
   accountStatus: 'home:account-status',
   accountLogin: 'home:account-login',
   accountLoginEvent: 'home:account-login-event',

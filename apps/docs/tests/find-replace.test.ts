@@ -261,6 +261,17 @@ describe('expandReplacement', () => {
   it('leaves unknown sequences alone', () => {
     expect(expandReplacement('$x ^q \\', m('q', null), 'regex')).toEqual(['$x ^q \\'])
   })
+  it('FX-86: preserves ALL-CAPS and Title Case when matchCase is false', () => {
+    expect(expandReplacement('Đồng Nai', m('BÌNH DƯƠNG', null), 'literal', false)).toEqual([
+      'ĐỒNG NAI',
+    ])
+    expect(expandReplacement('Đồng Nai', m('Bình Dương', null), 'literal', false)).toEqual([
+      'Đồng Nai',
+    ])
+    expect(expandReplacement('đồng nai', m('Bình Dương', null), 'literal', false)).toEqual([
+      'Đồng Nai',
+    ])
+  })
 })
 
 describe('replace through the editor', () => {

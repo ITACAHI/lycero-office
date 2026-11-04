@@ -321,7 +321,13 @@ export function DrawLayer({
   }
 
   const shapeDown = (e: ReactPointerEvent<SVGGElement>, id: string) => {
-    if (tool || e.button !== 0) return
+    if (tool === 'note' || e.button !== 0) return
+    if (tool) {
+      e.preventDefault()
+      e.stopPropagation()
+      onSelect(id, e.clientX, e.clientY)
+      return
+    }
     // Without preventDefault the drag would also start a text selection in the
     // text layer underneath (and pop the markup bar on release)
     e.preventDefault()
@@ -436,12 +442,18 @@ export function DrawLayer({
               onPointerMove={shapeMove}
               onPointerUp={shapeUp}
               onPointerCancel={() => setDrag(null)}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                onSelect(d.id, e.clientX, e.clientY)
+              }}
               style={{
-                pointerEvents: tool ? 'none' : d.input.kind === 'image' ? 'auto' : 'stroke',
+                pointerEvents:
+                  tool === 'note' ? 'none' : d.input.kind === 'image' ? 'auto' : 'stroke',
               }}
             >
               <title>{selectTitle}</title>
-              {!tool && drawingShape(d.input, geom, scale, true)}
+              {tool !== 'note' && drawingShape(d.input, geom, scale, true)}
               {drawingShape(d.input, geom, scale)}
             </g>
           ),
@@ -505,7 +517,15 @@ export function DrawLayer({
             style={{ left: vx, top: vy - 20, background: cssRgb(pin.color) }}
             data-tip={tip}
             aria-label={tip}
-            onClick={(e) => onNoteOpen(pin.key, e.clientX, e.clientY)}
+            onClick={(e) => {
+              e.stopPropagation()
+              onNoteOpen(pin.key, e.clientX, e.clientY)
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onNoteOpen(pin.key, e.clientX, e.clientY)
+            }}
           >
             <svg
               width="11"

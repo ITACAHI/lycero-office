@@ -28,6 +28,8 @@ export interface AiNotesAccess {
   protectedMarkBlock?(kind: NoteKind, id: string): number | null
 }
 
+import { preserveMatchedCase } from '../editor/find'
+
 /** every occurrence of `find` in `text`, honouring matchCase */
 function occurrences(text: string, find: string, matchCase: boolean): number[] {
   const hay = matchCase ? text : text.toLowerCase()
@@ -46,7 +48,8 @@ function replaceAll(text: string, find: string, replace: string, matchCase: bool
   let out = ''
   let cursor = 0
   for (const at of hits) {
-    out += text.slice(cursor, at) + replace
+    const matched = text.slice(at, at + find.length)
+    out += text.slice(cursor, at) + preserveMatchedCase(matched, replace, matchCase)
     cursor = at + find.length
   }
   return out + text.slice(cursor)
@@ -61,6 +64,7 @@ function replaceInRuns(runs: NoteRun[], find: string, replace: string, matchCase
   const hits = occurrences(joined, find, matchCase)
   for (const at of [...hits].reverse()) {
     const end = at + find.length
+    const effectiveReplace = preserveMatchedCase(joined.slice(at, end), replace, matchCase)
     let offset = 0
     let first = -1
     for (let i = 0; i < runs.length; i++) {
@@ -73,7 +77,7 @@ function replaceInRuns(runs: NoteRun[], find: string, replace: string, matchCase
       const tail = run.text.slice(Math.min(run.text.length, end - runStart))
       if (first === -1) {
         first = i
-        run.text = head + replace + tail
+        run.text = head + effectiveReplace + tail
       } else {
         run.text = head + tail
       }

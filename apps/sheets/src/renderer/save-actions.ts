@@ -36,8 +36,8 @@ import {
 } from './edit-journal'
 import {
   activeCsvSheet,
-  cellPatternLookup,
   handleExportCsv,
+  rawCellPatternLookup,
   serializeActiveSheetCsv,
 } from './csv-export'
 import type { CellState } from '@lycero/xlsx-gateway/domain/workbook.types'
@@ -390,7 +390,7 @@ export async function handleSave(
         : serializeActiveSheetCsv(
             active.sheet,
             state,
-            cellPatternLookup(runtime, active.sheet.getSheetId(), state.file.date1904 === true),
+            rawCellPatternLookup(runtime, active.sheet.getSheetId(), state.file.date1904 === true),
           )
     if (serialized === 'too-large') {
       ctx.setMessage(t('appCsvExportTooLarge'))

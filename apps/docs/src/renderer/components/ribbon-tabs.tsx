@@ -173,7 +173,38 @@ export function applyParagraphStyle(
 
 /** mark types Word counts as direct character formatting when a paragraph style is applied */
 const DIRECT_MARKS = ['bold', 'italic', 'underline', 'strike'] as const
-const DIRECT_TEXT_STYLE_ATTRS = ['color', 'sizeHalfPoints', 'font', 'fontAscii'] as const
+const DIRECT_TEXT_STYLE_ATTRS = [
+  'color',
+  'sizeHalfPoints',
+  'font',
+  'fontAscii',
+  'eastAsiaFont',
+  'csFont',
+] as const
+
+function stripShedAttrsFromRawRPr(
+  rawRPr: string | null | undefined,
+  cleared: ReadonlySet<string>,
+): string | null {
+  if (!rawRPr) return null
+  let next = rawRPr
+  if (
+    cleared.has('font') ||
+    cleared.has('fontAscii') ||
+    cleared.has('eastAsiaFont') ||
+    cleared.has('csFont')
+  ) {
+    next = next.replace(/<w:rFonts\b[^>]*(?:\/>|>[\s\S]*?<\/w:rFonts>)/g, '')
+  }
+  if (cleared.has('sizeHalfPoints')) {
+    next = next.replace(/<w:sz(?:Cs)?\b[^>]*(?:\/>|>[\s\S]*?<\/w:sz(?:Cs)?>)/g, '')
+  }
+  if (cleared.has('color')) {
+    next = next.replace(/<w:color\b[^>]*(?:\/>|>[\s\S]*?<\/w:color>)/g, '')
+  }
+  const inner = next.replace(/^<w:rPr(?:\s[^>]*)?>/, '').replace(/<\/w:rPr>$/, '').trim()
+  return inner ? next : null
+}
 
 /**
  * Word's rule for direct character formatting under a new paragraph style: a
@@ -207,14 +238,34 @@ export function shedMajorityDirectFormatting(tr: Transaction, pos: number): void
   for (const k of shed) if (!k.startsWith('ts:')) tr.removeMark(start, end, schema.marks[k])
   const attrsToClear = shed.filter((k) => k.startsWith('ts:')).map((k) => k.slice(3))
   if (attrsToClear.length === 0) return
+  const clearSet = new Set(attrsToClear)
+  if (
+    clearSet.has('font') ||
+    clearSet.has('fontAscii') ||
+    clearSet.has('eastAsiaFont') ||
+    clearSet.has('csFont')
+  ) {
+    clearSet.add('font')
+    clearSet.add('fontAscii')
+    clearSet.add('eastAsiaFont')
+    clearSet.add('csFont')
+    clearSet.add('eaSlotEmpty')
+    clearSet.add('themeRFonts')
+  }
+  if (clearSet.has('color')) {
+    clearSet.add('themeColor')
+  }
   const type = schema.marks.docTextStyle
   const jobs: Array<{ from: number; to: number; attrs: Record<string, unknown> | null }> = []
   node.forEach((child, offset) => {
     const m = child.marks.find((mm) => mm.type === type)
-    if (!m || !attrsToClear.some((a) => m.attrs[a] != null)) return
+    if (!m || ![...clearSet].some((a) => m.attrs[a] != null)) return
     const attrs = { ...m.attrs }
-    for (const a of attrsToClear) attrs[a] = null
-    const keep = Object.values(attrs).some((v) => v != null && v !== false)
+    for (const a of clearSet) attrs[a] = null
+    attrs.rawRPr = stripShedAttrsFromRawRPr(attrs.rawRPr as string | null | undefined, clearSet)
+    const keep = Object.entries(attrs).some(
+      ([k, v]) => k !== 'rawRPr' && k !== 'eaLang' && v != null && v !== false,
+    )
     jobs.push({
       from: start + offset,
       to: start + offset + child.nodeSize,
@@ -268,6 +319,9 @@ export function applyParagraphStyleId(
         if (type === schema.nodes.docHeading) {
           attrs.level = headingLevel ?? node.attrs.level
           attrs.outlineOnly = null
+          attrs.emptyRunSize = null
+          attrs.emptyRunFont = null
+          attrs.markSize = null
         }
         tr.setNodeMarkup(pos, type === node.type ? undefined : type, attrs)
         shedMajorityDirectFormatting(tr, pos)

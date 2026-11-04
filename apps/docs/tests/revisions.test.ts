@@ -1146,6 +1146,13 @@ describe('moves and paragraph marks (genoffice#2086)', () => {
     })
     return { parsed, editor }
   }
+  async function trackedDoc(bodyXml: string) {
+    const { parsed, editor } = await openEditor(bodyXml)
+    const storage = editor.storage.trackChanges as TrackChangesStorage
+    storage.enabled = true
+    storage.author = 'Tester'
+    return { parsed, editor }
+  }
   async function savedXml(editor: Editor, parsed: Awaited<ReturnType<typeof parseDocx>>) {
     const plan = pmDocToSavePlan(editor.getJSON() as PmNode, parsed.blocks)
     const zip = await JSZip.loadAsync(await saveDocx(parsed, plan.saveBlocks))
@@ -1316,5 +1323,85 @@ describe('moves and paragraph marks (genoffice#2086)', () => {
     expect(rejected).not.toMatch(/<w:rPrChange|<w:caps/)
     expect(rejected).toContain('<w:pPr><w:rPr><w:b/></w:rPr></w:pPr>')
     again.editor.destroy()
+  })
+
+  it('FX-84: setContent during save/autosave with Track Changes enabled does not duplicate or invert blocks, and acceptAll leaves 0 revisions', async () => {
+    const bodyXml =
+      `<w:p>${R('Quốc hiệu')}</w:p>` +
+      `<w:p>${R('Kính gửi: UBND Tỉnh Đồng Nai')}</w:p>` +
+      `<w:p>${R('Nội dung công văn')}</w:p>` +
+      `<w:p>${R('Nơi nhận')}</w:p>`
+    const { editor, parsed } = await trackedDoc(bodyXml)
+
+    // Insert a tracked paragraph and a 3x3 table in the middle (after "Kính gửi")
+    const afterKinhGui = editor.state.doc.child(0).nodeSize + editor.state.doc.child(1).nodeSize
+    editor.commands.insertContentAt(afterKinhGui, [
+      { type: 'docParagraph', content: [{ type: 'text', text: 'Nhận xét mới' }] },
+      tableModelToPmNode({
+        rows: [
+          [{ paras: ['A1'] }, { paras: ['B1'] }, { paras: ['C1'] }],
+          [{ paras: ['A2'] }, { paras: ['B2'] }, { paras: ['C2'] }],
+          [{ paras: ['A3'] }, { paras: ['B3'] }, { paras: ['C3'] }],
+        ],
+      }),
+    ])
+
+    // First autosave + reparse + setContent (even without suppress, preventUpdate filters it out)
+    const plan1 = pmDocToSavePlan(editor.getJSON() as PmNode, parsed.blocks)
+    const bytes1 = await saveDocx(parsed, plan1.saveBlocks)
+    const reparsed1 = await parseDocx(bytes1)
+    // Verify unique w:id on all emitted revisions (none should be "0")
+    const revIds = [...reparsed1.internal.documentXml.matchAll(/<w:(?:ins|del)\b[^>]*\bw:id="([^"]+)"/g)].map(
+      (m) => m[1],
+    )
+    expect(revIds.length).toBeGreaterThan(0)
+    expect(revIds).not.toContain('0')
+    expect(new Set(revIds).size).toBe(revIds.length)
+
+    const rebasedPm1 = blocksToPmDoc(reparsed1.blocks)
+    editor.commands.setContent(rebasedPm1 as never)
+
+    // Order must stay intact, no phantom blockDel duplicates
+    expect(collectRevisions(editor.state.doc).filter((r) => r.kind === 'blockDel')).toHaveLength(0)
+    expect(paragraphs(editor)).toEqual([
+      'Quốc hiệu',
+      'Kính gửi: UBND Tỉnh Đồng Nai',
+      'Nhận xét mới',
+      'A1\tB1\tC1\nA2\tB2\tC2\nA3\tB3\tC3',
+      'Nội dung công văn',
+      'Nơi nhận',
+    ])
+
+    // Accept all revisions and save again
+    acceptAllRevisions(editor)
+    expect(collectRevisions(editor.state.doc)).toEqual([])
+    const plan2 = pmDocToSavePlan(editor.getJSON() as PmNode, reparsed1.blocks)
+    const bytes2 = await saveDocx(reparsed1, plan2.saveBlocks)
+    const reparsed2 = await parseDocx(bytes2)
+    expect(reparsed2.internal.documentXml).not.toMatch(/<w:(?:ins|del)\b/)
+    expect(reparsed2.blocks.filter((b) => !b.hidden).map((b) => b.type)).toEqual([
+      'paragraph',
+      'paragraph',
+      'paragraph',
+      'table',
+      'paragraph',
+      'paragraph',
+    ])
+    editor.destroy()
+  })
+
+  it('FX-84: deleting multiple paragraphs at once under Track Changes preserves their forward order', async () => {
+    const bodyXml =
+      `<w:p>${R('Para 1')}</w:p>` +
+      `<w:p>${R('Para 2')}</w:p>` +
+      `<w:p>${R('Para 3')}</w:p>` +
+      `<w:p>${R('Para 4')}</w:p>`
+    const { editor } = await trackedDoc(bodyXml)
+    // Delete Para 2 and Para 3 together
+    const from = editor.state.doc.child(0).nodeSize
+    const to = from + editor.state.doc.child(1).nodeSize + editor.state.doc.child(2).nodeSize
+    editor.view.dispatch(editor.state.tr.delete(from, to))
+    expect(paragraphs(editor)).toEqual(['Para 1', 'Para 2', 'Para 3', 'Para 4'])
+    editor.destroy()
   })
 })

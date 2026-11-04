@@ -55,7 +55,7 @@ export const NUMFMT_CATEGORIES: readonly NumfmtCategory[] = [
 
 export const NEGATIVE_STYLES: readonly NegativeStyle[] = ['minus', 'red', 'parens', 'red-parens']
 
-export const CURRENCY_SYMBOLS: readonly string[] = ['¥', '$', '€', '£', 'US$', 'HK$', '₩']
+export const CURRENCY_SYMBOLS: readonly string[] = ['₫', '¥', '$', '€', '£', 'US$', 'HK$', '₩']
 
 export const DATE_PATTERNS: readonly string[] = [
   'yyyy-mm-dd',
@@ -120,10 +120,10 @@ function digits(decimals: number): string {
   return count > 0 ? `.${'0'.repeat(count)}` : ''
 }
 
-/// Single-char symbols stay bare ($#,##0); multi-char ones need quoting.
+/// Single-char ASCII/major currency symbols stay bare ($#,##0); others need quoting.
 function symbolToken(symbol: string): string {
   if (!symbol) return ''
-  return symbol.length === 1 ? symbol : `"${symbol}"`
+  return /^[$¥€£]$/.test(symbol) ? symbol : `"${symbol}"`
 }
 
 /// Excel's four negative-number styles around a positive-section base.
@@ -149,15 +149,21 @@ export function numfmtPattern(options: NumfmtOptions): string {
         `${options.thousands ? '#,##0' : '0'}${digits(options.decimals)}`,
         options.negative,
       )
-    case 'currency':
-      return withNegative(
-        `${symbolToken(options.symbol)}#,##0${digits(options.decimals)}`,
-        options.negative,
-      )
+    case 'currency': {
+      const symbol = symbolToken(options.symbol)
+      const base =
+        options.symbol === '₫'
+          ? `#,##0${digits(options.decimals)} ${symbol}`
+          : `${symbol}#,##0${digits(options.decimals)}`
+      return withNegative(base, options.negative)
+    }
     case 'accounting': {
       const symbol = symbolToken(options.symbol)
       const base = `#,##0${digits(options.decimals)}`
       const zero = `"-"${'?'.repeat(clampDecimals(options.decimals))}`
+      if (options.symbol === '₫') {
+        return `_(* ${base} ${symbol}_);_(* (${base}) ${symbol};_(* ${zero} ${symbol}_);_(@_)`
+      }
       return `_(${symbol}* ${base}_);_(${symbol}* (${base});_(${symbol}* ${zero}_);_(@_)`
     }
     case 'date':
@@ -178,8 +184,8 @@ export function numfmtPattern(options: NumfmtOptions): string {
 }
 
 /// Leading `_(<symbol>* #,##0` section shared by Excel's Accounting and
-/// (symbol-less) Comma styles.
-const ACCOUNTING_SECTION = /^_\((?:"([^"]+)"|([^*\s]))?\* #,##0(?:\.(0+))?_\)/
+/// (symbol-less) Comma styles, plus trailing `"₫"` accounting style.
+const ACCOUNTING_SECTION = /^_\((?:"([^"]+)"|([^*\s]))?\* #,##0(?:\.(0+))?(?: "([^"]+)")?_\)/
 
 export function isAccountingPattern(pattern: string): boolean {
   return ACCOUNTING_SECTION.test(pattern)
@@ -207,16 +213,17 @@ export function numfmtOptionsOf(pattern: string): NumfmtOptions {
     const candidate: NumfmtOptions = {
       ...defaults,
       category: 'accounting',
-      symbol: match[1] ?? match[2] ?? '',
+      symbol: match[1] ?? match[2] ?? match[4] ?? '',
       decimals: match[3]?.length ?? 0,
     }
     // Excel's own accounting codes escape the parens and quote the symbol.
     const canonical = pattern.replace(/\\([()])/g, '$1').replace(/_\("([^"])"\* /g, '_($1* ')
     if (numfmtPattern(candidate) === canonical) return candidate
   }
-  match = /^(?:"([^"]+)"|([^0#".,;[\]_]))?(#,##0|0)(?:\.(0+))?(?:[_;].*)?$/.exec(pattern)
+  match =
+    /^(?:"([^"]+)"|([^0#".,;[\]_]))?(#,##0|0)(?:\.(0+))?(?: "([^"]+)")?(?:[_;].*)?$/.exec(pattern)
   if (match) {
-    const symbol = match[1] ?? match[2] ?? ''
+    const symbol = match[1] ?? match[2] ?? match[5] ?? ''
     for (const negative of NEGATIVE_STYLES) {
       const candidate: NumfmtOptions = symbol
         ? { ...defaults, category: 'currency', symbol, decimals: match[4]?.length ?? 0, negative }

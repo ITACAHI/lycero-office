@@ -1691,8 +1691,10 @@ export async function saveDocx(
     }
     if (fb.revision && !new RegExp(`^<w:${fb.revision.kind}(?:\\s|>)`).test(xml)) {
       const revision = fb.revision
+      const revId =
+        revision.id && revision.id !== '0' ? revision.id : genCtx.allocateRevisionId()
       const attrs =
-        ` w:id="${escapeXmlAttr(revision.id ?? '0')}"` +
+        ` w:id="${escapeXmlAttr(revId)}"` +
         ` w:author="${escapeXmlAttr(revision.author)}"` +
         (revision.date ? ` w:date="${escapeXmlAttr(revision.date)}"` : '') +
         (revision.dateUtc ? ` w16du:dateUtc="${escapeXmlAttr(revision.dateUtc)}"` : '')

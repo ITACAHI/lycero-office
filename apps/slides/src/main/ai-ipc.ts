@@ -259,6 +259,15 @@ export function registerAiIpc(): void {
           trace?.onToolCall(toolCall)
           send({ requestId, type: 'tool-call', toolCall })
         },
+        onToolArgsProgress: ({ name, bytes }) => {
+          ping()
+          send({
+            requestId,
+            type: 'tool-progress',
+            ...(name ? { toolName: name } : {}),
+            toolBytes: bytes,
+          })
+        },
         onActivity: ping,
         onStopReason: (reason) => {
           stopReason = reason

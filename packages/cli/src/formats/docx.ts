@@ -760,7 +760,13 @@ export async function applyDocOps(
   const extras = docExtras(doc)
   const notes = notesAccess(doc)
   for (const [index, op] of ops.entries()) {
-    const name = typeof op.op === 'string' ? op.op : ''
+    const rawName = typeof op.op === 'string' ? op.op : ''
+    const name =
+      rawName === 'insertContent'
+        ? 'insert_content'
+        : rawName === 'replaceBlocks'
+          ? 'replace_blocks'
+          : rawName
     // a rejected op left the document as it was: the executor applies each call whole or not at all
     const rejected = (output: string): boolean => {
       const failure = classifyOpError(index, name, output)
@@ -884,6 +890,9 @@ function htmlToolInput(
   op: Record<string, unknown>,
 ): Record<string, unknown> {
   const { op: _op, ...input } = op
+  if (input.html === undefined && typeof input.content === 'string') {
+    input.html = input.content
+  }
   if (name === 'insert_content' && input.afterBlockIndex === undefined) {
     input.afterBlockIndex = doc.editor.state.doc.childCount - 1
   }

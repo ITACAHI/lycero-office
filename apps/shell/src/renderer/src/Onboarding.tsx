@@ -100,6 +100,7 @@ export function Onboarding({ onDone }: OnboardingProps) {
   const { t } = useI18n()
   const [index, setIndex] = useState(0)
   const [submitting, setSubmitting] = useState(false)
+  const [analyticsConsent, setAnalyticsConsent] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)
   const slide = SLIDES[index]
   const isLast = index === SLIDES.length - 1
@@ -224,6 +225,18 @@ export function Onboarding({ onDone }: OnboardingProps) {
                     <span className="onb-consent-title">{t('setAnalytics')}</span>
                     <span className="onb-consent-desc">{t('setAnalyticsDesc')}</span>
                   </span>
+                  <button
+                    type="button"
+                    className="set-switch"
+                    role="switch"
+                    aria-checked={analyticsConsent}
+                    aria-label={t('setAnalytics')}
+                    onClick={() => {
+                      const next = !analyticsConsent
+                      setAnalyticsConsent(next)
+                      void window.aiOffice?.setAnalyticsEnabled?.(next)
+                    }}
+                  />
                 </div>
               )}
               {s.showOffer && (

@@ -66,8 +66,18 @@ export async function readMergeDataSource(path: string): Promise<MergeDataSource
  * names them.
  */
 function namedHeaders(rows: readonly (readonly string[])[]): readonly (readonly string[])[] {
-  const header = rows[0]
-  if (!header) return []
+  const rawHeader = rows[0]
+  if (!rawHeader) return []
+  const dataRows = rows.slice(1)
+  let colCount = Math.max(rawHeader.length, ...dataRows.map((row) => row.length))
+  while (
+    colCount > 0 &&
+    (rawHeader[colCount - 1] ?? '').trim() === '' &&
+    dataRows.every((row) => (row[colCount - 1] ?? '').trim() === '')
+  ) {
+    colCount -= 1
+  }
+  const header = Array.from({ length: colCount }, (_, index) => rawHeader[index] ?? '')
   const seen = new Map<string, number>()
   const names = header.map((raw, index) => {
     const name = raw.trim() || `Column${index + 1}`
@@ -75,5 +85,5 @@ function namedHeaders(rows: readonly (readonly string[])[]): readonly (readonly 
     seen.set(name, count + 1)
     return count === 0 ? name : `${name}${count + 1}`
   })
-  return [names, ...rows.slice(1)]
+  return [names, ...dataRows]
 }

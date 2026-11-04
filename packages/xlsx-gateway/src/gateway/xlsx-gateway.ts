@@ -728,6 +728,9 @@ function worksheetRows(
     while (rows.length < rowIndex) rows.push([])
     rows[rowIndex] = cells
   }
+  while (rows.length > 0 && rows[rows.length - 1]!.every((cell) => cell === '')) {
+    rows.pop()
+  }
   return rows
 }
 

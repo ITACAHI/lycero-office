@@ -315,12 +315,12 @@ describe('findReplace', () => {
 
   it('matchCase: sensitive by default, insensitive when false', () => {
     const editor = createEditor(fixtureDoc())
-    const strict = executeOps(editor, [{ op: 'findReplace', find: 'lycero', replace: 'X' }])
+    const strict = executeOps(editor, [{ op: 'findReplace', find: 'genspark', replace: 'X' }])
     expect(strict.results[0].changed).toBe(0)
     expect(editor.state.doc.child(1).textContent).toContain('GenSpark')
 
     const loose = executeOps(editor, [
-      { op: 'findReplace', find: 'lycero', replace: 'X', matchCase: false },
+      { op: 'findReplace', find: 'genspark', replace: 'X', matchCase: false },
     ])
     expect(loose.results[0].detail).toBe('Replaced 2 occurrence(s)')
     expect(editor.state.doc.child(1).textContent).toBe('X intro,X is great')

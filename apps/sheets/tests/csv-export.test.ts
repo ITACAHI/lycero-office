@@ -17,6 +17,7 @@ import {
   cellPatternLookup,
   csvField,
   csvFromDisplayRows,
+  rawCellPatternLookup,
   serializeActiveSheetCsv,
   withoutFormulaView,
 } from '../src/renderer/csv-export'
@@ -157,6 +158,32 @@ describe('serializeActiveSheetCsv precision', () => {
   it('exports the display grid unchanged when no format lookup is supplied', () => {
     const sheet = fakeCsvSheet([['645577.8']], [[645577.79]])
     expect(serializeActiveSheetCsv(sheet as never, null)).toBe('645577.8\r\n')
+  })
+
+  it('trims trailing empty rows and trailing empty columns (FX-89)', () => {
+    const sheet = fakeCsvSheet(
+      [
+        ['Họ tên', 'Lương', '', ''],
+        ['An', ' $1,250.00 ', '', ''],
+        ['', '', '', ''],
+        ['', '', '', ''],
+      ],
+      [
+        ['Họ tên', 'Lương', null, null],
+        ['An', 1250, null, null],
+        [null, null, null, null],
+        [null, null, null, null],
+      ],
+    )
+    const rawLookup = rawCellPatternLookup(
+      fakeRuntime({
+        cellPattern: '_("$"* #,##0.00_);_("$"* \\(#,##0.00\\);_("$"* "-"??_);_(@_)',
+      }),
+      's1',
+    )!
+    expect(serializeActiveSheetCsv(sheet as never, null, rawLookup)).toBe(
+      'Họ tên,Lương\r\nAn,1250\r\n',
+    )
   })
 })
 

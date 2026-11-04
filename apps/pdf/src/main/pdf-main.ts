@@ -29,6 +29,7 @@ import {
   printHtmlToPdf,
   safeExternalUrl,
   showOpenDialogWithMemory,
+  showSaveDialogWithMemory,
   installRendererProtocol,
   registerRendererScheme,
   rendererUrl,
@@ -1347,9 +1348,7 @@ function registerPdfIpc(): void {
         defaultPath: join(dirname(path), `${base}-redacted.pdf`),
         filters: [{ name: 'PDF', extensions: ['pdf'] }],
       }
-      const picked = parent
-        ? await dialog.showSaveDialog(parent, options)
-        : await dialog.showSaveDialog(options)
+      const picked = await showSaveDialogWithMemory(dialog, parent, options)
       if (picked.canceled || !picked.filePath || isSameRedactionCopyPath(path, picked.filePath))
         return false
       return await requestPdfSaveAs(e.sender, picked.filePath)
@@ -1982,9 +1981,7 @@ function registerPdfIpc(): void {
           defaultPath: join(dirname(path), `${base}-signed.pdf`),
           filters: [{ name: tm('filterPdf'), extensions: ['pdf'] }],
         }
-        const picked = parent
-          ? await dialog.showSaveDialog(parent, dialogOptions)
-          : await dialog.showSaveDialog(dialogOptions)
+        const picked = await showSaveDialogWithMemory(dialog, parent, dialogOptions)
         if (picked.canceled || !picked.filePath) return { ok: false, cancelled: true }
         const target = picked.filePath
         // Never overwrite the source: the original stays exactly as the user left it

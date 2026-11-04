@@ -1911,8 +1911,19 @@ export function recordSetRangeValues(
   sheetId: string,
   cellValue: unknown,
   resolveSharedFormula?: SharedFormulaResolver,
+  maxDataRow?: number,
 ): JournalEntry[] {
   if (typeof cellValue !== 'object' || cellValue === null) return []
+  const rowMap = cellValue as Record<string, Record<string, unknown> | undefined>
+  const isStyleOnlyCell = (c: unknown): c is { s: Record<string, unknown> } =>
+    typeof c === 'object' &&
+    c !== null &&
+    typeof (c as Record<string, unknown>).s === 'object' &&
+    (c as Record<string, unknown>).s !== null &&
+    !('v' in c) &&
+    !('f' in c) &&
+    !('p' in c) &&
+    !('si' in c)
   const recorded: JournalEntry[] = []
   for (const [rowKey, rowValue] of Object.entries(cellValue)) {
     const row = Number(rowKey)
@@ -1921,6 +1932,36 @@ export function recordSetRangeValues(
     for (const [columnKey, cell] of Object.entries(rowValue as Record<string, unknown>)) {
       const column = Number(columnKey)
       if (!Number.isInteger(column) || column < 0) continue
+      if (
+        maxDataRow !== undefined &&
+        maxDataRow < 999 &&
+        row > maxDataRow &&
+        isStyleOnlyCell(cell) &&
+        isStyleOnlyCell(rowMap['0']?.[columnKey]) &&
+        isStyleOnlyCell(rowMap['999']?.[columnKey])
+      ) {
+        if (row === maxDataRow + 1) {
+          const styleDelta = toNeutralStyle(cell.s)
+          if (styleDelta) {
+            const ops = journal.structuralOps.get(sheetId) ?? []
+            const lastOp = ops[ops.length - 1]
+            const alreadyRecorded =
+              lastOp?.kind === 'set-col-style' &&
+              lastOp.start <= column &&
+              lastOp.end >= column &&
+              JSON.stringify(lastOp.style) === JSON.stringify(styleDelta)
+            if (!alreadyRecorded) {
+              recordStructuralOp(journal, sheetId, {
+                kind: 'set-col-style',
+                start: column,
+                end: column,
+                style: styleDelta,
+              })
+            }
+          }
+        }
+        continue
+      }
       let ingest = cell
       if (resolveSharedFormula && typeof cell === 'object' && cell !== null) {
         const data = cell as { f?: unknown; si?: unknown }
@@ -1943,6 +1984,7 @@ export function recordSetNumfmt(
   journal: EditJournal,
   sheetId: string,
   params: unknown,
+  maxDataRow?: number,
 ): JournalEntry[] {
   if (typeof params !== 'object' || params === null) return []
   const { refMap, values } = params as { refMap?: unknown; values?: unknown }
@@ -1964,7 +2006,29 @@ export function recordSetNumfmt(
       if (typeof range !== 'object' || range === null) continue
       const { startRow, endRow, startColumn, endColumn } = range as Record<string, unknown>
       if (![startRow, endRow, startColumn, endColumn].every(isBoundedIndex)) continue
-      for (let row = startRow as number; row <= (endRow as number); row += 1) {
+      const isFullColumn = (startRow as number) === 0 && (endRow as number) >= 999
+      if (isFullColumn && maxDataRow !== undefined && pattern.length <= 255) {
+        const ops = journal.structuralOps.get(sheetId) ?? []
+        const lastOp = ops[ops.length - 1]
+        const alreadyRecorded =
+          lastOp?.kind === 'set-col-style' &&
+          lastOp.start === (startColumn as number) &&
+          lastOp.end === (endColumn as number) &&
+          lastOp.style.numberFormat === pattern
+        if (!alreadyRecorded) {
+          recordStructuralOp(journal, sheetId, {
+            kind: 'set-col-style',
+            start: startColumn as number,
+            end: endColumn as number,
+            style: { numberFormat: pattern },
+          })
+        }
+      }
+      const effectiveEndRow =
+        isFullColumn && maxDataRow !== undefined
+          ? Math.min(endRow as number, Math.max(0, maxDataRow))
+          : (endRow as number)
+      for (let row = startRow as number; row <= effectiveEndRow; row += 1) {
         for (let column = startColumn as number; column <= (endColumn as number); column += 1) {
           const entry = mergeIntoJournal(journal, sheetId, row, column, {
             s: { n: { pattern } },
@@ -1986,6 +2050,7 @@ export function recordRemoveNumfmt(
   journal: EditJournal,
   sheetId: string,
   params: unknown,
+  maxDataRow?: number,
 ): JournalEntry[] {
   if (typeof params !== 'object' || params === null) return []
   const { ranges } = params as { ranges?: unknown }
@@ -1995,7 +2060,20 @@ export function recordRemoveNumfmt(
     if (typeof range !== 'object' || range === null) continue
     const { startRow, endRow, startColumn, endColumn } = range as Record<string, unknown>
     if (![startRow, endRow, startColumn, endColumn].every(isBoundedIndex)) continue
-    for (let row = startRow as number; row <= (endRow as number); row += 1) {
+    const isFullColumn = (startRow as number) === 0 && (endRow as number) >= 999
+    if (isFullColumn && maxDataRow !== undefined) {
+      recordStructuralOp(journal, sheetId, {
+        kind: 'set-col-style',
+        start: startColumn as number,
+        end: endColumn as number,
+        style: { numberFormat: 'General' },
+      })
+    }
+    const effectiveEndRow =
+      isFullColumn && maxDataRow !== undefined
+        ? Math.min(endRow as number, Math.max(0, maxDataRow))
+        : (endRow as number)
+    for (let row = startRow as number; row <= effectiveEndRow; row += 1) {
       for (let column = startColumn as number; column <= (endColumn as number); column += 1) {
         const entry = mergeIntoJournal(journal, sheetId, row, column, {
           s: { n: { pattern: 'General' } },
