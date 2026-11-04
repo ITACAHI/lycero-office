@@ -59,7 +59,7 @@ async function templateDocx(dir: string): Promise<string> {
   return out
 }
 
-describe('genoffice merge', () => {
+describe('lycero-office merge', () => {
   it('fills a docx template, keeps table cells and reports split and unknown placeholders', async () => {
     const dir = tempDir()
     const template = await templateDocx(dir)
@@ -259,7 +259,8 @@ describe('genoffice merge', () => {
     expect(r.json().detail.used_keys).toEqual(['addr', 'name'])
     const read = await run(['docs', 'read', out, '--full', '--json'])
     const texts = read.json().detail.items.map((b: { text: string }) => b.text)
-    expect(texts[0]).toMatch(/^A.?B \{\{name\}\}$/)
+    // the value's line break round-trips as a <w:br/>, read back as a plain newline
+    expect(texts[0]).toBe('A\nB {{name}}')
     expect(texts[1]).toBe('X')
     expect(await documentXml(out)).toContain('<w:br/>')
   })
@@ -402,7 +403,7 @@ describe('genoffice merge', () => {
     const out = join(dir, 'deck.pptx')
     const r = await run(['merge', template, '--data', dataFile(dir, DATA), '--out', out, '--json'])
     expect(r.code).toBe(0)
-    // the deck engine fills a placeholder split over runs (genoffice#1052); only the
+    // the deck engine fills a placeholder split over runs (#1052); only the
     // nested-group and missing-key cases stay unresolved
     expect(r.json().summary).toBe('6 placeholders filled, 2 unresolved')
     expect(r.json().detail.used_keys).toEqual(['name', 'amount', 'item'])

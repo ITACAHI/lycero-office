@@ -14,7 +14,7 @@
 
 export const LAZY_MEDIA_SCHEME = 'lycero-docx-media'
 
-const MAGIC = 'GENOFFICE-LAZY-MEDIA\n'
+const MAGIC = 'LYCERO-LAZY-MEDIA\n'
 const HASH_RE = /^[0-9a-f]{64}$/
 
 export const LAZY_MEDIA_PLACEHOLDER_BYTES = MAGIC.length + 64 + 1

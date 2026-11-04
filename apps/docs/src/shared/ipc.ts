@@ -38,7 +38,7 @@ export interface PickImageResult {
   name: string
 }
 
-// ---- mail merge (genoffice#2097) ----
+// ---- mail merge (#2097) ----
 
 /** a recipient list read from a local .xlsx or .csv */
 export interface MergeDataSource {
@@ -64,8 +64,9 @@ export interface MergeOutputFile {
   data: ArrayBuffer
 }
 
-/** where the merged documents go: one file for all records, or one per record */
-export type MergeOutputMode = 'single' | 'perRecord'
+/** where the merged documents go: one file for all records, one per record, a
+ * label sheet, or one envelope per record */
+export type MergeOutputMode = 'single' | 'perRecord' | 'labels' | 'envelopes'
 
 export interface MergeOutputRequest {
   mode: MergeOutputMode
@@ -154,7 +155,7 @@ export interface MarkdownImage {
  * for the real `<file>_files` folder once the save path is known. User text
  * can never spell it: `_` is escaped on the way out.
  */
-export const MARKDOWN_MEDIA_DIR_TOKEN = '__genoffice_media__'
+export const MARKDOWN_MEDIA_DIR_TOKEN = '__lycero_media__'
 
 // ---- chat attachments (local files fed to the agent via tools) ----
 
@@ -210,6 +211,7 @@ export type MenuCommand =
   | 'open-path'
   | 'save'
   | 'save-as'
+  | 'name-with-ai'
   | 'undo'
   | 'redo'
   | 'zoom-in'
@@ -278,7 +280,7 @@ export type MenuCommand =
 export type UiTheme = 'light' | 'dark' | 'system'
 
 /**
- * Document page theme preference (genoffice#1811): what the canvas/paper does relative
+ * Document page theme preference (#1811): what the canvas/paper does relative
  * to the UI theme. 'follow' keeps the previous single-theme behavior.
  */
 export type DocTheme = 'follow' | 'light' | 'dark'
@@ -341,12 +343,17 @@ export interface ZoteroRendererResponse {
 /**
  * MCP bridge: an editor command pushed from the shell main process into a docs
  * tab so an external agent drives the *visible* editor instead of writing a file
- * behind it. `insert_content` / `replace_blocks` / `apply_ops` / `read_document`
- * reuse the built-in agent's tool executors; `save_document` writes the live
- * document to an explicit path.
+ * behind it. `insert_content` / `replace_blocks` / `apply_ops` / `insert_picture` /
+ * `read_document` reuse the built-in agent's tool executors; `save_document` writes
+ * the live document to an explicit path.
  */
 export type McpEditorCommand =
-  'insert_content' | 'replace_blocks' | 'apply_ops' | 'read_document' | 'save_document'
+  | 'insert_content'
+  | 'replace_blocks'
+  | 'apply_ops'
+  | 'insert_picture'
+  | 'read_document'
+  | 'save_document'
 
 export interface McpCommandMessage {
   requestId: string
@@ -392,6 +399,14 @@ export interface PrintJobOptions {
   duplex?: PrintDuplex
 }
 
+/** the document's own paper size in twips, read off the pagination preview's
+ * first sheet: the CUPS print route bakes printToPDF pages at this size
+ * instead of Chromium's Letter default. Optional — absent falls back. */
+export interface PrintPaper {
+  widthTwips: number
+  heightTwips: number
+}
+
 export interface PrinterInfo {
   name: string
   displayName: string
@@ -412,7 +427,7 @@ export interface DesktopApi {
   getTheme(): Promise<UiTheme>
   /** theme switched from the shell home page */
   onThemeChanged(handler: (theme: UiTheme) => void): () => void
-  /** current document page theme preference (genoffice#1811, persisted by the shell in app-settings.json) */
+  /** current document page theme preference (#1811, persisted by the shell in app-settings.json) */
   getDocumentTheme(): Promise<DocTheme>
   /** document page theme switched from the shell home page */
   onDocumentThemeChanged(handler: (theme: DocTheme) => void): () => void
@@ -559,8 +574,14 @@ export interface DesktopApi {
   /** print the current window; ok=false without error = canceled.
    *  scale: print scale inverting the preview's print zoom (print-zoom.ts).
    *  job: printer/copies/duplex from the in-app dialog; a named printer ('' = OS
-   *  default) prints silently, null or omitted opens the system dialog */
-  print(scale?: number, job?: PrintJobOptions): Promise<{ ok: boolean; error?: string }>
+   *  default) prints silently, null or omitted opens the system dialog.
+   *  paper: the document's own page size in twips (the preview's first sheet),
+   *  used by the CUPS print route to size printToPDF's pages */
+  print(
+    scale?: number,
+    job?: PrintJobOptions,
+    paper?: PrintPaper,
+  ): Promise<{ ok: boolean; error?: string }>
   /** installed printers for the in-app print dialog */
   listPrinters(): Promise<PrinterInfo[]>
   /** render the document to PDF and ask where to save; size in twips.
@@ -718,7 +739,7 @@ export interface DesktopApi {
   skillsList(): Promise<UserSkillEntry[]>
   /** the body of one installed skill, by name — the main process resolves the path */
   skillText(name: string): Promise<string>
-  /** run the bundled genoffice CLI; failures come back as ok:false, never a throw */
+  /** run the bundled lycero-office CLI; failures come back as ok:false, never a throw */
   runCli(args: string[]): Promise<UserCliRun>
 }
 
@@ -749,4 +770,4 @@ export interface UserCliRun {
 }
 
 /** mirrors VIEW_IMAGE_CHANNEL in @lycero/electron-utils (kept literal so the preload stays free of main-only deps) */
-export const VIEW_IMAGE_CHANNEL = 'genoffice:view-image'
+export const VIEW_IMAGE_CHANNEL = 'lycero:view-image'

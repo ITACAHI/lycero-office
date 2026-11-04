@@ -21,7 +21,7 @@ const PASS_HEADER = 'X-Lycero-Token-Pass'
  * extra deployment hosts; no hostlist lives in source.
  */
 export function nativeAdmissionHosts(env: NodeJS.ProcessEnv = process.env): Set<string> {
-  const hosts = new Set(['lycero.com', 'www.lycero.com', 'www.lycero.ai', 'www.genspark.ai'])
+  const hosts = new Set(['lycero.com', 'www.lycero.com', 'www.lycero.ai'])
   try {
     if (env.LYCERO_API_URL) hosts.add(new URL(env.LYCERO_API_URL).hostname)
   } catch {}
@@ -30,7 +30,7 @@ export function nativeAdmissionHosts(env: NodeJS.ProcessEnv = process.env): Set<
   } catch {
     // Malformed configuration only narrows the allowlist to the default host.
   }
-  for (const host of (env.LYCERO_NATIVE_WAF_HOSTS ?? env.GENOFFICE_NATIVE_WAF_HOSTS ?? '').split(',')) {
+  for (const host of (env.LYCERO_NATIVE_WAF_HOSTS ?? '').split(',')) {
     const trimmed = host.trim().toLowerCase()
     if (trimmed) hosts.add(trimmed)
   }
@@ -47,7 +47,9 @@ type Entry = { token: string; until: number; expires: number }
 type Pending = { controller: AbortController; promise: Promise<string>; waiters: number }
 
 export function nativeAdmissionEnabled(): boolean {
-  return typeof process !== 'undefined' && process.env?.LYCERO_NATIVE_WAF === '1'
+  if (typeof process === 'undefined' || typeof process.versions?.node !== 'string') return false
+  if ((process as { type?: string }).type === 'renderer') return false
+  return process.env?.LYCERO_NATIVE_WAF === '1'
 }
 
 function subjectOf(raw: string, headers: Headers): Subject | undefined {

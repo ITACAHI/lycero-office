@@ -5,7 +5,7 @@
  */
 import type { RenderNode, RenderSlide } from '@lycero/pptx-render'
 
-/** Request/reply the shell relays from `genoffice open --slide/--el` and `genoffice selection`. */
+/** Request/reply the shell relays from `lycero-office open --slide/--el` and `lycero-office selection`. */
 export type ControlRequest =
   { cmd: 'goto'; target: { kind: string; slide?: number; el?: string } } | { cmd: 'selection' }
 

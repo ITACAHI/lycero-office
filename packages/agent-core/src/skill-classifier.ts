@@ -37,7 +37,7 @@ export const NARROW_VERTICAL_SKILL_SLUGS: ReadonlySet<string> = new Set([
 ])
 
 /**
- * Basic & tool skills (42 basic skills from v2.0.18 + 9 lycero-* tool skills + genoffice)
+ * Basic & tool skills (42 basic skills from v2.0.18 + 9 lycero-* tool skills + lycero-office)
  * that are bundled locally in `resources/cli/skills/recommended` and work 100% offline (FX-30, FX-43).
  */
 export const BASIC_BUNDLED_SKILL_SLUGS: ReadonlySet<string> = new Set([
@@ -92,7 +92,6 @@ export const BASIC_BUNDLED_SKILL_SLUGS: ReadonlySet<string> = new Set([
   'lycero-sheets',
   'lycero-slides',
   'lycero-visual-director',
-  'genoffice',
 ])
 
 /**

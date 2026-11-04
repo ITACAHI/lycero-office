@@ -129,8 +129,8 @@ export function buildFindAllRows(
   return { rows, total }
 }
 
-export const FIND_HISTORY_KEY = 'genoffice.sheets.findHistory'
-export const REPLACE_HISTORY_KEY = 'genoffice.sheets.replaceHistory'
+export const FIND_HISTORY_KEY = 'lycero-office.sheets.findHistory'
+export const REPLACE_HISTORY_KEY = 'lycero-office.sheets.replaceHistory'
 export const HISTORY_LIMIT = 10
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>

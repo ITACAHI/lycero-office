@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { NativeWaf, nativeWaf, nativeWafHosts } from '../src/native-waf'
-import { reloadGenofficeAuth } from '../src/genoffice-auth'
+import { reloadLyceroAuth } from '../src/lycero-device-auth'
 
 const url = 'https://lycero.com/api/api_tokens/create'
 const pass = () => `${Math.floor(Date.now() / 1000)}-${'a'.repeat(43)}`
@@ -24,7 +24,7 @@ describe('optional cookie admission', () => {
           finish = resolve
         }),
     )
-    reloadGenofficeAuth()
+    reloadLyceroAuth()
     finish(Response.json({ data: { token } }))
     expect(new Headers((await pending).headers).get('X-Genspark-Native-Pass')).toBe(token)
     nativeWaf.clear()
@@ -92,13 +92,13 @@ describe('optional cookie admission', () => {
   })
 
   it('admitted hosts come from the configured base URL and the extra-hosts setting', async () => {
-    expect([...nativeWafHosts({})]).toEqual(['www.lycero.com'])
+    expect([...nativeWafHosts({})]).toEqual(['lycero.com'])
     expect([...nativeWafHosts({ GSK_BASE_URL: 'https://office.example.com/' })]).toEqual([
       'office.example.com',
     ])
     expect([
-      ...nativeWafHosts({ GENOFFICE_NATIVE_WAF_HOSTS: ' Tenant.Example.com, ,second.example.com' }),
-    ]).toEqual(['www.lycero.com', 'tenant.example.com', 'second.example.com'])
+      ...nativeWafHosts({ LYCERO_NATIVE_WAF_HOSTS: ' Tenant.Example.com, ,second.example.com' }),
+    ]).toEqual(['lycero.com', 'tenant.example.com', 'second.example.com'])
 
     const admission = new NativeWaf()
     const token = pass()
@@ -109,7 +109,7 @@ describe('optional cookie admission', () => {
         'X-Genspark-Native-Pass',
       ),
     ).toBe(false)
-    process.env.GENOFFICE_NATIVE_WAF_HOSTS = 'tenant.example.com'
+    process.env.LYCERO_NATIVE_WAF_HOSTS = 'tenant.example.com'
     try {
       expect(
         new Headers((await admission.prepare(tenant, init(), fetcher)).headers).get(
@@ -117,7 +117,7 @@ describe('optional cookie admission', () => {
         ),
       ).toBe(token)
     } finally {
-      delete process.env.GENOFFICE_NATIVE_WAF_HOSTS
+      delete process.env.LYCERO_NATIVE_WAF_HOSTS
     }
   })
 })

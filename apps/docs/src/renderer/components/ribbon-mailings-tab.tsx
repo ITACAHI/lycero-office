@@ -19,7 +19,7 @@ import { BIG, type SetDropdown, toggleDropdown } from './ribbon-tabs'
  *
  * The tab holds what the user picked (the data source) and which record the
  * preview shows; the documents themselves are built by the app and written by
- * the main process. genoffice#2097.
+ * the main process. #2097.
  */
 
 export interface MailingsTabProps {

@@ -12,7 +12,7 @@ const { version } = JSON.parse(await readFile(join(here, 'package.json'), 'utf8'
 /**
  * A packaged build overrides the app version through electron-builder
  * extraMetadata, which never reaches this file; LYCERO_APP_VERSION carries
- * it in, so the bundled `genoffice --version` cannot drift from the app that
+ * it in, so the bundled `lycero-office --version` cannot drift from the app that
  * shipped it. Unset (a plain workspace build) keeps the CLI package version.
  */
 export const CLI_VERSION_ENV = 'LYCERO_APP_VERSION'
@@ -128,7 +128,8 @@ async function bundle() {
     jsx: 'automatic',
     // jsdom is bundled directly via jsdomInline plugin (plus shipped in cli/node_modules as fallback)
     // mermaid is only reached by the markdown editor's lazy diagram renderer, which never runs headless
-    external: ['electron', 'mermaid'],
+    // rhwp reads its .wasm beside its own module (packages/hwp2docx/src/hwp.ts)
+    external: ['electron', 'mermaid', '@rhwp/core'],
     loader: {
       '.css': 'empty',
       '.ttf': 'empty',

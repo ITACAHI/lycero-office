@@ -22,7 +22,7 @@ import { PiiTokenizer } from '@lycero/ai-provider'
 import type { CliRunner } from './mcp/cli-runner'
 
 /**
- * The home screen's Ask AI running the bundled `genoffice` CLI. The renderer
+ * The home screen's Ask AI running the bundled `lycero-office` CLI. The renderer
  * sends a command line and the files it wants staged; this module decides what
  * may run and where it may touch the disk:
  *
@@ -31,7 +31,7 @@ import type { CliRunner } from './mcp/cli-runner'
  *   for a file inside the output directory, and a copy of the original goes
  *   to the work directory first — a starred source elsewhere is never
  *   rewritten;
- * - reads and writes confined by GENOFFICE_ALLOWED_ROOTS to the conversation's
+ * - reads and writes confined by LYCERO_ALLOWED_ROOTS to the conversation's
  *   work directory, the save folder, and the folders of the starred files and
  *   of the files attached to the conversation;
  * - staged files land inside the work directory only (relative, no `..`).
@@ -296,7 +296,7 @@ export function homeCliContext(deps: HomeCliDeps, sessionId: string): HomeCliCon
   return { workDir: join(root, validId), outDir: deps.outDir() }
 }
 
-/** PATH-style GENOFFICE_ALLOWED_ROOTS for one run */
+/** PATH-style LYCERO_ALLOWED_ROOTS for one run */
 export function allowedRootsFor(ctx: HomeCliContext, sourcePaths: readonly string[]): string {
   const roots = new Set<string>([resolve(ctx.workDir), resolve(ctx.outDir)])
   for (const path of sourcePaths) roots.add(resolve(dirname(path)))
@@ -539,7 +539,7 @@ export async function runHomeCli(
     !attachedSet.has(resolvedOut) &&
     (createdInSession.has(resolvedOut) || inPlace !== null)
   const extraEnv: Record<string, string> = {
-    GENOFFICE_ALLOWED_ROOTS: allowedRootsFor(ctx, effectiveSources),
+    LYCERO_ALLOWED_ROOTS: allowedRootsFor(ctx, effectiveSources),
     ...(allowSessionOverwrite ? { LYCERO_HOME_CLI_OVERWRITE: '1' } : {}),
   }
   if (Object.keys(piiRegistry).length > 0) {

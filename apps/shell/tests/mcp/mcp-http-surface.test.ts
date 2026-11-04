@@ -45,18 +45,27 @@ const DEFAULT_NAMES = [
   'create_session',
   'get_app_info',
   'insert_content',
+  'insert_picture',
   'open_documents',
-  'open_in_genoffice',
+  'open_in_lycero',
   'read_deck',
   'read_document',
   'read_docx',
+  'read_docx_properties',
   'read_pdf',
   'read_sheet',
   'replace_blocks',
+  'sheet_links',
   'save_session',
 ].sort()
 
-const BACKGROUND_NAMES = [...DEFAULT_NAMES, 'create_docx', 'create_pptx', 'create_xlsx'].sort()
+const BACKGROUND_NAMES = [
+  ...DEFAULT_NAMES,
+  'create_docx',
+  'create_pptx',
+  'create_xlsx',
+  'fill_template',
+].sort()
 
 function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -177,7 +186,7 @@ async function waitForHealth(p: number, timeoutMs = 10_000): Promise<void> {
 
 async function connect(): Promise<Client> {
   await waitForHealth(port)
-  const client = new Client({ name: 'genoffice-acceptance', version: '1.0.0' })
+  const client = new Client({ name: 'lycero-acceptance', version: '1.0.0' })
   // exactly the shape in the mcpServers entry under test
   await client.connect(new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`)))
   return client
@@ -204,7 +213,7 @@ async function call(
 
 beforeAll(async () => {
   port = await freePort()
-  workDir = await mkdtemp(join(tmpdir(), 'genoffice-acceptance-'))
+  workDir = await mkdtemp(join(tmpdir(), 'lycero-acceptance-'))
   logPath = join(workDir, 'mcp-log.txt')
   configureMcpRuntime({
     version: '0.9.0-acceptance',
@@ -288,6 +297,10 @@ describe('MCP surface over Streamable HTTP (/mcp)', () => {
         'docx',
         'odt',
         'ott',
+        'doc',
+        'dot',
+        'hwpx',
+        'hwp',
       ])
       expect(infoJson.families.find((f) => f.family === 'pptx')!.editor.open).toEqual([
         'pptx',
@@ -388,16 +401,16 @@ describe('MCP surface over Streamable HTTP (/mcp)', () => {
       expect(savedSheet.isError).toBe(false)
       expect(sheets.saved).toEqual([join(workDir, 'book.xlsx')])
 
-      // ── 8. open_in_genoffice routes .docx, refuses others ────────────────
+      // ── 8. open_in_lycero routes .docx, refuses others ────────────────
       const openableDocx = join(workDir, 'open-me.docx')
       await writeFile(openableDocx, 'placeholder')
-      const opened = await call(client, 'open_in_genoffice', { path: openableDocx })
+      const opened = await call(client, 'open_in_lycero', { path: openableDocx })
       expect(opened.isError).toBe(false)
       expect(openedPaths).toContain(openableDocx)
 
       const notOpenable = join(workDir, 'note.txt')
       await writeFile(notOpenable, 'x')
-      const refusedOpen = await call(client, 'open_in_genoffice', { path: notOpenable })
+      const refusedOpen = await call(client, 'open_in_lycero', { path: notOpenable })
       expect(refusedOpen.isError).toBe(true)
       expect(refusedOpen.text).toMatch(/could not open/)
 

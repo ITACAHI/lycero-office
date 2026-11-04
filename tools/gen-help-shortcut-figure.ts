@@ -62,10 +62,10 @@ async function main(): Promise<void> {
       env: {
         ...hostEnv,
         HOME: home,
-        GENOFFICE_USER_DATA: userData,
-        GENOFFICE_AUTH_DIR: join(home, '.genoffice'),
-        GENOFFICE_NO_SPARE_VIEW: '1',
-        GENOFFICE_LANG: lang,
+        LYCERO_USER_DATA: userData,
+        LYCERO_AUTH_DIR: join(home, '.lycero-office'),
+        LYCERO_NO_SPARE_VIEW: '1',
+        LYCERO_LANG: lang,
       },
     })
 

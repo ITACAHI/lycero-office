@@ -11,7 +11,7 @@ import { run, tempDir, writeMinimalPdf } from './helpers'
 const REPO = resolve(__dirname, '../../..')
 const ENCRYPTED = join(REPO, 'apps/shell/tests/fixtures/testPassword4Spaces.pdf')
 
-describe('genoffice pdf read', () => {
+describe('lycero-office pdf read', () => {
   it('returns page count, metadata and per-page text with page sizes', async () => {
     const pdf = writeMinimalPdf(
       join(tempDir(), 'three.pdf'),
@@ -89,14 +89,14 @@ describe('genoffice pdf read', () => {
   })
 
   it('clips page text to --max-chars and marks the page truncated', async () => {
-    const pdf = writeMinimalPdf(join(tempDir(), 'one.pdf'), 'Hello genoffice readers')
+    const pdf = writeMinimalPdf(join(tempDir(), 'one.pdf'), 'Hello lycero-office readers')
     const r = await run(['pdf', 'read', pdf, '--max-chars', '5', '--json'])
     expect(r.json().detail.pages_read[0]).toMatchObject({
       text: 'Hello…(+18 chars)',
       truncated: true,
     })
     const full = await run(['pdf', 'read', pdf, '--full', '--json'])
-    expect(full.json().detail.pages_read[0].text).toBe('Hello genoffice readers')
+    expect(full.json().detail.pages_read[0].text).toBe('Hello lycero-office readers')
   })
 
   it('needs the right password for an encrypted PDF and reports it as encrypted', async () => {

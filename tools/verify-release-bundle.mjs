@@ -117,9 +117,13 @@ for (const app of APPS) {
   // 3. Check main bundles: zero unbundled @lycero/* workspace requires allowed, and no legacy genoffice-app scheme
   for (const mainFile of listJsFiles(join(outDir, 'main'))) {
     const code = readFileSync(mainFile, 'utf8')
-    if (code.includes('genoffice-app') || code.includes('genoffice-docx-media')) {
+    if (
+      code.includes('genoffice-app') ||
+      code.includes('genoffice-docx-media') ||
+      code.includes('genoffice-slide-media')
+    ) {
       fail(
-        `[${app}] Main bundle "${mainFile}" still references legacy scheme "genoffice-app" / "genoffice-docx-media" instead of "lycero-app" / "lycero-docx-media".`,
+        `[${app}] Main bundle "${mainFile}" still references legacy scheme "genoffice-app" / "genoffice-docx-media" / "genoffice-slide-media" instead of "lycero-app" / "lycero-docx-media" / "lycero-slide-media".`,
       )
     }
     for (const spec of extractRequireSpecifiers(code)) {
@@ -314,8 +318,8 @@ const recommendedSkillsDir = join(ROOT, 'skills', 'recommended')
 if (!existsSync(recommendedSkillsDir)) {
   fail('[skills] Missing skills/recommended directory (FX-30 / FX-43)')
 } else {
-  const skillDirs = readdirSync(recommendedSkillsDir, { withFileTypes: true }).filter((d) =>
-    d.isDirectory(),
+  const skillDirs = readdirSync(recommendedSkillsDir, { withFileTypes: true }).filter(
+    (d) => d.isDirectory() && d.name !== 'locales',
   )
   if (skillDirs.length !== EXPECTED_BASIC_SKILL_SLUGS.size) {
     fail(

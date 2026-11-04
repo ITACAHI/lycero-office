@@ -32,7 +32,7 @@ async function fakeShell(
   const requests: unknown[] = []
   const endpoint =
     process.platform === 'win32'
-      ? `\\\\.\\pipe\\genoffice-test-${process.pid}-${servers.length}`
+      ? `\\\\.\\pipe\\lycero-test-${process.pid}-${servers.length}`
       : join(dir, 'control.sock')
   const server = createServer((socket) => {
     let buffer = ''
@@ -96,7 +96,7 @@ describe('open targets', () => {
 
 describe('control endpoint', () => {
   it('ignores a missing, malformed or dead-pid control.json', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'genoffice-ctl-'))
+    const dir = mkdtempSync(join(tmpdir(), 'lycero-ctl-'))
     expect(controlEndpoint({ LYCERO_USER_DATA: dir })).toBeNull()
     writeFileSync(join(dir, 'control.json'), '{')
     expect(controlEndpoint({ LYCERO_USER_DATA: dir })).toBeNull()
@@ -116,7 +116,7 @@ describe('control endpoint', () => {
   })
 
   it('fails with app_unavailable when nobody listens', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'genoffice-ctl-'))
+    const dir = mkdtempSync(join(tmpdir(), 'lycero-ctl-'))
     await expect(
       controlRequest(
         { protocol: 1, pid: process.pid, endpoint: join(dir, 'missing.sock'), token: 't' },
@@ -129,7 +129,7 @@ describe('control endpoint', () => {
 
 describe('open / selection through the control channel', () => {
   it('open --slide asks the running shell instead of spawning the app', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'genoffice-ctl-'))
+    const dir = mkdtempSync(join(tmpdir(), 'lycero-ctl-'))
     const shell = await fakeShell(dir, () => ({
       ok: true,
       result: { slide: 1, element: 'e_3', type: 'text' },
@@ -147,7 +147,7 @@ describe('open / selection through the control channel', () => {
   })
 
   it('relays renderer errors as structured CLI errors', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'genoffice-ctl-'))
+    const dir = mkdtempSync(join(tmpdir(), 'lycero-ctl-'))
     const shell = await fakeShell(dir, () => ({
       ok: false,
       error: {
@@ -167,7 +167,7 @@ describe('open / selection through the control channel', () => {
   })
 
   it('selection returns the editor selection and explains when the file is not open', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'genoffice-ctl-'))
+    const dir = mkdtempSync(join(tmpdir(), 'lycero-ctl-'))
     const shell = await fakeShell(dir, (request) =>
       (request as { path: string }).path === DOCX
         ? { ok: true, result: { blocks: [2, 2], text: 'Second paragraph', collapsed: false } }
@@ -176,7 +176,7 @@ describe('open / selection through the control channel', () => {
             error: {
               reason: 'file_not_open_in_gui',
               message: 'not open',
-              detail: { suggestion: 'genoffice open x' },
+              detail: { suggestion: 'lycero-office open x' },
             },
           },
     )
@@ -190,19 +190,19 @@ describe('open / selection through the control channel', () => {
     expect(notOpen.code).toBe(2)
     expect(notOpen.json()).toMatchObject({
       error: 'file_not_open_in_gui',
-      suggestion: 'genoffice open x',
+      suggestion: 'lycero-office open x',
     })
   })
 
   it('selection without a running shell is app_unavailable with an open hint', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'genoffice-ctl-'))
+    const dir = mkdtempSync(join(tmpdir(), 'lycero-ctl-'))
     const r = await run(['selection', DOCX, '--json'], {
       env: { ...process.env, LYCERO_AUDIT_LOG: 'off', LYCERO_USER_DATA: dir },
     })
     expect(r.code).toBe(4)
     expect(r.json()).toMatchObject({
       error: 'app_unavailable',
-      suggestion: expect.stringContaining(`genoffice open ${DOCX}`),
+      suggestion: expect.stringContaining(`lycero-office open ${DOCX}`),
     })
   })
 })

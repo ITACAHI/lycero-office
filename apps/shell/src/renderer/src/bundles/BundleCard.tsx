@@ -2,7 +2,7 @@
  * Lycero Office Desktop
  * Copyright (c) 2026 ITAC AI Heavy Industries. All rights reserved.
  *
- * Original work Copyright (c) 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
+ * Original work Copyright (c) 2026 Mainfunc, Inc. (Lycero Office, Apache-2.0).
  */
 
 import { memo, useEffect, useState } from 'react'

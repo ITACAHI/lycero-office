@@ -15,7 +15,7 @@ const DOCX = join(REPO, 'apps/docs/tests/pagination-corpus/docx/01-simple-englis
 const PPTX = join(REPO, 'packages/pptx-engine/tests/fixtures/01_standard_business.pptx')
 const XLSX = join(REPO, 'apps/sheets/fixtures/generated/compatibility-basic.xlsx')
 
-describe('genoffice cli', () => {
+describe('lycero-office cli', () => {
   it('prints help and usage errors with the documented exit codes', async () => {
     expect((await run([])).code).toBe(1)
     expect((await run(['--help'])).code).toBe(0)
@@ -92,7 +92,7 @@ describe('genoffice cli', () => {
 
   it('converts pdf to docx through the local engine', async () => {
     const dir = tempDir()
-    const pdf = writeMinimalPdf(join(dir, 'one.pdf'), 'Converted by genoffice')
+    const pdf = writeMinimalPdf(join(dir, 'one.pdf'), 'Converted by lycero-office')
     const r = await run([
       'convert',
       pdf,
@@ -108,7 +108,7 @@ describe('genoffice cli', () => {
     expect(existsSync(out)).toBe(true)
     const zip = await JSZip.loadAsync(readFileSync(out))
     const doc = await zip.file('word/document.xml')!.async('string')
-    expect(doc).toContain('Converted by genoffice')
+    expect(doc).toContain('Converted by lycero-office')
   })
 
   it.skipIf(!xlsxSidecarPath())('info reads workbook sheets through the xlsx sidecar', async () => {

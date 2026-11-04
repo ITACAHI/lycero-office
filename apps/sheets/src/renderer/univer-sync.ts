@@ -192,6 +192,8 @@ import {
   type WrapMeasureCoverage,
 } from './univer-state'
 import type { SheetOutlineState } from './outline-model'
+import { externalLinkOverlayCell } from './external-link-values'
+import type { ExternalLinkCell } from '../shared/desktop-api'
 import { isManualCalculation } from './calc-options'
 import {
   registerCellFontAliases,
@@ -4377,7 +4379,7 @@ export function usesLocaleDependentFunction(formula: string): boolean {
 /// Whether a formula's cached <v> must be kept instead of recalculated:
 /// Google-only, locale-dependent or unsupported functions, defined names and
 /// table references. The verdict only applies when the cell has a cache — with
-/// nothing to keep, the engine's attempt beats a blank cell (genoffice#2125).
+/// nothing to keep, the engine's attempt beats a blank cell (#2125).
 const keepsCacheMemo = new Map<string, boolean>()
 
 /// Window onto the running formula engine's function registry. Installed
@@ -4971,7 +4973,7 @@ export function patchWorksheetRangeInner(
       // SELECTION — conditional formatting strips the selected cells from
       // every rule, a rule-range rectangle decomposition that costs seconds
       // per eviction on wide rules and permanently fragments the rule
-      // (genoffice#158). Eviction is internal bookkeeping; only cells move.
+      // (#158). Eviction is internal bookkeeping; only cells move.
       // Engine-owned closure cells must survive the eviction ({} is a merge
       // no-op, so pinned cells stay untouched — clearing and re-installing a
       // formula re-dirties its whole dependency web).
@@ -5400,7 +5402,7 @@ interface PivotBand {
 
 /// Excel keeps pivot styling out of cell xfs entirely; paint the style bands
 /// resolved sidecar-side from pivotTableStyleInfo (calibrated against Excel
-/// for Mac: genoffice-sample/sheets/calib/pivot-style-truths.json).
+/// for Mac: lycero-sample/sheets/calib/pivot-style-truths.json).
 ///
 /// Precedence, lowest first: wholeTable, row stripe, column stripe,
 /// firstColumn (row-label columns), subheading / subtotal, header (+ the
@@ -8239,4 +8241,59 @@ export function lazyCellEditable(
     column >= loaded.startColumn &&
     column <= loaded.endColumn
   )
+}
+
+/**
+ * Applies an external-links update (#2109): installs the freshly
+ * computed values into the recalc overlay so the grid shows them and the
+ * next save writes them as the formulas' cached `<v>` — the stored `[n]`
+ * formula text is untouched. Each cell's `kind` keeps its type: a boolean
+ * stays a boolean and an error stays an error, instead of both becoming the
+ * text of their display spelling. A cell whose report entry has no kind (the
+ * file never cached a value for it) keeps whatever the file has.
+ */
+export function applyExternalLinkValues(
+  state: LazyWorkbookState,
+  runtime: UniverRuntime,
+  report: { cells: readonly ExternalLinkCell[] },
+): { applied: number; sheets: number } {
+  const workbook = runtime.univerAPI.getActiveWorkbook()
+  if (!workbook) return { applied: 0, sheets: 0 }
+  const idByName = new Map(
+    workbook.getSheets().map((sheet) => [sheet.getSheetName().toLowerCase(), sheet.getSheetId()]),
+  )
+  const bySheet = new Map<string, Map<string, PinnedClosureCell>>()
+  let applied = 0
+  for (const cell of report.cells) {
+    const overlayValue = externalLinkOverlayCell(cell)
+    if (overlayValue === null) continue
+    const sheetId = idByName.get(cell.sheet.toLowerCase())
+    if (sheetId === undefined) continue
+    const overlay = bySheet.get(sheetId) ?? new Map<string, PinnedClosureCell>()
+    overlay.set(`${cell.row}:${cell.column}`, overlayValue)
+    bySheet.set(sheetId, overlay)
+    applied += 1
+  }
+  // The values go to a map of their own: they are a fresh sidecar
+  // computation, so an incomplete engine run must not release them (the
+  // incompleteRuns flag only qualifies engine-derived values), and a save
+  // counts them as pending work of its own. A report is complete for the
+  // workbook, so it replaces the previous external values.
+  state.recalc.externalOverlay.clear()
+  for (const [sheetId, overlay] of bySheet) {
+    state.recalc.externalOverlay.set(sheetId, overlay)
+    const loaded = state.loadedRanges.get(sheetId)
+    const worksheet = workbook.getSheets().find((sheet) => sheet.getSheetId() === sheetId)
+    if (worksheet && loaded && overlay.size > 0) {
+      journalSuppression.active = true
+      loadAutoHeightSuppression.active = true
+      try {
+        applyPinnedOverlay(worksheet, overlay, undefined, loaded)
+      } finally {
+        journalSuppression.active = false
+        loadAutoHeightSuppression.active = false
+      }
+    }
+  }
+  return { applied, sheets: bySheet.size }
 }

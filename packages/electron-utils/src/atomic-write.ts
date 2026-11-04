@@ -25,7 +25,7 @@ const RENAME_RETRY_DELAYS_MS = [50, 100, 200, 400]
  * locks or on filesystems without fsync. The bytes are already written, so a
  * refused flush only weakens power-loss durability and must not fail the save.
  */
-const TOLERATED_SYNC_CODES = new Set(['EPERM', 'EACCES', 'EBUSY', 'EINVAL', 'ENOSYS'])
+const TOLERATED_SYNC_CODES = new Set(['EPERM', 'EACCES', 'EBUSY', 'EINVAL', 'ENOSYS', 'ENOTSUP'])
 
 const errorCode = (error: unknown) => (error as NodeJS.ErrnoException).code ?? ''
 const isRetryableRename = (error: unknown) => RETRYABLE_RENAME_CODES.has(errorCode(error))
@@ -33,7 +33,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 const sleepSync = (ms: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
 
 // No leading dot: the macOS SMB client marks dot-files hidden and the flag
-// survives the rename onto the real document (genoffice#2145).
+// survives the rename onto the real document (#2145).
 const tempPathBeside = (filePath: string) =>
   join(dirname(filePath), `${basename(filePath)}.${randomBytes(6).toString('hex')}.tmp`)
 
@@ -74,7 +74,7 @@ function syncFileBestEffortSync(path: string): void {
 /**
  * Same-dir temp file, best-effort fsync, then rename. Rename-over-existing fails
  * transiently on Windows (Defender/indexer locks: retry) and permanently on some
- * network mounts (gvfs SMB refuses with EEXIST, genoffice#1877); either way the
+ * network mounts (gvfs SMB refuses with EEXIST, #1877); either way the
  * save falls back to an in-place write rather than failing.
  */
 export async function atomicWriteFile(filePath: string, data: Buffer): Promise<void> {
@@ -138,7 +138,7 @@ export async function atomicCopyFile(source: string, filePath: string): Promise<
  * only a temp that `write` completed is synced and renamed over the target. A
  * writer that throws part-way leaves the target untouched, so a save that dies
  * mid-stream keeps the previous file on disk instead of a truncated one
- * (genoffice#2123).
+ * (#2123).
  */
 export async function atomicWriteVia(
   filePath: string,

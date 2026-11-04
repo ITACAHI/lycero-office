@@ -30,8 +30,12 @@ export type AiProviderId =
   | 'cheaperinference'
   | 'atlascloud'
   | 'runcrate'
+  | 'cloudgpu'
+  | 'siliconflow'
+  | 'ppio'
   | 'opencode-zen'
   | 'opencode-go'
+  | 'commandcode'
   | 'custom'
 
 /** Lycero account status (gsk login state; the sole auth source for AI features) */
@@ -50,6 +54,9 @@ export interface AiProviderConfig {
   cliPath?: string | undefined
   /** the declarative profile of the active user-hosted endpoint (custom only) */
   profile?: AiCustomProfile | undefined
+  /** per-model thinking-effort picks (model id → level, see thinking-effort.ts);
+   *  absent or a level the model's family does not list = the vendor default */
+  thinking?: Record<string, string> | undefined
 }
 
 /**
@@ -144,6 +151,13 @@ export interface AiCustomEndpoint extends AiCustomProfile {
   model: string
   /** ids the server advertised on the last `/models` probe, so the composer chip can list them offline */
   models?: string[] | undefined
+  /**
+   * per-model thinking-effort picks (model id → level, see thinking-effort.ts).
+   * The endpoint record carries its own copy so the settings pane's pick
+   * survives normalization and reaches `providers.custom` through the slot
+   * mirror; absent = the vendor default.
+   */
+  thinking?: Record<string, string> | undefined
 }
 
 /** Live picker data returned by Codex app-server's model/list method. */

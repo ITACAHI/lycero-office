@@ -162,7 +162,7 @@ describe('the ai: channels', () => {
       timeoutMs: 120_000,
       cwd: resolve('/docs/open'),
       env: {
-        GENOFFICE_ALLOWED_ROOTS: [resolve('/home/u/Lycero Office'), resolve('/docs/open')].join(
+        LYCERO_ALLOWED_ROOTS: [resolve('/home/u/Lycero Office'), resolve('/docs/open')].join(
           delimiter,
         ),
       },

@@ -427,8 +427,8 @@ describe('spare sheets view', () => {
     }
   })
 
-  it('stays off under GENOFFICE_NO_SPARE_VIEW', () => {
-    vi.stubEnv('GENOFFICE_NO_SPARE_VIEW', '1')
+  it('stays off under LYCERO_NO_SPARE_VIEW', () => {
+    vi.stubEnv('LYCERO_NO_SPARE_VIEW', '1')
     vi.useFakeTimers()
     try {
       manager.openSheetsTab()

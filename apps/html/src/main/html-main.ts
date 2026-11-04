@@ -801,7 +801,7 @@ function savePastedImage(data: unknown, ext: unknown): string | null {
         ? Buffer.from(data.buffer, data.byteOffset, data.byteLength)
         : null
   if (!bytes || bytes.byteLength === 0) return null
-  const dir = join(app.getPath('temp'), 'genoffice-pasted')
+  const dir = join(app.getPath('temp'), 'lycero-pasted')
   mkdirSync(dir, { recursive: true })
   prunePastedImages(dir)
   const stamp = new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '-')
@@ -1014,7 +1014,7 @@ function printHtml(html: string, docPath: string | undefined): Promise<PrintDial
     html: buildPreviewDocument(html, base),
     window: new BrowserWindow({ show: false, webPreferences: { sandbox: true } }),
     fileName: 'print.html',
-    dirPrefix: 'genoffice-html-print-',
+    dirPrefix: 'lycero-html-print-',
   })
 }
 
@@ -1240,9 +1240,21 @@ async function resolveSaveTarget(
   }
   const win =
     BrowserWindow.fromWebContents(e.sender) ?? BrowserWindow.getFocusedWindow() ?? undefined
-  const defaultPath = current
-    ? join(dirname(current), basename(current))
-    : join(configuredDefaultSaveDir(app), `${fileNameBase(defaultName) || tm('untitledFile')}.html`)
+  // A name proposed by the model (or the page's own title) prefills the dialog
+  // rather than replacing it: the reader still chooses the location, and
+  // cancelling still cancels. Without one, the dialog opens on the file's own
+  // name, or on the untitled default for a page that has never been saved.
+  const proposed = fileNameBase(defaultName)
+  const defaultPath = proposed
+    ? // keep the open file's extension: an .html proposal must not offer to
+      // rewrite an opened .htm file, or a Save As on an .html one
+      join(
+        current ? dirname(current) : configuredDefaultSaveDir(app),
+        `${proposed}${current ? extname(current) : '.html'}`,
+      )
+    : current
+      ? join(dirname(current), basename(current))
+      : join(configuredDefaultSaveDir(app), `${tm('untitledFile')}.html`)
   const picked = await showSaveDialogWithMemory(dialog, win, {
     title: tm('dlgSaveTitle'),
     defaultPath,
@@ -1629,7 +1641,7 @@ function registerHtmlIpc(): void {
         {
           mediaRoots: documentMediaRoots(
             htmlFilePath(e.sender.id),
-            join(app.getPath('temp'), 'genoffice-pasted'),
+            join(app.getPath('temp'), 'lycero-pasted'),
           ),
         },
       ),
@@ -1703,7 +1715,7 @@ function registerHtmlIpc(): void {
       if (docxExportPrepareHook && !(await docxExportPrepareHook(picked.filePath))) {
         return { ok: true, canceled: true }
       }
-      const workDir = await mkdtemp(join(tmpdir(), 'genoffice-html-docx-'))
+      const workDir = await mkdtemp(join(tmpdir(), 'lycero-html-docx-'))
       let driver: ElectronBrowserDriver | null = null
       try {
         // Same document the preview shows (scripts on, relative assets via html-asset://):
@@ -1765,7 +1777,7 @@ function registerHtmlIpc(): void {
               configuredDefaultSaveDir(app),
             )
       if (picked.canceled || !picked.filePath) return { ok: true, canceled: true }
-      const workDir = await mkdtemp(join(tmpdir(), 'genoffice-html-pdf-'))
+      const workDir = await mkdtemp(join(tmpdir(), 'lycero-html-pdf-'))
       try {
         const docPath = savePathByWc.get(e.sender.id)
         await writeFile(picked.filePath, await renderPrintPdf(request.html, docPath, workDir))

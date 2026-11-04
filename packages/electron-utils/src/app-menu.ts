@@ -30,6 +30,7 @@ export interface AppMenuLabels extends ContextMenuLabels {
   checkUpdates: string
   version: string
   settings: string
+  nameWithAi: string
 }
 
 type Labels = Omit<AppMenuLabels, keyof ContextMenuLabels>
@@ -55,6 +56,7 @@ const EN: Labels = {
   checkUpdates: 'Check for Updates…',
   version: 'Version',
   settings: 'Settings…',
+  nameWithAi: 'Name with AI…',
 }
 
 // Shared table, same rationale as context-menu.ts: one copy instead of
@@ -80,6 +82,7 @@ const LABELS: Record<string, Labels> = {
     about: '关于 Lycero Office',
     checkUpdates: '检查更新…',
     version: '版本',
+    nameWithAi: '用 AI 命名…',
     settings: '设置…',
   },
   en: EN,
@@ -103,6 +106,7 @@ const LABELS: Record<string, Labels> = {
     about: 'Lycero Office について',
     checkUpdates: '更新を確認…',
     version: 'バージョン',
+    nameWithAi: 'AI で名前を変更…',
     settings: '設定…',
   },
   ko: {
@@ -125,6 +129,7 @@ const LABELS: Record<string, Labels> = {
     about: 'Lycero Office 정보',
     checkUpdates: '업데이트 확인…',
     version: '버전',
+    nameWithAi: 'AI로 이름 지정…',
     settings: '설정…',
   },
   fr: {
@@ -147,6 +152,7 @@ const LABELS: Record<string, Labels> = {
     about: 'À propos de Lycero Office',
     checkUpdates: 'Rechercher les mises à jour…',
     version: 'Version',
+    nameWithAi: "Nommer avec l'IA…",
     settings: 'Réglages…',
   },
   de: {
@@ -169,6 +175,7 @@ const LABELS: Record<string, Labels> = {
     about: 'Über Lycero Office',
     checkUpdates: 'Nach Updates suchen…',
     version: 'Version',
+    nameWithAi: 'Mit KI benennen…',
     settings: 'Einstellungen…',
   },
   es: {
@@ -191,6 +198,7 @@ const LABELS: Record<string, Labels> = {
     about: 'Acerca de Lycero Office',
     checkUpdates: 'Buscar actualizaciones…',
     version: 'Versión',
+    nameWithAi: 'Nombrar con IA…',
     settings: 'Ajustes…',
   },
   th: {
@@ -213,6 +221,7 @@ const LABELS: Record<string, Labels> = {
     about: 'เกี่ยวกับ Lycero Office',
     checkUpdates: 'ตรวจหาการอัปเดต…',
     version: 'เวอร์ชัน',
+    nameWithAi: 'ตั้งชื่อด้วย AI…',
     settings: 'การตั้งค่า…',
   },
   id: {
@@ -235,6 +244,7 @@ const LABELS: Record<string, Labels> = {
     about: 'Tentang Lycero Office',
     checkUpdates: 'Periksa Pembaruan…',
     version: 'Versi',
+    nameWithAi: 'Beri nama dengan AI…',
     settings: 'Pengaturan…',
   },
   ru: {
@@ -257,6 +267,7 @@ const LABELS: Record<string, Labels> = {
     about: 'О Lycero Office',
     checkUpdates: 'Проверить обновления…',
     version: 'Версия',
+    nameWithAi: 'Назвать с помощью ИИ…',
     settings: 'Настройки…',
   },
   ar: {
@@ -279,6 +290,7 @@ const LABELS: Record<string, Labels> = {
     about: 'حول Lycero Office',
     checkUpdates: 'التحقق من التحديثات…',
     version: 'الإصدار',
+    nameWithAi: 'التسمية بالذكاء الاصطناعي…',
     settings: 'الإعدادات…',
   },
   pt: {
@@ -301,6 +313,7 @@ const LABELS: Record<string, Labels> = {
     about: 'Sobre o Lycero Office',
     checkUpdates: 'Procurar atualizações…',
     version: 'Versão',
+    nameWithAi: 'Nomear com IA…',
     settings: 'Configurações…',
   },
   it: {
@@ -323,6 +336,7 @@ const LABELS: Record<string, Labels> = {
     about: 'Informazioni su Lycero Office',
     checkUpdates: 'Controlla aggiornamenti…',
     version: 'Versione',
+    nameWithAi: 'Assegna un nome con IA…',
     settings: 'Impostazioni…',
   },
   pl: {
@@ -345,6 +359,7 @@ const LABELS: Record<string, Labels> = {
     about: 'O programie Lycero Office',
     checkUpdates: 'Sprawdź aktualizacje…',
     version: 'Wersja',
+    nameWithAi: 'Nazwij za pomocą AI…',
     settings: 'Ustawienia…',
   },
   cs: {
@@ -367,6 +382,7 @@ const LABELS: Record<string, Labels> = {
     about: 'O aplikaci Lycero Office',
     checkUpdates: 'Zkontrolovat aktualizace…',
     version: 'Verze',
+    nameWithAi: 'Pojmenovat pomocí AI…',
     settings: 'Nastavení…',
   },
   nl: {
@@ -389,6 +405,7 @@ const LABELS: Record<string, Labels> = {
     about: 'Over Lycero Office',
     checkUpdates: 'Controleren op updates…',
     version: 'Versie',
+    nameWithAi: 'Naam geven met AI…',
     settings: 'Instellingen…',
   },
   ms: {
@@ -411,6 +428,7 @@ const LABELS: Record<string, Labels> = {
     about: 'Perihal Lycero Office',
     checkUpdates: 'Semak Kemas Kini…',
     version: 'Versi',
+    nameWithAi: 'Namakan dengan AI…',
     settings: 'Tetapan…',
   },
   he: {
@@ -433,6 +451,7 @@ const LABELS: Record<string, Labels> = {
     about: 'אודות Lycero Office',
     checkUpdates: 'בדוק עדכונים…',
     version: 'גרסה',
+    nameWithAi: 'מתן שם באמצעות AI…',
     settings: 'הגדרות…',
   },
   hi: {
@@ -455,6 +474,7 @@ const LABELS: Record<string, Labels> = {
     about: 'Lycero Office के बारे में',
     checkUpdates: 'अपडेट जांचें…',
     version: 'संस्करण',
+    nameWithAi: 'AI से नाम दें…',
     settings: 'सेटिंग्स…',
   },
   vi: {
@@ -477,6 +497,7 @@ const LABELS: Record<string, Labels> = {
     about: 'Giới thiệu Lycero Office',
     checkUpdates: 'Kiểm tra bản cập nhật…',
     version: 'Phiên bản',
+    nameWithAi: 'Đặt tên bằng AI…',
     settings: 'Cài đặt…',
   },
   tr: {
@@ -499,6 +520,7 @@ const LABELS: Record<string, Labels> = {
     about: 'Lycero Office Hakkında',
     checkUpdates: 'Güncellemeleri Denetle…',
     version: 'Sürüm',
+    nameWithAi: 'AI ile adlandır…',
     settings: 'Ayarlar…',
   },
   'zh-TW': {
@@ -521,6 +543,7 @@ const LABELS: Record<string, Labels> = {
     about: '關於 Lycero Office',
     checkUpdates: '檢查更新…',
     version: '版本',
+    nameWithAi: '用 AI 命名…',
     settings: '設定…',
   },
 }

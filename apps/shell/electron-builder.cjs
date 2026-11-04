@@ -106,20 +106,18 @@ const winSidecarCandidates = winIa32
 const WIN_SIDECAR =
   winSidecarCandidates.find((rel) => existsSync(join(__dirname, rel))) ?? winSidecarCandidates[0]
 
-// LICENSES.chromium.html only exists after the Electron binary download —
-// since Electron 42 that no longer happens during `npm ci` (the postinstall
-// script was replaced by the lazy `install-electron` bin), and electron-builder
-// exits 0 on a missing extraResources source, so without this check the
-// installer would silently ship without the Chromium license.
-for (const rel of [
-  '../../node_modules/electron/dist/LICENSES.chromium.html',
-  '../../node_modules/@embedpdf/pdfium/dist/pdfium.wasm',
-  '../pdf/node_modules/harfbuzzjs/hb-subset.wasm',
-]) {
-  if (!existsSync(join(__dirname, rel))) {
-    throw new Error(
-      `electron-builder extraResources source missing: ${rel} (npm hoisting changed?)`,
-    )
+function assertExtraResourceSources() {
+  for (const rel of [
+    '../../node_modules/electron/dist/LICENSES.chromium.html',
+    '../../node_modules/@embedpdf/pdfium/dist/pdfium.wasm',
+    '../pdf/node_modules/harfbuzzjs/hb-subset.wasm',
+    '../../node_modules/@rhwp/core/rhwp_bg.wasm',
+  ]) {
+    if (!existsSync(join(__dirname, rel))) {
+      throw new Error(
+        `electron-builder extraResources source missing: ${rel} (npm hoisting changed?)`,
+      )
+    }
   }
 }
 
@@ -256,6 +254,196 @@ function assertModuleTreesPresent() {
 }
 
 /** @type {import('electron-builder').Configuration} */
+// NSIS makes every declared ProgId the extension's default opener; for the
+// office types that is the point, for plain text/JSON and the legacy Word
+// 97-2003 .doc/.dot it would hijack the system editor, so Windows leaves those
+// out (mac/Linux still declare them for Open With). Lycero Office opens .doc/.dot
+// through its own Open dialog on every platform.
+const WIN_OPEN_WITH_ONLY_EXTS = new Set(['txt', 'json', 'doc', 'dot'])
+const FILE_ASSOCIATIONS = [
+  {
+    ext: 'docx',
+    name: 'Word Document',
+    description: 'Word Document',
+    role: 'Editor',
+    icon: 'docx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  },
+  {
+    // import-only: opens as a converted .docx copy, Lycero Office never writes .doc
+    ext: 'doc',
+    name: 'Word 97-2003 Document',
+    role: 'Editor',
+    icon: 'docx',
+    mimeType: 'application/msword',
+  },
+  {
+    // import-only: the template opens as a converted .docx copy
+    ext: 'dot',
+    name: 'Word 97-2003 Template',
+    role: 'Editor',
+    icon: 'docx',
+    mimeType: 'application/msword',
+  },
+  {
+    ext: 'xlsx',
+    name: 'Excel Workbook',
+    description: 'Excel Workbook',
+    role: 'Editor',
+    icon: 'xlsx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  },
+  {
+    ext: 'xlsm',
+    name: 'Excel Macro-Enabled Workbook',
+    role: 'Editor',
+    icon: 'xlsx',
+    mimeType: 'application/vnd.ms-excel.sheet.macroEnabled.12',
+  },
+  {
+    ext: 'pptx',
+    name: 'PowerPoint Presentation',
+    description: 'PowerPoint Presentation',
+    role: 'Editor',
+    icon: 'pptx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  },
+  {
+    ext: 'xls',
+    name: 'Excel 97-2003 Workbook',
+    role: 'Editor',
+    icon: 'xlsx',
+    mimeType: 'application/vnd.ms-excel',
+  },
+  {
+    ext: 'csv',
+    name: 'CSV Document',
+    role: 'Editor',
+    icon: 'xlsx',
+    mimeType: 'text/csv',
+  },
+  {
+    // opens as a converted copy and saves as .xlsx (#1146)
+    ext: 'tsv',
+    name: 'TSV Document',
+    role: 'Editor',
+    icon: 'xlsx',
+    mimeType: 'text/tab-separated-values',
+  },
+  {
+    // import-only: opens as a converted .xlsx copy, Lycero Office never writes ODF
+    ext: 'ods',
+    name: 'OpenDocument Spreadsheet',
+    role: 'Editor',
+    icon: 'xlsx',
+    mimeType: 'application/vnd.oasis.opendocument.spreadsheet',
+  },
+  {
+    ext: 'ots',
+    name: 'OpenDocument Spreadsheet Template',
+    role: 'Editor',
+    icon: 'xlsx',
+    mimeType: 'application/vnd.oasis.opendocument.spreadsheet-template',
+  },
+  {
+    // import-only: opens as a converted .docx copy, Lycero Office never writes ODF
+    ext: 'odt',
+    name: 'OpenDocument Text',
+    role: 'Editor',
+    icon: 'docx',
+    mimeType: 'application/vnd.oasis.opendocument.text',
+  },
+  {
+    ext: 'ott',
+    name: 'OpenDocument Text Template',
+    role: 'Editor',
+    icon: 'docx',
+    mimeType: 'application/vnd.oasis.opendocument.text-template',
+  },
+  {
+    // import-only: opens as a converted .docx copy, Lycero Office never writes HWPX
+    ext: 'hwpx',
+    name: 'Hancom HWPX Document',
+    role: 'Editor',
+    icon: 'docx',
+    mimeType: 'application/hwp+zip',
+  },
+  {
+    // import-only, like .hwpx: HWP binaries are read through rhwp into HWPX first
+    ext: 'hwp',
+    name: 'Hancom HWP Document',
+    role: 'Editor',
+    icon: 'docx',
+    mimeType: 'application/x-hwp',
+  },
+  {
+    // import-only: opens as a converted .pptx copy, Lycero Office never writes ODF
+    ext: 'odp',
+    name: 'OpenDocument Presentation',
+    role: 'Editor',
+    icon: 'pptx',
+    mimeType: 'application/vnd.oasis.opendocument.presentation',
+  },
+  {
+    ext: 'otp',
+    name: 'OpenDocument Presentation Template',
+    role: 'Editor',
+    icon: 'pptx',
+    mimeType: 'application/vnd.oasis.opendocument.presentation-template',
+  },
+  {
+    ext: 'pdf',
+    name: 'PDF Document',
+    role: 'Editor',
+    icon: 'pdf',
+    mimeType: 'application/pdf',
+  },
+  {
+    ext: 'md',
+    name: 'Markdown Document',
+    role: 'Editor',
+    icon: 'md',
+    mimeType: 'text/markdown',
+  },
+  {
+    ext: 'markdown',
+    name: 'Markdown Document',
+    role: 'Editor',
+    icon: 'md',
+    mimeType: 'text/markdown',
+  },
+  {
+    ext: 'txt',
+    name: 'Text Document',
+    description: 'Text Document',
+    role: 'Editor',
+    icon: 'txt',
+    mimeType: 'text/plain',
+  },
+  {
+    ext: 'json',
+    name: 'JSON Document',
+    description: 'JSON Document',
+    role: 'Editor',
+    icon: 'json',
+    mimeType: 'application/json',
+  },
+  {
+    ext: 'html',
+    name: 'HTML Document',
+    role: 'Editor',
+    icon: 'html',
+    mimeType: 'text/html',
+  },
+  {
+    ext: 'htm',
+    name: 'HTML Document',
+    role: 'Editor',
+    icon: 'html',
+    mimeType: 'text/html',
+  },
+]
+
 const config = {
   appId: 'vn.itac.lycero.office',
   productName: 'Lycero Office',
@@ -310,6 +498,11 @@ const config = {
     {
       from: '../pdf/node_modules/harfbuzzjs/hb-subset.wasm',
       to: 'wasm/hb-subset.wasm',
+    },
+    // .hwp import (packages/hwp2docx/src/hwp.ts): rhwp reads HWP binaries into HWPX
+    {
+      from: '../../node_modules/@rhwp/core/rhwp_bg.wasm',
+      to: 'wasm/rhwp_bg.wasm',
     },
     // platform system-OCR helpers for scanned-page recovery (each exists only
     // on its own build platform; electron-builder skips absent sources and the
@@ -372,137 +565,7 @@ const config = {
   // `mimeType` is read only by the Linux target, where it becomes the
   // desktop entry's MimeType= list; associations without it are dropped
   // there. macOS and Windows ignore the field and key off `ext`.
-  fileAssociations: [
-    {
-      ext: 'docx',
-      name: 'Word Document',
-      description: 'Word Document',
-      role: 'Editor',
-      icon: 'docx',
-      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    },
-    {
-      ext: 'xlsx',
-      name: 'Excel Workbook',
-      description: 'Excel Workbook',
-      role: 'Editor',
-      icon: 'xlsx',
-      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    },
-    {
-      ext: 'xlsm',
-      name: 'Excel Macro-Enabled Workbook',
-      role: 'Editor',
-      icon: 'xlsx',
-      mimeType: 'application/vnd.ms-excel.sheet.macroEnabled.12',
-    },
-    {
-      ext: 'pptx',
-      name: 'PowerPoint Presentation',
-      description: 'PowerPoint Presentation',
-      role: 'Editor',
-      icon: 'pptx',
-      mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    },
-    {
-      ext: 'xls',
-      name: 'Excel 97-2003 Workbook',
-      role: 'Editor',
-      icon: 'xlsx',
-      mimeType: 'application/vnd.ms-excel',
-    },
-    {
-      ext: 'csv',
-      name: 'CSV Document',
-      role: 'Editor',
-      icon: 'xlsx',
-      mimeType: 'text/csv',
-    },
-    {
-      ext: 'tsv',
-      name: 'TSV Document',
-      role: 'Editor',
-      icon: 'xlsx',
-      mimeType: 'text/tab-separated-values',
-    },
-    {
-      ext: 'ods',
-      name: 'OpenDocument Spreadsheet',
-      role: 'Editor',
-      icon: 'xlsx',
-      mimeType: 'application/vnd.oasis.opendocument.spreadsheet',
-    },
-    {
-      ext: 'ots',
-      name: 'OpenDocument Spreadsheet Template',
-      role: 'Editor',
-      icon: 'xlsx',
-      mimeType: 'application/vnd.oasis.opendocument.spreadsheet-template',
-    },
-    {
-      ext: 'odt',
-      name: 'OpenDocument Text',
-      role: 'Editor',
-      icon: 'docx',
-      mimeType: 'application/vnd.oasis.opendocument.text',
-    },
-    {
-      ext: 'ott',
-      name: 'OpenDocument Text Template',
-      role: 'Editor',
-      icon: 'docx',
-      mimeType: 'application/vnd.oasis.opendocument.text-template',
-    },
-    {
-      ext: 'odp',
-      name: 'OpenDocument Presentation',
-      role: 'Editor',
-      icon: 'pptx',
-      mimeType: 'application/vnd.oasis.opendocument.presentation',
-    },
-    {
-      ext: 'otp',
-      name: 'OpenDocument Presentation Template',
-      role: 'Editor',
-      icon: 'pptx',
-      mimeType: 'application/vnd.oasis.opendocument.presentation-template',
-    },
-    {
-      ext: 'pdf',
-      name: 'PDF Document',
-      role: 'Editor',
-      icon: 'pdf',
-      mimeType: 'application/pdf',
-    },
-    {
-      ext: 'md',
-      name: 'Markdown Document',
-      role: 'Editor',
-      icon: 'md',
-      mimeType: 'text/markdown',
-    },
-    {
-      ext: 'markdown',
-      name: 'Markdown Document',
-      role: 'Editor',
-      icon: 'md',
-      mimeType: 'text/markdown',
-    },
-    {
-      ext: 'html',
-      name: 'HTML Document',
-      role: 'Editor',
-      icon: 'html',
-      mimeType: 'text/html',
-    },
-    {
-      ext: 'htm',
-      name: 'HTML Document',
-      role: 'Editor',
-      icon: 'html',
-      mimeType: 'text/html',
-    },
-  ],
+  fileAssociations: FILE_ASSOCIATIONS,
   npmRebuild: false,
   mac: {
     // Two separate arch packages (NOT universal): arm64 keeps the exact
@@ -521,6 +584,10 @@ const config = {
     gatekeeperAssess: false,
     entitlements: 'build/entitlements.mac.plist',
     entitlementsInherit: 'build/entitlements.mac.plist',
+    extendInfo: {
+      NSMicrophoneUsageDescription:
+        'Lycero Office records your narration when you record a slide show.',
+    },
     ...(hasAppleSignIdentity ? {} : { identity: null }),
     notarize: hasAppleSignIdentity && hasAppleNotarizeCreds,
     extraResources: [
@@ -538,6 +605,7 @@ const config = {
         arch: [winArch],
       },
     ],
+    fileAssociations: FILE_ASSOCIATIONS.filter((a) => !WIN_OPEN_WITH_ONLY_EXTS.has(a.ext)),
     extraResources: [
       {
         from: WIN_SIDECAR,
@@ -585,6 +653,16 @@ const config = {
         from: '../sheets/native/xlsx-engine/target/release/xlsx-sidecar',
         to: 'native/xlsx-sidecar',
       },
+      // Same blank templates the Windows installer registers for Explorer's
+      // "New" menu. The deb/rpm post-install step copies them into
+      // /usr/share/templates, which KDE Plasma's Dolphin "Create New" menu
+      // scans (#2384). AppImage gets the payload too but runs no
+      // install script, so it adds no templates.
+      {
+        from: 'build/shell-new',
+        to: 'shell-new',
+        filter: ['*.docx', '*.xlsx', '*.pptx'],
+      },
     ],
   },
   // artifact name derives from executableName ('lycero-office').
@@ -614,6 +692,7 @@ const config = {
         : {}),
   },
   beforePack: async (context) => {
+    assertExtraResourceSources()
     assertModuleTreesPresent()
     if (context.electronPlatformName === 'darwin' && includeMacX64) {
       assertUniversalSidecar()

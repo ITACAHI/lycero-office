@@ -113,7 +113,7 @@ export function HelpAboutModal({ open, onClose }: HelpAboutModalProps) {
                 <dt>Tư cách pháp lý</dt>
                 <dd>
                   Tác phẩm phái sinh thương mại hợp pháp (Apache-2.0 / Section 4) — kế thừa từ{' '}
-                  <strong>GenOffice</strong> (Copyright © 2026 Mainfunc, Inc.)
+                  <strong>Lycero Office</strong> (Copyright © 2026 Mainfunc, Inc.)
                 </dd>
               </div>
               <div className="help-dl-row">

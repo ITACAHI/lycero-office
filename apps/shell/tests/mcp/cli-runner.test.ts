@@ -14,7 +14,7 @@ import {
 } from '../../src/main/mcp/cli-runner'
 
 function script(body: string): string {
-  const dir = mkdtempSync(join(tmpdir(), 'genoffice-cli-runner-'))
+  const dir = mkdtempSync(join(tmpdir(), 'lycero-cli-runner-'))
   const file = join(dir, 'child.js')
   writeFileSync(file, body)
   return file
@@ -36,7 +36,7 @@ describe('createCliRunner output cap', () => {
       MAX_CLI_OUTPUT_BYTES + 2000,
     )
     expect(outcome.stderr).toContain('truncated')
-    expect(cliErrorMessage(outcome)).toContain('genoffice failed')
+    expect(cliErrorMessage(outcome)).toContain('lycero-office failed')
   }, 60_000)
 
   it('passes normal runs through uncapped', async () => {

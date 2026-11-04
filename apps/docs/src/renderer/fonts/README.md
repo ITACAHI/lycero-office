@@ -5,17 +5,18 @@ freely redistributable with the app. Licenses: Carlito and Liberation are
 **SIL Open Font License 1.1** (see `LICENSE-OFL.txt`); Caladea is
 **Apache License 2.0** (copyright Huerta Tipografica).
 
-| Font             | License    | Metric-compatible Word counterpart |
-| ---------------- | ---------- | ---------------------------------- |
-| Carlito GO       | OFL 1.1    | Calibri (Word's default body font) |
-| Caladea          | Apache-2.0 | Cambria                            |
-| Cambria Math GO  | Apache-2.0 | Cambria Math (Caladea, adjusted)   |
-| Liberation Serif | OFL 1.1    | Times New Roman                    |
-| Liberation Sans  | OFL 1.1    | Arial                              |
-| Liberation Mono  | OFL 1.1    | Courier New                        |
-| Aptos GO         | OFL 1.1    | Aptos (Carlito, size-adjusted)     |
-| Aptos Display GO | OFL 1.1    | Aptos Display (Carlito, adjusted)  |
-| Aptos Narrow GO  | OFL 1.1    | Aptos Narrow (Carlito, adjusted)   |
+| Font                 | License    | Metric-compatible Word counterpart        |
+| -------------------- | ---------- | ----------------------------------------- |
+| Carlito GO           | OFL 1.1    | Calibri (Word's default body font)        |
+| Caladea              | Apache-2.0 | Cambria                                   |
+| Cambria Math GO      | Apache-2.0 | Cambria Math (Caladea, adjusted)          |
+| Liberation Serif     | OFL 1.1    | Times New Roman                           |
+| Liberation Sans      | OFL 1.1    | Arial                                     |
+| Liberation Mono      | OFL 1.1    | Courier New                               |
+| Aptos GO             | OFL 1.1    | Aptos (Carlito, advance-matched)          |
+| Aptos Display GO     | OFL 1.1    | Aptos Display (Carlito, adjusted)         |
+| Aptos Narrow GO      | OFL 1.1    | Aptos Narrow (Carlito, adv.-matched)      |
+| Bookman Old Style GO | Apache-2.0 | Bookman Old Style (Caladea, adv.-matched) |
 
 "Carlito GO" (`Carlito-*.ttf`) is a derivative of Carlito 1.103: a build-time patch
 (`tools/patch-carlito-vi.py`) rebuilds Vietnamese precomposed glyphs whose above mark
@@ -32,17 +33,25 @@ pagination model (`tests/helpers/lo-fonts.ts` measures the same set of files).
 
 Registration lives in `fonts.css`; family-name mapping in `cssFontFamily()` of `line-metrics.ts`.
 
-"Aptos GO" / "Aptos Display GO" / "Aptos Narrow GO" are not separate files: they
-are `size-adjust`ed views of the Carlito faces. Aptos is not a scale of Carlito
-(per glyph the ratio spans 0.87 to 1.22), so each face declares the
-corpus-weighted letter scale as its general rule plus one range-limited face per
-1.5% advance bucket of the ASCII letters, digits, space and common punctuation;
-later faces win inside their unicode-range. The ratios are Aptos hmtx (Word's
-bundled DFonts / cloud-font cache, which Word PDF char origins reproduce
-exactly) over Carlito hmtx; the block is generated from the font files, refit
-rather than hand-edit it. Pitch stays Calibri's 1.22 (`lineHeightFactor`).
+"Aptos GO", "Aptos Narrow GO" and "Bookman Old Style GO" are advance-matched
+derivatives built by `tools/build-metric-fonts.py` (`AptosGO-*.ttf`,
+`AptosNarrowGO-*.ttf` from Carlito, `BookmanOldStyleGO-*.ttf` from Caladea;
+manifest `refit.method: advance-matched`). The Word faces are not a scale of
+their stand-ins (per glyph Aptos/Carlito spans 0.87 to 1.22, Bookman/Caladea
+1.0 to 1.96), and a size-adjusted face per advance bucket drew letters of one
+word at different heights. Each derivative subsets the base to the Latin
+repertoire shared with the Word font, scales every outline horizontally to the
+Word hmtx advance (times the corpus pair-kerning factor for Aptos, since the
+renderer does not kern unless w:kern is on), applies one uniform vertical
+factor (mean H/x ink ratio), and takes the general face's line box into
+hhea/OS2; GPOS/GSUB/kern and hinting are dropped. The rangeless Carlito /
+Caladea face stays as the non-Latin fallback. Carlito-based files are renamed
+per OFL 1.1 §2. "Aptos Display GO" still uses size-adjust buckets (its source
+lives only in Word's cloud-font cache). Pitch stays Calibri's 1.22 for Aptos
+(`lineHeightFactor`) and the hhea 1.1738 for Bookman.
 `tests/aptos-alias-metrics.test.ts` holds the Word-probed sentence widths
-(2026-09-03, 2026-10-20).
+(2026-09-03, 2026-10-20); the Bookman widths live in the
+`font-bookman-old-style-alias` truth fixture.
 
 ## CJK fallback
 
@@ -58,7 +67,7 @@ forms + basic Latin
 Rare characters outside the subset still fall through to system fonts (shown as
 missing glyphs in minimal environments); bold is synthesized by the browser.
 
-The serif subset also backs the `GenOffice Fullwidth TC` face (`fonts.css`), a
+The serif subset also backs the `Lycero Office Fullwidth TC` face (`fonts.css`), a
 unicode-range shim (U+FF0D/FF0F/FF3C/FF3F/FF5E) slotted before Songti TC in the
 Traditional Chinese serif chain: Songti TC draws those fullwidth glyphs at
 ~0.2-0.5em of ink inside the 1em advance, so a PMingLiU document's U+FF0F
@@ -69,9 +78,9 @@ chain order; advances are 1.0em everywhere, so line breaking is unchanged.
 
 | Font                                 | Role                                                        |
 | ------------------------------------ | ----------------------------------------------------------- |
-| GenOffice Serif KR (subset woff2)    | Batang-metric stand-in for Korean serif families            |
-| GenOffice Sans KR (subset woff2)     | fallback for Korean sans families (Malgun etc.)             |
-| GenOffice Che Latin KR (ASCII woff2) | half-width Latin for BatangChe/GulimChe/DotumChe/GungsuhChe |
+| Lycero Office Serif KR (subset woff2)    | Batang-metric stand-in for Korean serif families            |
+| Lycero Office Sans KR (subset woff2)     | fallback for Korean sans families (Malgun etc.)             |
+| Lycero Office Che Latin KR (ASCII woff2) | half-width Latin for BatangChe/GulimChe/DotumChe/GungsuhChe |
 
 Source: Noto Serif/Sans CJK KR Regular from [notofonts/noto-cjk](https://github.com/notofonts/noto-cjk)
 (SIL OFL 1.1), subset with fonttools to the 2,350 KS X 1001 syllables + jamo
@@ -94,7 +103,7 @@ ink widths and side bearings of Batang/Malgun
 (`tools/normalize-kr-latin-metrics.py`,
 `tools/scale-kr-sans-latin-ink.py`).
 
-`GenOfficeCheLatinKR.woff2` is an ASCII-only derivative of GenOffice Sans KR.
+`GenOfficeCheLatinKR.woff2` is an ASCII-only derivative of Lycero Office Sans KR.
 `tools/build-kr-che-latin-font.py` gives its Noto-derived outlines fixed 0.5em
 advances and transforms them to measured DotumChe ink boxes. Microsoft Office
 fonts are build-time measurement references only; no Microsoft outlines are
@@ -105,11 +114,11 @@ counterpart line factors live in `lineHeightFactor()` of `line-metrics.ts`.
 The Sans/Che source copyright (Adobe 2014–2021 and Google LLC), Serif source
 copyright (Adobe 2017–2024), and full OFL 1.1 text are in `LICENSE-OFL.txt`.
 
-### GenOffice Gothic KR
+### Lycero Office Gothic KR
 
 | Font                               | Role                                            |
 | ---------------------------------- | ----------------------------------------------- |
-| GenOffice Gothic KR (subset woff2) | real-metric face for NanumGothic-declaring docs |
+| Lycero Office Gothic KR (subset woff2) | real-metric face for NanumGothic-declaring docs |
 
 Source: NanumGothic Regular from [google/fonts](https://github.com/google/fonts/tree/main/ofl/nanumgothic)
 (SIL OFL 1.1). Word for Mac renders NanumGothic documents with the OS
@@ -124,11 +133,11 @@ Reserved Font Names include "Nanum" and "NanumGothic"; subsetting is a
 modification). The exact NHN copyright/Reserved Font Name notice and the full
 OFL 1.1 text are in `LICENSE-OFL.txt`.
 
-### GenOffice UI Kana JP
+### Lycero Office UI Kana JP
 
 | Font                                      | Role                                                |
 | ----------------------------------------- | --------------------------------------------------- |
-| GenOffice UI Kana JP (Regular/Bold woff2) | Meiryo UI-advance kana/JP punctuation for the alias |
+| Lycero Office UI Kana JP (Regular/Bold woff2) | Meiryo UI-advance kana/JP punctuation for the alias |
 
 Source: Noto Sans JP variable font from [notofonts/noto-cjk](https://github.com/notofonts/noto-cjk)
 (SIL OFL 1.1), instanced at wght 400/700. Word for Mac renders Meiryo UI with
@@ -147,7 +156,7 @@ outlines are modified).
 
 | Font                             | Role                                 |
 | -------------------------------- | ------------------------------------ |
-| GenOffice Poppins (subset woff2) | real face for Poppins-declaring docs |
+| Lycero Office Poppins (subset woff2) | real face for Poppins-declaring docs |
 
 Source: Poppins Regular/Bold from [google/fonts](https://github.com/google/fonts/tree/main/ofl/poppins)
 (SIL OFL 1.1). Poppins is an M365 cloud font: Word downloads the real face and
@@ -157,7 +166,7 @@ with the PDF embedding Poppins-Regular/Bold), while the Helvetica-class
 fallback runs ~12.6% narrower per line and 1.172-spaced — a 13-page document
 paginated as 11. Subset to Latin + Latin Extended + punctuation/currency,
 advances and vertical metrics **unmodified** (`tools/build-poppins-font.py`),
-checked in as `GenOfficePoppins-{Regular,Bold}-subset.woff2`. Renamed (no
+checked in as `LyceroPoppins-{Regular,Bold}-subset.woff2`. Renamed (no
 Reserved Font Name upstream) so a locally installed Poppins wins by chain
 order. Italic synthesizes oblique from these faces.
 
@@ -165,7 +174,7 @@ order. Italic synthesizes oblique from these faces.
 
 | Font                             | Role                                 |
 | -------------------------------- | ------------------------------------ |
-| GenOffice DM Sans (subset woff2) | real face for DM Sans-declaring docs |
+| Lycero Office DM Sans (subset woff2) | real face for DM Sans-declaring docs |
 
 Source: DM Sans 1.200 Regular/Bold statics from [google/fonts](https://github.com/google/fonts/tree/af0704e25dfad3e8999a2955cbbdfa2b28099617/ofl/dmsans)
 (SIL OFL 1.1; the current upstream is a variable font whose instances no
@@ -176,7 +185,7 @@ whose hmtx equals the 1.200 statics glyph for glyph (hhea = typo = win =
 fallback runs ~7% narrower per line and 1.15-spaced. Subset to Latin + Latin
 Extended + punctuation/currency, advances and vertical metrics **unmodified**
 (`tools/build-dm-sans-font.py`), checked in as
-`GenOfficeDMSans-{Regular,Bold}-subset.woff2`. Renamed (no Reserved Font Name
+`LyceroDMSans-{Regular,Bold}-subset.woff2`. Renamed (no Reserved Font Name
 of its own upstream) so a locally installed DM Sans wins by chain order.
 Italic synthesizes oblique from these faces.
 
@@ -184,7 +193,7 @@ Italic synthesizes oblique from these faces.
 
 | Font                    | Role                                     |
 | ----------------------- | ---------------------------------------- |
-| GenOffice Tamil (woff2) | Latha-metric stand-in for Tamil families |
+| Lycero Office Tamil (woff2) | Latha-metric stand-in for Tamil families |
 
 Source: Noto Sans Tamil Regular from [notofonts](https://github.com/notofonts/notofonts.github.io)
 (SIL OFL 1.1). Word substitutes missing Tamil families with Latha; Chromium's
@@ -201,7 +210,7 @@ per OFL ("Noto" is a Reserved Font Name; advances are modified).
 
 | Font                      | Role                                         |
 | ------------------------- | -------------------------------------------- |
-| GenOffice Bengali (woff2) | Nirmala UI-metric stand-in, Regular and Bold |
+| Lycero Office Bengali (woff2) | Nirmala UI-metric stand-in, Regular and Bold |
 
 Source: Noto Sans Bengali Regular/Bold from [notofonts](https://github.com/notofonts/notofonts.github.io)
 (SIL OFL 1.1). Word for Mac renders Nirmala UI for real (M365 cloud font);
@@ -236,7 +245,7 @@ serif, so unknown Arabic families default to the Naskh chain.
 
 | Font                              | Role                                             |
 | --------------------------------- | ------------------------------------------------ |
-| GenOffice PUA Blank (woff2, 312B) | blank 1em glyph for all of U+E000-F8FF (BMP PUA) |
+| Lycero Office PUA Blank (woff2, 312B) | blank 1em glyph for all of U+E000-F8FF (BMP PUA) |
 
 Generated from scratch by `tools/build-pua-blank-font.py` (no upstream font;
 two glyphs, both empty). Chromium never system-falls-back for Private Use
@@ -246,3 +255,24 @@ tofu boxes for AI-residue PUA tokens, while Word — and chains headed by the
 bundled CJK subsets, whose subsetted `.notdef` is blank — show nothing. This
 face sits in the Aptos chain and behind the range-limited `Noto Sans/Serif
 CJK GO` aliases so PUA stays invisible there too.
+
+## Outline format
+
+Every bundled face carries TrueType (glyf) outlines. Chromium's PDF backend
+(Skia, `printToPDF`) cannot embed CFF-flavoured faces: each glyph drawn with
+one lands in the exported PDF as a Type3 path procedure instead of an embedded
+font (no font name in the viewer, unreliable text selection and search).
+Noto Sans/Serif CJK SC and the three Noto-derived KR faces (Lycero Office Sans KR,
+Lycero Office Serif KR, Lycero Office Che Latin KR) come from CFF sources, so the last
+build step for them is `tools/convert-cff-to-glyf.py`: cu2qu at 1 font unit,
+glyph order, cmap, advances, OS/2, hhea/vhea, name and layout tables carried
+over byte for byte (the script asserts it), VORG dropped with each vertical
+origin kept in vmtx. Only outlines change, so the OFL Reserved Font Name
+"Source" (not part of any shipped family name) stays unused.
+
+`tools/scale-kr-sans-latin-ink.py` and `tools/build-kr-che-latin-font.py`
+edit CFF charstrings: run them on a CFF build, then convert. Those charstrings
+also carried their own widths, which no longer matched the normalized hmtx
+(hangul 0.92em, `A` 1.275em in Lycero Office Sans KR). Chromium on Windows
+measured the CFF faces with those widths (probe 2026-10-31) while macOS used
+hmtx; glyf has no widths of its own, so hmtx now holds on every platform.

@@ -4,7 +4,7 @@
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
 /**
- * Slide size presets and units for Design › Slide Size (genoffice#2191).
+ * Slide size presets and units for Design › Slide Size (#2191).
  * Sizes are EMU, the unit of `<p:sldSz>`; the paper presets are the real sheet
  * sizes so a deck prints edge to edge on that paper.
  */

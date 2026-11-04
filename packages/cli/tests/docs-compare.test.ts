@@ -65,7 +65,7 @@ async function fixtures(): Promise<{ dir: string; original: string; revised: str
   return { dir, original, revised }
 }
 
-describe('genoffice docs compare', () => {
+describe('lycero-office docs compare', () => {
   it('writes a redline with the differences marked as tracked changes', async () => {
     const { dir, original, revised } = await fixtures()
     const out = join(dir, 'redline.docx')

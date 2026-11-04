@@ -30,20 +30,20 @@ describe('installCliLink', () => {
     const dir = tempDir()
     const bin = join(dir, 'bin')
     mkdirSync(bin)
-    const launcher = join(dir, 'app', 'genoffice')
+    const launcher = join(dir, 'app', 'lycero-office')
     mkdirSync(join(dir, 'app'))
     writeFileSync(launcher, '#!/bin/sh\n')
     expect(inspectCliLink({ launcher, platform: 'linux', candidateDirs: [bin] }).status).toBe(
       'missing',
     )
     const first = installCliLink({ launcher, platform: 'linux', candidateDirs: [bin] })
-    expect(first).toEqual({ status: 'linked', location: join(bin, 'genoffice') })
-    expect(readlinkSync(join(bin, 'genoffice'))).toBe(launcher)
+    expect(first).toEqual({ status: 'linked', location: join(bin, 'lycero-office') })
+    expect(readlinkSync(join(bin, 'lycero-office'))).toBe(launcher)
     const again = installCliLink({ launcher, platform: 'linux', candidateDirs: [bin] })
     expect(again.status).toBe('present')
     expect(inspectCliLink({ launcher, platform: 'linux', candidateDirs: [bin] })).toEqual({
       status: 'present',
-      location: join(bin, 'genoffice'),
+      location: join(bin, 'lycero-office'),
     })
   })
 
@@ -51,28 +51,28 @@ describe('installCliLink', () => {
     const dir = tempDir()
     const bin = join(dir, 'bin')
     mkdirSync(bin)
-    const launcher = join(dir, 'new-app', 'cli', 'genoffice')
+    const launcher = join(dir, 'new-app', 'cli', 'lycero-office')
     mkdirSync(join(dir, 'new-app', 'cli'), { recursive: true })
     writeFileSync(launcher, '')
-    symlinkSync(join(dir, 'old-app', 'cli', 'genoffice'), join(bin, 'genoffice'))
+    symlinkSync(join(dir, 'old-app', 'cli', 'lycero-office'), join(bin, 'lycero-office'))
     expect(inspectCliLink({ launcher, platform: 'linux', candidateDirs: [bin] }).status).toBe(
       'missing',
     )
     expect(installCliLink({ launcher, platform: 'linux', candidateDirs: [bin] }).status).toBe(
       'linked',
     )
-    expect(readlinkSync(join(bin, 'genoffice'))).toBe(launcher)
+    expect(readlinkSync(join(bin, 'lycero-office'))).toBe(launcher)
 
     const npm = join(dir, 'npm-bin')
     mkdirSync(npm)
-    const npmTarget = join(dir, 'lib', 'node_modules', 'genoffice', 'bin', 'genoffice.js')
+    const npmTarget = join(dir, 'lib', 'node_modules', 'lycero-office', 'bin', 'lycero-office.js')
     mkdirSync(join(npmTarget, '..'), { recursive: true })
     writeFileSync(npmTarget, '')
-    symlinkSync(npmTarget, join(npm, 'genoffice'))
+    symlinkSync(npmTarget, join(npm, 'lycero-office'))
     expect(installCliLink({ launcher, platform: 'linux', candidateDirs: [npm] }).status).toBe(
       'occupied',
     )
-    expect(readlinkSync(join(npm, 'genoffice'))).toBe(npmTarget)
+    expect(readlinkSync(join(npm, 'lycero-office'))).toBe(npmTarget)
     expect(inspectCliLink({ launcher, platform: 'linux', candidateDirs: [npm] }).status).toBe(
       'occupied',
     )
@@ -80,22 +80,22 @@ describe('installCliLink', () => {
     mkdirSync(spare)
     expect(inspectCliLink({ launcher, platform: 'linux', candidateDirs: [npm, spare] })).toEqual({
       status: 'missing',
-      location: join(spare, 'genoffice'),
+      location: join(spare, 'lycero-office'),
       manual: expect.any(String),
     })
     expect(installCliLink({ launcher, platform: 'linux', candidateDirs: [npm, spare] })).toEqual({
       status: 'linked',
-      location: join(spare, 'genoffice'),
+      location: join(spare, 'lycero-office'),
     })
 
     const taken = join(dir, 'taken')
     mkdirSync(taken)
-    writeFileSync(join(taken, 'genoffice'), 'someone else')
+    writeFileSync(join(taken, 'lycero-office'), 'someone else')
     const occupied = installCliLink({ launcher, platform: 'linux', candidateDirs: [taken] })
     expect(occupied.status).toBe('occupied')
     expect(occupied.manual).toContain('sudo')
     expect(occupied.manual).toContain('ln -sf')
-    expect(lstatSync(join(taken, 'genoffice')).isSymbolicLink()).toBe(false)
+    expect(lstatSync(join(taken, 'lycero-office')).isSymbolicLink()).toBe(false)
     expect(inspectCliLink({ launcher, platform: 'linux', candidateDirs: [taken] }).status).toBe(
       'occupied',
     )
@@ -113,58 +113,58 @@ describe('installCliLink', () => {
     }
   })
 
-  it('owns only launchers shipped with the app, not any path ending in /cli/genoffice (genoffice#895)', () => {
+  it('owns only launchers shipped with the app, not any path ending in /cli/lycero-office (#895)', () => {
     const dir = tempDir()
-    const launcher = join(dir, 'Lycero Office.app', 'Contents', 'Resources', 'cli', 'genoffice')
+    const launcher = join(dir, 'Lycero Office.app', 'Contents', 'Resources', 'cli', 'lycero-office')
     mkdirSync(join(launcher, '..'), { recursive: true })
     writeFileSync(launcher, '#!/bin/sh\n')
-    writeFileSync(join(launcher, '..', 'genoffice.cjs'), '')
+    writeFileSync(join(launcher, '..', 'lycero-office.cjs'), '')
 
-    const vendor = join(dir, 'opt', 'vendor', 'cli', 'genoffice')
+    const vendor = join(dir, 'opt', 'vendor', 'cli', 'lycero-office')
     mkdirSync(join(vendor, '..'), { recursive: true })
     writeFileSync(vendor, '#!/bin/sh\necho vendor\n')
     expect(isOurLauncher(vendor, launcher)).toBe(false)
     const bin = join(dir, 'bin')
     mkdirSync(bin)
-    symlinkSync(vendor, join(bin, 'genoffice'))
+    symlinkSync(vendor, join(bin, 'lycero-office'))
     expect(installCliLink({ launcher, platform: 'linux', candidateDirs: [bin] })).toEqual({
       status: 'occupied',
-      location: join(bin, 'genoffice'),
+      location: join(bin, 'lycero-office'),
       manual: expect.any(String),
     })
-    expect(readlinkSync(join(bin, 'genoffice'))).toBe(vendor)
+    expect(readlinkSync(join(bin, 'lycero-office'))).toBe(vendor)
     expect(inspectCliLink({ launcher, platform: 'linux', candidateDirs: [bin] }).status).toBe(
       'occupied',
     )
 
     const dead = join(dir, 'dead-bin')
     mkdirSync(dead)
-    symlinkSync(join(dir, 'gone', 'cli', 'genoffice'), join(dead, 'genoffice'))
+    symlinkSync(join(dir, 'gone', 'cli', 'lycero-office'), join(dead, 'lycero-office'))
     expect(installCliLink({ launcher, platform: 'linux', candidateDirs: [dead] }).status).toBe(
       'linked',
     )
-    expect(readlinkSync(join(dead, 'genoffice'))).toBe(launcher)
+    expect(readlinkSync(join(dead, 'lycero-office'))).toBe(launcher)
 
-    const older = join(dir, 'opt', 'Lycero Office', 'resources', 'cli', 'genoffice')
+    const older = join(dir, 'opt', 'Lycero Office', 'resources', 'cli', 'lycero-office')
     mkdirSync(join(older, '..'), { recursive: true })
     writeFileSync(older, '#!/bin/sh\n')
-    writeFileSync(join(older, '..', 'genoffice.cjs'), '')
+    writeFileSync(join(older, '..', 'lycero-office.cjs'), '')
     expect(isOurLauncher(older, launcher)).toBe(true)
     const upgraded = join(dir, 'upgraded-bin')
     mkdirSync(upgraded)
-    symlinkSync(older, join(upgraded, 'genoffice'))
+    symlinkSync(older, join(upgraded, 'lycero-office'))
     expect(installCliLink({ launcher, platform: 'linux', candidateDirs: [upgraded] }).status).toBe(
       'linked',
     )
-    expect(readlinkSync(join(upgraded, 'genoffice'))).toBe(launcher)
+    expect(readlinkSync(join(upgraded, 'lycero-office'))).toBe(launcher)
 
     const alias = join(dir, 'Applications')
     symlinkSync(join(dir, 'Lycero Office.app'), alias, 'dir')
-    const viaAlias = join(alias, 'Contents', 'Resources', 'cli', 'genoffice')
+    const viaAlias = join(alias, 'Contents', 'Resources', 'cli', 'lycero-office')
     expect(isOurLauncher(viaAlias, launcher)).toBe(true)
     const relative = join(dir, 'relative-bin')
     mkdirSync(relative)
-    symlinkSync(join('..', 'opt', 'vendor', 'cli', 'genoffice'), join(relative, 'genoffice'))
+    symlinkSync(join('..', 'opt', 'vendor', 'cli', 'lycero-office'), join(relative, 'lycero-office'))
     expect(installCliLink({ launcher, platform: 'linux', candidateDirs: [relative] }).status).toBe(
       'occupied',
     )
@@ -172,12 +172,12 @@ describe('installCliLink', () => {
 
   it('reports a missing /usr/local/bin as unwritable instead of skipping it', () => {
     const dir = tempDir()
-    const launcher = join(dir, 'genoffice')
+    const launcher = join(dir, 'lycero-office')
     writeFileSync(launcher, '')
     const absent = join(dir, 'no-such-bin')
     const r = installCliLink({ launcher, platform: 'linux', candidateDirs: [absent] })
     expect(r.status).toBe('unwritable')
-    expect(r.location).toBe(join(absent, 'genoffice'))
+    expect(r.location).toBe(join(absent, 'lycero-office'))
     expect(r.manual).toContain('mkdir -p /usr/local/bin')
     expect(defaultCandidateDirs('darwin')[0]).toBe('/usr/local/bin')
 
@@ -187,7 +187,7 @@ describe('installCliLink', () => {
     expect(inspectCliLink({ launcher, platform: 'darwin', candidateDirs: [absent, brew] })).toEqual(
       {
         status: 'missing',
-        location: join(brew, 'genoffice'),
+        location: join(brew, 'lycero-office'),
         manual: expect.stringContaining('ln -sf'),
       },
     )
@@ -196,7 +196,7 @@ describe('installCliLink', () => {
     )
   })
 
-  it('falls back to $XDG_BIN_HOME, then ~/.local/bin, when the system dirs refuse (genoffice#1019)', () => {
+  it('falls back to $XDG_BIN_HOME, then ~/.local/bin, when the system dirs refuse (#1019)', () => {
     const home = tempDir()
     expect(defaultCandidateDirs('linux', { HOME: home })).toEqual([
       '/usr/local/bin',
@@ -210,7 +210,7 @@ describe('installCliLink', () => {
       join(home, '.local', 'bin'),
     ])
 
-    const launcher = join(home, 'app', 'genoffice')
+    const launcher = join(home, 'app', 'lycero-office')
     mkdirSync(join(home, 'app'))
     writeFileSync(launcher, '#!/bin/sh\n')
     const locked = join(home, 'locked')
@@ -223,25 +223,25 @@ describe('installCliLink', () => {
       if (process.getuid?.() === 0) return
       expect(inspectCliLink({ launcher, platform: 'linux', candidateDirs: dirs, env })).toEqual({
         status: 'missing',
-        location: join(userBin, 'genoffice'),
+        location: join(userBin, 'lycero-office'),
         manual: expect.stringContaining('sudo'),
         pathHint: 'export PATH="$HOME/.local/bin:$PATH"',
       })
       expect(existsSync(userBin)).toBe(false)
       expect(installCliLink({ launcher, platform: 'linux', candidateDirs: dirs, env })).toEqual({
         status: 'linked',
-        location: join(userBin, 'genoffice'),
+        location: join(userBin, 'lycero-office'),
         pathHint: 'export PATH="$HOME/.local/bin:$PATH"',
       })
-      expect(readlinkSync(join(userBin, 'genoffice'))).toBe(launcher)
+      expect(readlinkSync(join(userBin, 'lycero-office'))).toBe(launcher)
       const onPath = { ...env, PATH: `${userBin}/:${env.PATH}` }
       expect(
         installCliLink({ launcher, platform: 'linux', candidateDirs: dirs, env: onPath }),
-      ).toEqual({ status: 'present', location: join(userBin, 'genoffice') })
+      ).toEqual({ status: 'present', location: join(userBin, 'lycero-office') })
       // an explicit non-user dir never gets created or a PATH hint
       const absent = join(home, 'no-such-bin')
       expect(installCliLink({ launcher, platform: 'linux', candidateDirs: [absent], env })).toEqual(
-        { status: 'unwritable', location: join(absent, 'genoffice'), manual: expect.any(String) },
+        { status: 'unwritable', location: join(absent, 'lycero-office'), manual: expect.any(String) },
       )
       expect(existsSync(absent)).toBe(false)
     } finally {
@@ -265,8 +265,8 @@ describe('installCliLink', () => {
       return { ok: true, stdout: scripts.length === 1 ? 'linked\n' : 'present\n' }
     }
     const launcher =
-      "C:\\Users\\O'Brien\\AppData\\Local\\Programs\\Lycero Office\\resources\\genoffice\\genoffice.cmd"
-    const dir = "C:\\Users\\O'Brien\\AppData\\Local\\Programs\\Lycero Office\\resources\\genoffice"
+      "C:\\Users\\O'Brien\\AppData\\Local\\Programs\\Lycero Office\\resources\\lycero-office\\lycero-office.cmd"
+    const dir = "C:\\Users\\O'Brien\\AppData\\Local\\Programs\\Lycero Office\\resources\\lycero-office"
     const first = installCliLink({ launcher, platform: 'win32', runPowerShell: run })
     expect(first).toEqual({ status: 'linked', location: dir })
     expect(scripts[0]).toContain("$dir = 'C:\\Users\\O''Brien\\AppData")
@@ -288,14 +288,14 @@ describe('installCliLink', () => {
 
   it('inspects the Windows PATH read-only', () => {
     const scripts: string[] = []
-    const launcher = 'C:\\Lycero Office\\resources\\genoffice\\genoffice.cmd'
+    const launcher = 'C:\\Lycero Office\\resources\\lycero-office\\lycero-office.cmd'
     const present = inspectCliLink({
       launcher,
       platform: 'win32',
       runPowerShell: (s) => (scripts.push(s), { ok: true, stdout: 'present\n' }),
     })
     expect(present.status).toBe('present')
-    expect(present.location).toBe('C:\\Lycero Office\\resources\\genoffice')
+    expect(present.location).toBe('C:\\Lycero Office\\resources\\lycero-office')
     expect(scripts[0]).not.toContain('SetValue')
     const missing = inspectCliLink({
       launcher,
@@ -348,7 +348,7 @@ describe('installCliLink', () => {
   })
 })
 
-describe('the Homebrew prefix is never written uninvited (genoffice#1914)', () => {
+describe('the Homebrew prefix is never written uninvited (#1914)', () => {
   const none = () => false
 
   it('never offers /opt/homebrew/bin, and keeps the user directory', () => {
@@ -384,7 +384,7 @@ describe('the Homebrew prefix is never written uninvited (genoffice#1914)', () =
 
   it('does not break the unwritable report when the only system dir was the brew prefix', () => {
     const home = tempDir()
-    const launcher = join(home, 'app', 'genoffice')
+    const launcher = join(home, 'app', 'lycero-office')
     mkdirSync(join(home, 'app'))
     writeFileSync(launcher, '#!/bin/sh\n')
     const r = installCliLink({
@@ -398,7 +398,7 @@ describe('the Homebrew prefix is never written uninvited (genoffice#1914)', () =
       ),
     })
     expect(r.status).toBe('linked')
-    expect(r.location).toBe(join(home, '.local', 'bin', 'genoffice'))
+    expect(r.location).toBe(join(home, '.local', 'bin', 'lycero-office'))
   })
   it('leaves a Homebrew-prefix directory alone even when it is the one writable', () => {
     // the shape that produced the report: every system dir is unwritable, and
@@ -407,7 +407,7 @@ describe('the Homebrew prefix is never written uninvited (genoffice#1914)', () =
     const locked = join(home, 'locked')
     mkdirSync(locked)
     chmodSync(locked, 0o555)
-    const launcher = join(home, 'app', 'genoffice')
+    const launcher = join(home, 'app', 'lycero-office')
     mkdirSync(join(home, 'app'))
     writeFileSync(launcher, '#!/bin/sh\n')
     const userBin = join(home, '.local', 'bin')
@@ -420,9 +420,9 @@ describe('the Homebrew prefix is never written uninvited (genoffice#1914)', () =
         candidateDirs: [locked, userBin],
       })
       expect(r.status).toBe('linked')
-      expect(r.location).toBe(join(userBin, 'genoffice'))
+      expect(r.location).toBe(join(userBin, 'lycero-office'))
       // nothing landed anywhere but the directory we were told to consider
-      expect(existsSync(join(userBin, 'genoffice'))).toBe(true)
+      expect(existsSync(join(userBin, 'lycero-office'))).toBe(true)
     } finally {
       chmodSync(locked, 0o755)
     }

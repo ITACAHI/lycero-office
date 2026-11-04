@@ -53,7 +53,7 @@ export const OFFICE_TYPES: readonly OfficeType[] = [
   },
 ]
 
-const LINUX_DESKTOP_ID = 'genoffice.desktop'
+const LINUX_DESKTOP_ID = 'lycero-office.desktop'
 export const WINDOWS_DEFAULT_APPS_URL = 'ms-settings:defaultapps?registeredAppUser=Lycero%20Office'
 const WINDOWS_DEFAULT_APPS_FALLBACK_URL = 'ms-settings:defaultapps'
 

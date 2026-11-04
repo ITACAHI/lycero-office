@@ -24,7 +24,7 @@ const section = (source: string, start: string, end: string) =>
 
 describe('atomic export destinations', () => {
   it('keeps an existing destination intact when a temporary write fails', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'genoffice-export-atomic-'))
+    const dir = mkdtempSync(join(tmpdir(), 'lycero-export-atomic-'))
     const target = join(dir, 'report.docx')
     writeFileSync(target, 'old')
     try {
@@ -39,7 +39,7 @@ describe('atomic export destinations', () => {
   })
 
   it('keeps the destination intact when publishing the temporary file fails', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'genoffice-export-rename-'))
+    const dir = mkdtempSync(join(tmpdir(), 'lycero-export-rename-'))
     const target = join(dir, 'report.docx')
     writeFileSync(target, 'old')
     mockedRename.mockRejectedValue(Object.assign(new Error('busy'), { code: 'EPERM' }))

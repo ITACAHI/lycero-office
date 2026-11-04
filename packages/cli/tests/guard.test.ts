@@ -186,8 +186,8 @@ describe('audit log', () => {
     expect(redactArgv(['info', 'a.pdf', '--password'])).toEqual(['info', 'a.pdf', '--password'])
   })
 
-  it('defaults under ~/.genoffice and honours LYCERO_AUDIT_LOG', () => {
-    expect(auditLogPath({})).toMatch(/[\\/]\.genoffice[\\/]cli-audit\.jsonl$/)
+  it('defaults under ~/.lycero-office and honours LYCERO_AUDIT_LOG', () => {
+    expect(auditLogPath({})).toMatch(/[\\/]\.lycero-office[\\/]cli-audit\.jsonl$/)
     expect(auditLogPath({ LYCERO_AUDIT_LOG: 'off' })).toBeNull()
     expect(auditLogPath({ LYCERO_AUDIT_LOG: '/x/y.jsonl' })).toBe('/x/y.jsonl')
   })

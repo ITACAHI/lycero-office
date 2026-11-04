@@ -15,11 +15,11 @@ const webResponse = () =>
     results: [
       {
         title: 'Lycero Office',
-        link: 'https://genoffice.ai/',
+        link: 'https://lycero-office.ai/',
         description: 'A free, open-source office suite.',
       },
       { title: 'Not a page', link: 'javascript:void(0)', description: 'dropped' },
-      { title: 'Docs', link: 'https://genoffice.ai/docs', description: 'Documentation.' },
+      { title: 'Docs', link: 'https://lycero-office.ai/docs', description: 'Documentation.' },
     ],
     answers: [],
   })
@@ -46,7 +46,7 @@ describe('Serply web search', () => {
   it('sends a GET with the key header and maps results[].description', async () => {
     const fetch = vi.fn<typeof globalThis.fetch>(async () => webResponse())
     vi.stubGlobal('fetch', fetch)
-    const r = await webSearch('genoffice', 5, {
+    const r = await webSearch('lycero-office', 5, {
       useGsk: false,
       serplyKey: 'user-key',
       serperKey: 'serper-key',
@@ -56,10 +56,10 @@ describe('Serply web search', () => {
       results: [
         {
           title: 'Lycero Office',
-          url: 'https://genoffice.ai/',
+          url: 'https://lycero-office.ai/',
           snippet: 'A free, open-source office suite.',
         },
-        { title: 'Docs', url: 'https://genoffice.ai/docs', snippet: 'Documentation.' },
+        { title: 'Docs', url: 'https://lycero-office.ai/docs', snippet: 'Documentation.' },
       ],
       method: 'serply',
     })
@@ -67,10 +67,10 @@ describe('Serply web search', () => {
     const [url, init] = fetch.mock.calls[0]!
     const parsed = new URL(String(url))
     expect(`${parsed.origin}${parsed.pathname}`).toBe(webEndpoint)
-    expect(parsed.searchParams.get('q')).toBe('genoffice')
+    expect(parsed.searchParams.get('q')).toBe('lycero-office')
     expect(parsed.searchParams.get('num')).toBe('5')
     expect(init?.method).toBeUndefined()
-    expect(init?.headers).toEqual({ 'X-Api-Key': 'user-key', 'User-Agent': 'genoffice' })
+    expect(init?.headers).toEqual({ 'X-Api-Key': 'user-key', 'User-Agent': 'lycero-office' })
   })
 
   it('reads SERPLY_API_KEY and caps the mapped results at maxResults', async () => {
@@ -79,9 +79,9 @@ describe('Serply web search', () => {
       'fetch',
       vi.fn<typeof globalThis.fetch>(async () => webResponse()),
     )
-    const r = await webSearch('genoffice', 1)
+    const r = await webSearch('lycero-office', 1)
     expect(r.method).toBe('serply')
-    expect(r.results.map((x) => x.url)).toEqual(['https://genoffice.ai/'])
+    expect(r.results.map((x) => x.url)).toEqual(['https://lycero-office.ai/'])
   })
 
   it('falls through to the next backend when Serply rejects the key', async () => {
@@ -97,7 +97,7 @@ describe('Serply web search', () => {
         return fallback()
       }),
     )
-    const r = await webSearch('genoffice', 3, {
+    const r = await webSearch('lycero-office', 3, {
       useGsk: false,
       serplyKey: 'bad-key',
       prefer: 'serply',

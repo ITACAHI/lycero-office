@@ -27,6 +27,8 @@ export const MARKDOWN_CHANNELS = {
   listWikiNotes: 'markdown:list-wiki-notes',
   /** create the note an unresolved `[[wiki link]]` names (never overwrites) */
   createWikiNote: 'markdown:create-wiki-note',
+  /** what `[[Note#` offers: the target note's headings and block ids */
+  wikiHeads: 'markdown:wiki-heads',
   /** notes whose links land on the given path (the backlinks panel) */
   wikiBacklinks: 'markdown:wiki-backlinks',
   wikiTags: 'markdown:wiki-tags',
@@ -52,7 +54,7 @@ export const MARKDOWN_CHANNELS = {
   getMarkdownTheme: 'markdown:get-theme',
   setMarkdownTheme: 'markdown:set-theme',
   uploadImage: 'markdown:upload-image',
-  viewImage: 'genoffice:view-image',
+  viewImage: 'lycero:view-image',
   exportRequest: 'markdown:export-request',
   exportDocx: 'markdown:export-docx',
   exportPdf: 'markdown:export-pdf',
@@ -110,6 +112,32 @@ export interface WikiCreateNoteRequest {
   target: string
 }
 
+/** a heading of the note `[[Note#` lists */
+export interface WikiHeadingEntry {
+  kind: 'heading'
+  /** heading text as the fragment addresses it, marker stripped */
+  text: string
+  level: number
+}
+
+/** a block id the note already carries, offered by `[[Note#^` */
+export interface WikiBlockIdEntry {
+  kind: 'block'
+  /** the id without the caret, as the completion adds its own */
+  id: string
+  /** the line's text before the marker, '' for a lone marker line */
+  text: string
+}
+
+export type WikiHeadEntry = WikiHeadingEntry | WikiBlockIdEntry
+
+export interface WikiHeadsRequest {
+  /** the link's file part as typed: `Note`, `folder/Note` */
+  target: string
+  /** absolute path of the open document, '' while untitled */
+  fromPath: string
+}
+
 export type WikiCreateNoteResult =
   | {
       ok: true
@@ -164,14 +192,14 @@ export interface WikiGraph {
 export type UiTheme = 'light' | 'dark' | 'system'
 
 /**
- * Document page theme preference (genoffice#1811): what the editors' canvas/paper does
+ * Document page theme preference (#1811): what the editors' canvas/paper does
  * relative to the UI theme. 'follow' keeps the previous single-theme behavior.
  */
 export type DocTheme = 'follow' | 'light' | 'dark'
 
 /**
  * Bring-your-own image host for pasted/dropped pictures in Markdown
- * (genoffice#388). Keys are stored plaintext in the user's own settings file,
+ * (#388). Keys are stored plaintext in the user's own settings file,
  * like every other credential in the app. The local assets/ copy stays the
  * fallback whenever the host is disabled, unconfigured or the upload fails.
  */
@@ -233,6 +261,13 @@ export interface SaveMarkdownRequest {
    * Ignored when the document already has a path.
    */
   suggestedName?: string
+  /**
+   * Name offered in the Save As dialog for a document that has never been
+   * saved. A plain ⌘S on an untitled document still asks where the file goes —
+   * the model-proposed name (or the first heading) prefills that dialog rather
+   * than replacing it, so the reader still chooses the location.
+   */
+  defaultName?: string
   /** write even though the file changed on disk since it was loaded or last saved */
   overwrite?: boolean
 }
@@ -349,6 +384,12 @@ export interface MarkdownApi {
    * the target cannot name a note at all.
    */
   createWikiNote(request: WikiCreateNoteRequest): Promise<WikiCreateNoteResult>
+  /**
+   * What `[[Note#` offers: resolve the typed target the way the resolver does
+   * and list that note's headings and block ids. Read-only — the suggester
+   * lists what is there, it never writes an id into another file.
+   */
+  wikiHeads(request: WikiHeadsRequest): Promise<WikiHeadEntry[]>
   /** Notes whose links resolve to `path` (the backlinks panel); '' answers []. */
   wikiBacklinks(path: string): Promise<WikiBacklink[]>
   wikiTags(): Promise<{ tag: string; files: string[] }[]>
@@ -399,7 +440,7 @@ export interface MarkdownApi {
    */
   saveImage(data: { base64: string; ext: string }): Promise<string | null>
   /**
-   * The configured image host (genoffice#388), or null when none was ever
+   * The configured image host (#388), or null when none was ever
    * saved. Pasted/dropped images upload here first and fall back to the
    * local `assets/` copy when the upload fails or the host is disabled.
    */

@@ -62,7 +62,7 @@ function serve(entry: { file: string; style: string }): string {
 beforeEach(() => {
   availability.clear()
   payloads.clear()
-  vi.stubEnv('GENOFFICE_FONT_CDN_URL', fontCdnBaseUrl)
+  vi.stubEnv('LYCERO_FONT_CDN_URL', fontCdnBaseUrl)
   vi.mocked(net.fetch).mockReset()
 })
 afterEach(() => {
@@ -106,7 +106,7 @@ describe('the catalog rows this app hands its ribbon', () => {
   })
 
   it('hides the downloadable catalog when no CDN URL is configured', () => {
-    vi.stubEnv('GENOFFICE_FONT_CDN_URL', '')
+    vi.stubEnv('LYCERO_FONT_CDN_URL', '')
     expect(listFontCatalog()).toEqual([])
   })
 
@@ -131,7 +131,7 @@ describe('extractFontCdnBaseUrl', () => {
   it('reads and normalises the packaged mirror URL', () => {
     expect(
       extractFontCdnBaseUrl({
-        genofficeFontCdn: { baseUrl: ' https://fonts.example.test/v1/ ' },
+        lyceroFontCdn: { baseUrl: ' https://fonts.example.test/v1/ ' },
       }),
     ).toBe(fontCdnBaseUrl)
   })
@@ -185,7 +185,7 @@ describe('downloadFontFamily, through this app env', () => {
   })
 
   it('rejects downloads when no CDN URL is configured', async () => {
-    vi.stubEnv('GENOFFICE_FONT_CDN_URL', '')
+    vi.stubEnv('LYCERO_FONT_CDN_URL', '')
     await expect(downloadFontFamily(FONT_CATALOG[0]!.family)).rejects.toThrow(/unavailable/)
     expect(net.fetch).not.toHaveBeenCalled()
   })
@@ -256,7 +256,7 @@ describe('missingCatalogFonts', () => {
     const missing = missingCatalogFonts({ deck } as never)
     expect(missing).toEqual(['Poppins', 'Rubik'])
 
-    vi.stubEnv('GENOFFICE_FONT_CDN_URL', '')
+    vi.stubEnv('LYCERO_FONT_CDN_URL', '')
     expect(missingCatalogFonts({ deck } as never)).toEqual([])
   })
 })

@@ -30,7 +30,7 @@ type Content = {
   resource?: { uri: string; blob?: string }
 }
 
-describe('genoffice mcp --http', () => {
+describe('lycero-office mcp --http', () => {
   let handle: HttpHandle
   let client: Client
   let dir: string
@@ -126,7 +126,7 @@ describe('genoffice mcp --http', () => {
     const first = (before.json().detail.items[0].text as string).split(' ')[0]!
     const r = await call('docs_apply', {
       file: url,
-      ops: [{ op: 'findReplace', find: first, replace: 'GENOFFICE' }],
+      ops: [{ op: 'findReplace', find: first, replace: 'LYCERO' }],
     })
     expect(r.isError).toBe(false)
     const ok = r.json()

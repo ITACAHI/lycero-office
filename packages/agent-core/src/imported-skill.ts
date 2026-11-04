@@ -5,14 +5,14 @@
  */
 /**
  * Reading a third-party agent skill — a `SKILL.md` — and deciding whether it is
- * worth surfacing inside GenOffice.
+ * worth surfacing inside Lycero Office.
  *
  * ## Why this exists, and why it is not what it looks like
  *
  * A coding agent's skill is prose with YAML frontmatter: `name`, `description`,
- * and a body that tells a reader how to drive a shell. GenOffice ships one such
- * skill of its own (`skills/genoffice/SKILL.md`), and its body is written
- * against `genoffice` running in a terminal.
+ * and a body that tells a reader how to drive a shell. Lycero Office ships one such
+ * skill of its own (`skills/lycero-office/SKILL.md`), and its body is written
+ * against `lycero-office` running in a terminal.
  *
  * The in-app agent is not that reader. Its skills are `AgentSkill` values
  * compiled into the bundle — `executeTool` is a function, not a file — so a
@@ -25,7 +25,7 @@
  *
  * A developer's `.agents/` and `.claude/` directories hold skills for every kind
  * of work — git, testing, deployment, databases. Most of them have nothing to do
- * with the files GenOffice opens, and listing all of them in a slash palette
+ * with the files Lycero Office opens, and listing all of them in a slash palette
  * would bury the two that are relevant. So the classification is a pure
  * function over the skill's own words, testable without touching the disk.
  */
@@ -41,7 +41,7 @@ export interface SkillFrontmatter {
 }
 
 /**
- * The formats GenOffice actually opens, saves and converts.
+ * The formats Lycero Office actually opens, saves and converts.
  *
  * Both the extensions and the product names are listed, because a skill about
  * "converting PDF to HTML" names the extension and a skill about "building a
@@ -139,7 +139,7 @@ export const SKILL_FORMAT_PHRASES: readonly string[] = [
 ]
 
 export interface SkillRelevance {
-  /** true when the skill talks about a file GenOffice can work with */
+  /** true when the skill talks about a file Lycero Office can work with */
   relevant: boolean
   /** the tokens that matched, lowercased and de-duplicated — for the UI's "why" */
   matched: string[]

@@ -14,15 +14,15 @@ export default defineConfig({
       // tests against the local engine edits. Exact regexes: a string find would
       // also swallow the engine's own '@lycero/pptx-engine/custgeom' subpath.
       {
-        find: /^@genoffice\/docx-engine$/,
+        find: /^@lycero-office\/docx-engine$/,
         replacement: fileURLToPath(new URL('../docx-engine/src/index.ts', import.meta.url)),
       },
       {
-        find: /^@genoffice\/pptx-engine$/,
+        find: /^@lycero-office\/pptx-engine$/,
         replacement: fileURLToPath(new URL('../pptx-engine/src/index.ts', import.meta.url)),
       },
       {
-        find: /^@genoffice\/pptx-engine\/custgeom$/,
+        find: /^@lycero-office\/pptx-engine\/custgeom$/,
         replacement: fileURLToPath(new URL('../pptx-engine/src/custgeom.ts', import.meta.url)),
       },
     ],

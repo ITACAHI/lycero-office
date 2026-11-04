@@ -158,10 +158,10 @@ describe('documentToMarkdown', () => {
       })
       expect(documentToMarkdown(editor)).toEqual({
         markdown:
-          'see ![](__genoffice_media__/image1.png)\n\n' +
-          '![](__genoffice_media__/image2.jpeg)\n\n' +
-          '![](__genoffice_media__/image1.png)\n\n' +
-          '| tall | cell ![](__genoffice_media__/image1.png) |\n| --- | --- |\n|  | b2 |\n',
+          'see ![](__lycero_media__/image1.png)\n\n' +
+          '![](__lycero_media__/image2.jpeg)\n\n' +
+          '![](__lycero_media__/image1.png)\n\n' +
+          '| tall | cell ![](__lycero_media__/image1.png) |\n| --- | --- |\n|  | b2 |\n',
         images: [
           { name: 'image1.png', src: png },
           { name: 'image2.jpeg', src: lazy },

@@ -39,6 +39,19 @@ describe('native admission for Lycero provider requests', () => {
     expect(fetcher).not.toHaveBeenCalled()
   })
 
+  it('never runs in an Electron renderer', async () => {
+    const original = (process as { type?: string }).type
+    ;(process as { type?: string }).type = 'renderer'
+    try {
+      const { fetcher } = recorder(() => issued(pass()))
+      const init = { headers: { Authorization: 'Bearer gsk-k' } }
+      expect(await createNativeAdmission().prepare(OPENAI, init, fetcher)).toBe(init)
+      expect(fetcher).not.toHaveBeenCalled()
+    } finally {
+      ;(process as { type?: string }).type = original
+    }
+  })
+
   it('binds the exact credential header for both protocols and caches per subject', async () => {
     const token = pass()
     const { calls, fetcher } = recorder(() => issued(token))
@@ -182,7 +195,7 @@ describe('native admission for Lycero provider requests', () => {
 
 describe('nativeAdmissionHosts', () => {
   it('keeps the default proxy host and adds the configured ones', () => {
-    const defaultHosts = ['lycero.com', 'www.lycero.com', 'www.lycero.ai', 'www.genspark.ai']
+    const defaultHosts = ['lycero.com', 'www.lycero.com', 'www.lycero.ai']
     expect([...nativeAdmissionHosts({})]).toEqual(defaultHosts)
     expect([...nativeAdmissionHosts({ GSK_BASE_URL: 'https://office.example.com/x' })]).toEqual([
       ...defaultHosts,

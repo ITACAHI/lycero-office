@@ -4,10 +4,15 @@
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
 import { existsSync } from 'node:fs'
-import { readFile } from 'node:fs/promises'
+import { readFile, rm } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { PRINT_READY_SCRIPT, printHtmlDocument, type PrintDialogWindow } from '../src/print-window'
+import {
+  loadPrintHtml,
+  PRINT_READY_SCRIPT,
+  printHtmlDocument,
+  type PrintDialogWindow,
+} from '../src/print-window'
 
 /** Records the call order, so the assertions can pin sequencing and not just
  * end state: the readiness probe has to happen BEFORE print(), and show() has
@@ -76,7 +81,7 @@ const run = (win: TestPrintWindow, platform?: string) =>
     html: '<html><body>doc</body></html>',
     window: win,
     fileName: 'print.html',
-    dirPrefix: 'genoffice-html-print-',
+    dirPrefix: 'lycero-html-print-',
     platform: platform as NodeJS.Platform,
   })
 
@@ -162,7 +167,7 @@ describe('HTML print window', () => {
     await run(ok)
     expect(ok.destroyed).toBe(true)
     expect(ok.dirExistedAtDestroy).toBe(true)
-    expect(ok.loadedPath).toMatch(/genoffice-html-print-.*print\.html$/)
+    expect(ok.loadedPath).toMatch(/lycero-html-print-.*print\.html$/)
     expect(ok.loadedHtml).toBe('<html><body>doc</body></html>')
     expect(existsSync(dirname(ok.loadedPath!))).toBe(false)
 
@@ -180,5 +185,22 @@ describe('HTML print window', () => {
     }
     // Teardown must not turn a print failure into an unhandled rejection.
     await expect(run(win, 'win32')).rejects.toThrow('window already gone')
+  })
+})
+
+describe('loadPrintHtml', () => {
+  it('loads the document, runs the readiness probe and returns the temp dir to clean', async () => {
+    const win = new TestPrintWindow()
+    const { tempDir } = await loadPrintHtml(
+      win,
+      '<html><body>doc</body></html>',
+      'x.html',
+      'lycero-test-print-',
+    )
+    expect(win.calls).toEqual(['loadFile', 'executeJavaScript'])
+    expect(win.loadedHtml).toContain('doc')
+    expect(dirname(win.loadedPath!)).toBe(tempDir)
+    expect(existsSync(tempDir)).toBe(true)
+    await rm(tempDir, { recursive: true, force: true })
   })
 })

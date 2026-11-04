@@ -13,3 +13,8 @@ declare module 'bidi-js' {
   }
   export default function bidiFactory(): BidiApi
 }
+
+declare module '*.png' {
+  const src: string
+  export default src
+}

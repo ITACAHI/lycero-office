@@ -7,7 +7,7 @@ import {
   CREATE_DOCUMENT_TOOL,
   LOAD_GUIDE_TOOL,
   READ_ATTACHMENT_TOOL,
-  RUN_GENOFFICE_TOOL,
+  RUN_LYCERO_TOOL,
   type AgentToolCall,
 } from '@lycero/agent-core'
 
@@ -38,7 +38,7 @@ function baseName(path: string): string {
 export function toolNoteKind(call: AgentToolCall): ToolNoteKind {
   if (call.name === 'search_knowledge_base') return 'search'
   if (call.name === CREATE_DOCUMENT_TOOL) return 'create'
-  if (call.name === RUN_GENOFFICE_TOOL || call.name === LOAD_GUIDE_TOOL) return 'cli'
+  if (call.name === RUN_LYCERO_TOOL || call.name === LOAD_GUIDE_TOOL) return 'cli'
   return 'read'
 }
 
@@ -55,7 +55,7 @@ export function toolNoteDetail(
     const domain = typeof call.input.domain === 'string' ? call.input.domain : ''
     return domain ? `guide ${domain}` : undefined
   }
-  if (call.name === RUN_GENOFFICE_TOOL) {
+  if (call.name === RUN_LYCERO_TOOL) {
     const args = Array.isArray(call.input.args)
       ? (call.input.args as unknown[]).filter((a): a is string => typeof a === 'string')
       : []

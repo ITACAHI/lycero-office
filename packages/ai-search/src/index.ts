@@ -11,7 +11,7 @@
  * SERPER_API_KEY, the Serply key reuses SERPLY_API_KEY, the Tavily key reuses TAVILY_API_KEY,
  * Parallel uses PARALLEL_API_KEY, Exa uses EXA_API_KEY, Firecrawl uses FIRECRAWL_API_KEY and
  * Keenable uses KEENABLE_API_KEY.
- * For gsk auth see ./gsk.ts (`gsk login` or GSK_API_KEY).
+ * For Lycero auth see ./gsk.ts (Lycero Office sign-in or explicit GSK_API_KEY).
  */
 
 import {
@@ -143,7 +143,7 @@ async function serperWebSearch(
 }
 
 /** Serply's Google results API authenticates with X-Api-Key on a GET query string. */
-const SERPLY_HEADERS = (key: string) => ({ 'X-Api-Key': key, 'User-Agent': 'genoffice' })
+const SERPLY_HEADERS = (key: string) => ({ 'X-Api-Key': key, 'User-Agent': 'lycero-office' })
 
 /** Serply Google web search; null when the key is empty, the call fails, or nothing comes back */
 async function serplyWebSearch(
@@ -540,7 +540,7 @@ export async function imageSearch(
 
 /** Icons, buttons and avatars render as junk when a slide crops them into a
  * content frame — anything a backend reports smaller than this is dropped
- * (genoffice#1819). Entries without dimension metadata are kept (no evidence, no verdict). */
+ * (#1819). Entries without dimension metadata are kept (no evidence, no verdict). */
 export const MIN_USABLE_IMAGE_PX = 200
 
 export function filterUsableImages(images: ImageSearchResult[]): ImageSearchResult[] {

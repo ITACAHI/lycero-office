@@ -18,7 +18,7 @@ function opsFile(dir: string, name: string, ops: unknown[]): string {
   return path
 }
 
-describe('genoffice create/slides (pptx ops)', () => {
+describe('lycero-office create/slides (pptx ops)', () => {
   it('builds a deck from ops, reads it back, and edits it in place', async () => {
     const dir = tempDir()
     const create = opsFile(dir, 'create.json', [
@@ -27,7 +27,7 @@ describe('genoffice create/slides (pptx ops)', () => {
         target: { slide: 0 },
         kind: 'textbox',
         offset: { x: INCH, y: INCH, cx: 8 * INCH, cy: INCH },
-        paragraphs: [{ runs: [{ text: 'Hello genoffice', bold: true, fontSize: 32 }] }],
+        paragraphs: [{ runs: [{ text: 'Hello lycero-office', bold: true, fontSize: 32 }] }],
       },
       { op: 'addBlankSlide', target: { slide: 0 } },
       {
@@ -44,7 +44,7 @@ describe('genoffice create/slides (pptx ops)', () => {
     expect(created.code).toBe(0)
     expect(created.json().detail).toMatchObject({ applied: true, ops: 4 })
     const zip = await JSZip.loadAsync(readFileSync(out))
-    expect(await zip.file('ppt/slides/slide1.xml')!.async('string')).toContain('Hello genoffice')
+    expect(await zip.file('ppt/slides/slide1.xml')!.async('string')).toContain('Hello lycero-office')
     expect(zip.file('ppt/slides/slide2.xml')).not.toBeNull()
 
     const read = await run(['slides', 'read', out, '--json'])
@@ -53,7 +53,7 @@ describe('genoffice create/slides (pptx ops)', () => {
     expect(deck.slides).toBe(2)
     expect(deck.pages[0].id).toMatch(/^s_/)
     const styled = deck.pages[0].elements.find(
-      (e: { text?: string }) => e.text === 'Hello genoffice',
+      (e: { text?: string }) => e.text === 'Hello lycero-office',
     )
     expect(styled.effective).toMatchObject({ fontSizePt: 32, bold: true, italic: false })
     expect(styled.effective.src.fontSize).toBe('run')
@@ -61,7 +61,7 @@ describe('genoffice create/slides (pptx ops)', () => {
     expect(styled.effective.src.italic).not.toBe('run')
     expect(typeof styled.effective.src.fontFamily).toBe('string')
     const textbox = deck.pages[0].elements.find(
-      (e: { text?: string }) => e.text === 'Hello genoffice',
+      (e: { text?: string }) => e.text === 'Hello lycero-office',
     )
     expect(textbox.id).toMatch(/^e_/)
     expect(textbox.box).toEqual({ x: INCH, y: INCH, cx: 8 * INCH, cy: INCH })
@@ -72,7 +72,7 @@ describe('genoffice create/slides (pptx ops)', () => {
       {
         op: 'setText',
         target: { slide: 0, el: textbox.id },
-        paragraphs: [{ runs: [{ text: 'Edited by genoffice' }] }],
+        paragraphs: [{ runs: [{ text: 'Edited by lycero-office' }] }],
       },
     ])
     const applied = await run(['slides', 'apply', out, '--ops', edit, '--json'])
@@ -80,7 +80,7 @@ describe('genoffice create/slides (pptx ops)', () => {
     expect(applied.json().detail.records[0]).toMatchObject({ op: 'setText', slide: 's_1' })
     const after = await run(['slides', 'read', out, '--slide', '0', '--json'])
     expect(after.json().detail.pages).toHaveLength(1)
-    expect(after.json().detail.pages[0].elements[0].text).toBe('Edited by genoffice')
+    expect(after.json().detail.pages[0].elements[0].text).toBe('Edited by lycero-office')
   })
 
   it('read --full keeps whole text, every table row and the speaker notes', async () => {
@@ -353,7 +353,7 @@ describe('slides apply runs ops in order', () => {
   })
 })
 
-describe('genoffice slides (arrangement, table styles, layouts)', () => {
+describe('lycero-office slides (arrangement, table styles, layouts)', () => {
   it('lists layouts, adds a slide by layout name, styles a table and glues a connector', async () => {
     const dir = tempDir()
     const out = join(dir, 'arrange.pptx')

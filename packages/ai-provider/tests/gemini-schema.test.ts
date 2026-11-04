@@ -185,7 +185,7 @@ describe('toGeminiSchema', () => {
   })
 
   it('fills an items-less array with the object items the API demands (docs generate_mindmap)', () => {
-    // genoffice#2059: the API refused the whole request with
+    // #2059: the API refused the whole request with
     // "...properties[children].items: missing field" for a tool whose
     // leaf arrays carry no items — legal JSON Schema, illegal proto.
     expect(toGeminiSchema({ type: 'array', description: 'sub-topics' })).toEqual({

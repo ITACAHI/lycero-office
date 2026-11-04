@@ -90,6 +90,8 @@ import {
   readAuthorNameSetting,
   sanitizeAuthorName,
   systemAuthorName,
+  readLegacyImportPrompt,
+  writeLegacyImportPrompt,
 } from '@lycero/electron-utils'
 import { createMainProcessProxyDispatcher } from '@lycero/electron-utils/main-proxy'
 import {
@@ -171,12 +173,12 @@ import {
 import { handleDroppedFiles } from './dropped-files'
 import { collectLaunchPaths } from './launch-paths'
 import {
-  genofficeLogout,
+  lyceroLogout,
   gskLoginInfo,
   isGskKeyRejected,
-  loadGenofficeAuth,
+  loadLyceroAuth as loadSearchAuth,
   setGskProxyUrl,
-  startGenofficeLogin,
+  startLyceroLogin,
   watchGskApiKey,
 } from '@lycero/ai-search'
 
@@ -470,15 +472,15 @@ for (const stream of [process.stdout, process.stderr]) {
 // ANY unpacked run (`npm run shell`, `npm run dev`, `npx electron .`) must not
 // share the installed app's userData or single-instance lock — otherwise a dev
 // run silently quits and forwards its argv to the running installed Lycero Office.
-// GENOFFICE_USER_DATA: test drivers point this at a scratch dir so an
+// LYCERO_USER_DATA: test drivers point this at a scratch dir so an
 // automated instance can run alongside the dev instance (separate lock).
 if (!app.isPackaged) {
-  if (process.env.GENOFFICE_USER_DATA) {
-    app.setPath('userData', process.env.GENOFFICE_USER_DATA)
+  if (process.env.LYCERO_USER_DATA) {
+    app.setPath('userData', process.env.LYCERO_USER_DATA)
   } else {
     // The dev profile used to live in "Lycero Office Dev"; the space breaks
     // unquoted shell expansions, rsync targets and .desktop Exec= lines, and
-    // XDG config entries are single tokens (genoffice#1817). "Lycero Office-Dev" keeps the
+    // XDG config entries are single tokens (#1817). "Lycero Office-Dev" keeps the
     // family naming of the packaged profile ("Lycero Office"). The old directory
     // moves once — it sits on the same volume as appData, so the rename is
     // atomic, and a concurrent dev instance keeps its open file handles.
@@ -537,7 +539,7 @@ const PDF_OUT = app.isPackaged
   ? join(process.resourcesPath, 'modules', 'pdf')
   : join(APPS_ROOT, 'pdf', 'out')
 let cliRunner: ReturnType<typeof createCliRunner> | null = null
-/** the bundled genoffice CLI on the app's own Node runtime (MCP headless tools, Ask AI create_document) */
+/** the bundled lycero-office CLI on the app's own Node runtime (MCP headless tools, Ask AI create_document) */
 function bundledCliRunner(): ReturnType<typeof createCliRunner> {
   cliRunner ??= createCliRunner({
     executable: process.execPath,
@@ -605,7 +607,7 @@ registerPrivilegedSchemes()
 
 // ---- UI language ----
 // Persisted in userData/app-settings.json so the editor modules can read the
-// same file when they pick up i18n later. GENOFFICE_LANG overrides for tests.
+// same file when they pick up i18n later. LYCERO_LANG overrides for tests.
 
 const APP_SETTINGS_PATH = () => join(app.getPath('userData'), 'app-settings.json')
 const OPEN_DOCUMENTS_PATH = () => join(app.getPath('userData'), OPEN_DOCUMENTS_FILE)
@@ -626,8 +628,8 @@ let uiLang: Lang | null = null
 
 function currentLang(): Lang {
   if (uiLang) return uiLang
-  if (process.env.GENOFFICE_LANG) {
-    uiLang = normalizeLang(process.env.GENOFFICE_LANG)
+  if (process.env.LYCERO_LANG) {
+    uiLang = normalizeLang(process.env.LYCERO_LANG)
     setUiLang(uiLang)
     return uiLang
   }
@@ -661,6 +663,13 @@ let cachedAutoUpdateCheck: boolean | null = null
 function autoUpdateCheckEnabled(): boolean {
   cachedAutoUpdateCheck ??= readAppSettings(APP_SETTINGS_PATH()).autoUpdateCheck !== false
   return cachedAutoUpdateCheck
+}
+
+let cachedSilentInstallUpdate: boolean | null = null
+
+function silentInstallUpdateEnabled(): boolean {
+  cachedSilentInstallUpdate ??= readAppSettings(APP_SETTINGS_PATH()).silentInstallUpdate === true
+  return cachedSilentInstallUpdate
 }
 
 let cachedTheme: UiTheme | null = null
@@ -3885,7 +3894,7 @@ function ensureFileIndexer(): FileIndexer | null {
 }
 
 const SEARCH_EXT_FAMILY: Record<string, readonly string[]> = {
-  docx: ['docx', 'doc', 'odt', 'ott'],
+  docx: ['docx', 'doc', 'dot', 'odt', 'ott', 'hwpx', 'hwp'],
   xlsx: ['xlsx', 'xlsm', 'xls', 'csv', 'tsv', 'ods', 'ots'],
   pptx: ['pptx', 'ppt', 'odp', 'otp'],
   md: ['md', 'markdown', 'txt', 'json'],
@@ -4128,7 +4137,7 @@ function withViewMenu(): void {
   else menu.insert(helpIdx, viewItem)
 }
 
-/// Interface scale (genoffice#1913). Read once at boot, then replaced by the View menu.
+/// Interface scale (#1913). Read once at boot, then replaced by the View menu.
 let currentUiScale = 1
 
 /**
@@ -4443,13 +4452,15 @@ function createShellWindow(): void {
 // ---- routing: one dispatch function for every open path ----
 
 /**
- * Single source of truth for the open-dialog filter. Includes the
- * legacy .doc/.ppt binaries so they are selectable and surface the explicit
- * "not supported" dialog via openDocumentPath instead of being grayed out.
+ * Single source of truth for the open-dialog filter. Includes the still-legacy
+ * .ppt binary so it is selectable and surfaces the explicit "not supported"
+ * dialog via openDocumentPath instead of being grayed out; .doc/.dot route into
+ * the docs import filter.
  */
 const OPEN_DIALOG_EXTENSIONS = [
   'docx',
   'doc',
+  'dot',
   'xlsx',
   'xlsm',
   'xls',
@@ -4460,6 +4471,8 @@ const OPEN_DIALOG_EXTENSIONS = [
   'pptx',
   'ppt',
   'odt',
+  'hwpx',
+  'hwp',
   'odp',
   'otp',
   'pdf',
@@ -4614,7 +4627,7 @@ async function newSheetTab(recoverAs?: string): Promise<void> {
     suggestedPath = uniquePathIn(dir, `${tm('untitledSheet')} ${i}.xlsx`)
   try {
     // under the import root so the session-close cleanup removes it like an import copy
-    const tempDir = join(app.getPath('temp'), 'genoffice-imports', randomUUID())
+    const tempDir = join(app.getPath('temp'), 'lycero-imports', randomUUID())
     mkdirSync(tempDir, { recursive: true })
     const backingPath = join(tempDir, basename(suggestedPath))
     // reserve the name before the first await so a second new tab picks another;
@@ -4969,7 +4982,7 @@ function registerHomeIpc(): void {
         lastSyncedAt: session.lastSyncedAt || new Date(session.storedAt).toISOString(),
       }
     }
-    if (!loadGenofficeAuth()) return { loggedIn: false, deviceVerification: getDeviceVerificationState() }
+    if (!loadSearchAuth()) return { loggedIn: false, deviceVerification: getDeviceVerificationState() }
     await proxyBootstrap
     const info = await gskLoginInfo()
     if (!info) return { loggedIn: false, deviceVerification: getDeviceVerificationState() }
@@ -5149,7 +5162,7 @@ function registerHomeIpc(): void {
 
   ipcMain.handle(HOME_CHANNELS.accountLogout, async () => {
     clearSession()
-    await genofficeLogout()
+    await lyceroLogout()
     clearCloudProjectsStore(cloudProjectsStorePath())
   })
 
@@ -5414,7 +5427,7 @@ function registerHomeIpc(): void {
       title: tm('dlgOpenTitle'),
       filters: [
         { name: tm('filterSupported'), extensions: OPEN_DIALOG_EXTENSIONS },
-        { name: tm('filterWord'), extensions: ['docx', 'doc', 'odt', 'ott'] },
+        { name: tm('filterWord'), extensions: ['docx', 'doc', 'dot', 'odt', 'ott', 'hwpx', 'hwp'] },
         {
           name: tm('filterExcel'),
           extensions: ['xlsx', 'xlsm', 'xls', 'csv', 'tsv', 'ods', 'ots'],
@@ -5579,6 +5592,14 @@ function registerHomeIpc(): void {
     cachedAutoUpdateCheck = on
   })
 
+  ipcMain.handle(HOME_CHANNELS.getSilentInstallUpdate, () => silentInstallUpdateEnabled())
+
+  ipcMain.handle(HOME_CHANNELS.setSilentInstallUpdate, (_event, on: unknown) => {
+    if (typeof on !== 'boolean') return
+    writeAppSetting(APP_SETTINGS_PATH(), 'silentInstallUpdate', on)
+    cachedSilentInstallUpdate = on
+  })
+
   ipcMain.handle(
     HOME_CHANNELS.onboardingSeen,
     (): boolean => readAppSettings(APP_SETTINGS_PATH()).onboardingSeen === true,
@@ -5652,6 +5673,14 @@ function registerHomeIpc(): void {
         wc.send('app:author-name-changed', effective)
     }
     return authorNameSetting()
+  })
+
+  ipcMain.handle(HOME_CHANNELS.getLegacyImportPrompt, (): boolean =>
+    readLegacyImportPrompt(APP_SETTINGS_PATH()),
+  )
+  ipcMain.handle(HOME_CHANNELS.setLegacyImportPrompt, (_event, prompt: unknown): boolean => {
+    writeLegacyImportPrompt(APP_SETTINGS_PATH(), prompt !== false)
+    return readLegacyImportPrompt(APP_SETTINGS_PATH())
   })
 
   ipcMain.handle(HOME_CHANNELS.getAutoSaveDefault, (): AutoSaveDefault => currentAutoSaveDefault())
@@ -5898,7 +5927,7 @@ function registerHomeIpc(): void {
       const displaced: string[] = []
       const result = movePathsInto(sources, targetDir, conflictPolicy, folderErrors(), {
         replaceExisting: (path) => {
-          const parked = join(dirname(path), `.genoffice-replaced-${Date.now()}-${basename(path)}`)
+          const parked = join(dirname(path), `.lycero-replaced-${Date.now()}-${basename(path)}`)
           const files = isDir(path) ? trackedFilesUnder(path) : [path]
           renameSync(path, parked)
           return {
@@ -6962,7 +6991,7 @@ async function exportDocxBytesHeadless(
   format: 'md' | 'html',
   sourceName: string,
 ): Promise<void> {
-  const dir = await mkdtemp(join(tmpdir(), 'genoffice-pdf-convert-'))
+  const dir = await mkdtemp(join(tmpdir(), 'lycero-pdf-convert-'))
   try {
     const docxPath = join(dir, sourceName.replace(/\.pdf$/i, '') + '.docx')
     await atomicWriteFile(docxPath, docx)
@@ -7292,7 +7321,7 @@ async function installMainProcessProxy(): Promise<void> {
   try {
     const { setGlobalDispatcher } = await import('undici')
     // loopback stays direct: a Custom provider on 127.0.0.1 must not ride
-    // the proxy as an absolute-form request (genoffice#2084)
+    // the proxy as an absolute-form request (#2084)
     setGlobalDispatcher(await createMainProcessProxyDispatcher(proxyUrl))
     // strip user:pass credentials before logging
     console.log('[proxy] main-process fetch via', proxyUrl.replace(/\/\/[^@/]*@/, '//***@'))
@@ -7469,7 +7498,7 @@ const headlessExporters: HeadlessExporters = {
 /**
  * The whole `--headless-export` run: no shell window, no menus, no updater,
  * no single-instance lock (a GUI instance may well be running). Prints
- * exactly one line and exits with the genoffice convention (0/1/2/3).
+ * exactly one line and exits with the lycero-office convention (0/1/2/3).
  */
 async function runHeadlessExportEntry(
   parsed: Exclude<HeadlessArgvParse, { kind: 'none' }>,
@@ -7491,7 +7520,7 @@ async function runHeadlessExportEntry(
       resolve()
     })
   })
-  // app.quit() always exits 0; the genoffice envelope needs the real code, and
+  // app.quit() always exits 0; the lycero-office envelope needs the real code, and
   // every teardown this run owns has already happened.
   app.exit(headlessExitCode(outcome))
 }
@@ -7561,11 +7590,11 @@ app.whenReady().then(async () => {
   // home page re-reads its account status. A logout that leaves only the
   // gsk CLI fallback key is not a login
   stopAuthWatch = watchGskApiKey(() => {
-    if (!loadGenofficeAuth()) return
+    if (!loadSearchAuth()) return
     for (const w of BrowserWindow.getAllWindows())
       w.webContents.send(HOME_CHANNELS.accountLoginEvent, { phase: 'success' })
   })
-  // a registry left by a crashed instance must not block genoffice writes
+  // a registry left by a crashed instance must not block lycero-office writes
   ownsOpenDocumentsRegistry = true
   publishOpenDocuments(OPEN_DOCUMENTS_PATH(), [])
   if (!app.isPackaged) {
@@ -7678,7 +7707,7 @@ app.whenReady().then(async () => {
         discard: htmlDiscardPendingAssets,
       },
     }),
-    // the headless create_*/read_* tools delegate to the bundled genoffice CLI
+    // the headless create_*/read_* tools delegate to the bundled lycero-office CLI
     // (the same engines, no second implementation); it runs on the app's own
     // Node runtime via ELECTRON_RUN_AS_NODE
     cliRunner: bundledCliRunner(),
@@ -7713,7 +7742,12 @@ app.whenReady().then(async () => {
   setUpdateCheckInvoker(() => void checkForUpdatesNow())
   // every app's Settings entry (⌘, / Ctrl+,) lands on the shell's Settings view
   setSettingsInvoker(() => openSettingsView())
-  initAutoUpdater(() => shellWindow, currentUpdateChannel(), autoUpdateCheckEnabled)
+  initAutoUpdater(
+    () => shellWindow,
+    currentUpdateChannel(),
+    autoUpdateCheckEnabled,
+    silentInstallUpdateEnabled,
+  )
   // resource watchdog: a renderer that stays hot for minutes gets diagnostics
   // recorded and the user an offer to close the document (headless exports
   // are short-lived and unattended)

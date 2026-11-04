@@ -13,15 +13,8 @@ export {
   lyceroLogout,
   startLyceroLogin,
   lyceroApiKey as lycApiKey,
-} from './lycero-auth'
-
-// Backward-compatible aliases (lycero-office-* names → lycero-* names)
-export {
-  loadLyceroAuth as loadGenofficeAuth,
-  lyceroLogout as genofficeLogout,
-  startLyceroLogin as startGenofficeLogin,
-  lyceroApiKey as genofficeApiKey,
-  lyceroLoginInFlight as genofficeLoginInFlight,
-  lyceroAuthPath as genofficeAuthPath,
-  resetLyceroAuthCache as resetGenofficeAuthCache,
+  lyceroApiKey,
+  lyceroLoginInFlight,
+  lyceroAuthPath,
+  resetLyceroAuthCache,
 } from './lycero-auth'

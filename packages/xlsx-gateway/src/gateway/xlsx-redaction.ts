@@ -76,7 +76,7 @@ export interface SheetRedactionState {
 
 export const REDACTION_PART_PATH = 'xl/gxRedactions.json'
 const REDACTION_CONTENT_TYPE = 'application/json'
-const REDACTION_REL_TYPE = 'https://schemas.lycero.ai/genoffice/2026/relationships/redactions'
+const REDACTION_REL_TYPE = 'https://schemas.lycero.ai/lycero-office/2026/relationships/redactions'
 const WORKBOOK_RELS_PATH = 'xl/_rels/workbook.xml.rels'
 const CONTENT_TYPES_PATH = '[Content_Types].xml'
 const PART_VERSION = 1

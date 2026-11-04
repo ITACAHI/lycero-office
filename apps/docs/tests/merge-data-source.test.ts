@@ -12,11 +12,11 @@ import { readMergeDataSource } from '../src/main/merge-data-source'
 
 /**
  * The data source of the mail merge: a local .xlsx or .csv read as a field
- * list plus records. genoffice#2097.
+ * list plus records. #2097.
  */
 
 async function tempDir(): Promise<string> {
-  return mkdtemp(join(tmpdir(), 'genoffice-merge-'))
+  return mkdtemp(join(tmpdir(), 'lycero-merge-'))
 }
 
 describe('readMergeDataSource', () => {

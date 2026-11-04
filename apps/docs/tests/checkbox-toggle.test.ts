@@ -4,7 +4,7 @@
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
 /**
- * Clicking a checkbox glyph flips it (genoffice#248): legacy FORMCHECKBOX
+ * Clicking a checkbox glyph flips it (#248): legacy FORMCHECKBOX
  * fields and w14:checkbox content controls toggle, plain box characters do not.
  */
 import { Editor } from '@tiptap/core'

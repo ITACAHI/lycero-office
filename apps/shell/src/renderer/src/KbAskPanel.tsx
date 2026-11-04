@@ -18,7 +18,7 @@ import {
   HIDDEN_OR_MERGED_SKILL_SLUGS,
   isAdvancedCloudSkill,
   resolveCanonicalSkillSlug,
-  RUN_GENOFFICE_TOOL,
+  RUN_LYCERO_TOOL,
   SKILL_SLUG_ALIAS_MAP,
   withAttachedSkills,
   type AgentImage,
@@ -572,7 +572,7 @@ export function KbAskPanel({
     })
     const docSkill = createDocumentSkill({
       create: (request) => window.aiOffice.kbCreateDocument(request),
-      alsoSaves: [RUN_GENOFFICE_TOOL],
+      alsoSaves: [RUN_LYCERO_TOOL],
     })
     loopRef.current = new AgentLoop({
       transport: createIpcTransport<AiSettings>({

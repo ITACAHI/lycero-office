@@ -15,6 +15,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@lycero/docx-engine/lazy-media': local('../../packages/docx-engine/src/lazy-media.ts'),
+      '@lycero/docx-engine/zip-splice': local('../../packages/docx-engine/src/zip-splice.ts'),
       '@lycero/docx-engine': local('../../packages/docx-engine/src/index.ts'),
       '@lycero/font-metrics/resolve': local('../../packages/font-metrics/src/resolve.ts'),
       '@lycero/font-metrics/word-faces.json': local(
@@ -31,10 +32,29 @@ export default defineConfig({
       '@lycero/electron-utils/safe-external-url': local(
         '../../packages/electron-utils/src/safe-external-url.ts',
       ),
+      '@lycero/electron-utils/print-cups': local(
+        '../../packages/electron-utils/src/print-cups.ts',
+      ),
       '@lycero/electron-utils/print-job': local(
         '../../packages/electron-utils/src/print-job.ts',
       ),
+      '@lycero/electron-utils/generated-images': local(
+        '../../packages/electron-utils/src/generated-images.ts',
+      ),
+      '@lycero/electron-utils/remote-image': local(
+        '../../packages/electron-utils/src/remote-image.ts',
+      ),
+      '@lycero/electron-utils/safe-remote-url': local(
+        '../../packages/electron-utils/src/safe-remote-url.ts',
+      ),
       '@lycero/electron-utils': local('../../packages/electron-utils/src/index.ts'),
+      '@lycero/ai-provider/codex-app-server': local(
+        '../../packages/ai-provider/src/codex-app-server.ts',
+      ),
+      '@lycero/ai-provider/trace': local('../../packages/ai-provider/src/trace.ts'),
+      '@lycero/ai-provider/custom-models': local(
+        '../../packages/ai-provider/src/custom-models.ts',
+      ),
       '@lycero/ai-provider/browser': local('../../packages/ai-provider/src/browser.ts'),
       '@lycero/ai-provider': local('../../packages/ai-provider/src/index.ts'),
       '@lycero/i18n': local('../../packages/i18n/src/index.ts'),

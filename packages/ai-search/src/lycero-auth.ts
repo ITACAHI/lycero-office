@@ -93,13 +93,13 @@ function resolveHomeDir(): string {
 }
 
 function hasAuthDirOverride(): boolean {
-  return Boolean(process.env.LYCERO_AUTH_DIR?.trim() || process.env.GENOFFICE_AUTH_DIR?.trim())
+  return Boolean(process.env.LYCERO_AUTH_DIR?.trim() || process.env.LYCERO_AUTH_DIR?.trim())
 }
 
 /** Override dir via LYCERO_AUTH_DIR (test isolation). */
 export function lyceroAuthPath(): string {
   const overrideDir =
-    process.env.LYCERO_AUTH_DIR?.trim() || process.env.GENOFFICE_AUTH_DIR?.trim()
+    process.env.LYCERO_AUTH_DIR?.trim() || process.env.LYCERO_AUTH_DIR?.trim()
   return join(overrideDir || join(resolveHomeDir(), '.lycero-office'), 'auth.json')
 }
 
@@ -434,7 +434,6 @@ export function reloadLyceroAuth(): LyceroAuth | null {
   cachedAuth = readAuthFile()
   return cachedAuth
 }
-export const reloadGenofficeAuth = reloadLyceroAuth
 
 export function watchGskApiKey(onChange: (key: string) => void, intervalMs = 2000): () => void {
   let last = lyceroApiKey()
@@ -556,17 +555,13 @@ export function proRequiredErrorMessage(lang?: string): string {
   return 'Custom LLM models (BYOK) require a Lycero Pro or Enterprise account. Free accounts use default models provided by Lycero Central Gateway.'
 }
 
-// Backward-compatible aliases (for places that still reference the old names)
-export { lyceroApiKey as genofficeApiKey, loadLyceroAuth as loadGenofficeAuth, startLyceroLogin as startGenofficeLogin, lyceroLoginInFlight as genofficeLoginInFlight, ensureLyceroLogin as ensureGenofficeLogin, lyceroLogout as genofficeLogout, resetLyceroAuthCache as resetGenofficeAuthCache, lyceroAuthPath as genofficeAuthPath }
-
 export type GskRecoveryOutcome = 'reminted' | 'login_started' | 'login_required'
 
 let loginOpener: ((url: string) => void) | null = null
 
-export function setGenofficeLoginOpener(opener: ((url: string) => void) | null): void {
+export function setLyceroLoginOpener(opener: ((url: string) => void) | null): void {
   loginOpener = opener
 }
-export const setLyceroLoginOpener = setGenofficeLoginOpener
 
 export function isAllowedAuthUrl(raw: string, origin: string): URL | null {
   try {
@@ -584,7 +579,7 @@ export function isAllowedAuthUrl(raw: string, origin: string): URL | null {
   }
 }
 
-export function invalidateGenofficeKey(key: string): boolean {
+export function invalidateLyceroKey(key: string): boolean {
   if (!key) return false
   const current = reloadLyceroAuth()
   rejectedKeys.add(key)
@@ -603,13 +598,12 @@ export function invalidateGenofficeKey(key: string): boolean {
   }
   return false
 }
-export const invalidateLyceroKey = invalidateGenofficeKey
 
 export async function recoverFromRejectedGskKey(
   key: string,
   options: { allowLogin?: boolean } = {},
 ): Promise<GskRecoveryOutcome> {
-  invalidateGenofficeKey(key)
+  invalidateLyceroKey(key)
   if (options.allowLogin !== false && loginOpener) {
     ensureLyceroLogin(loginOpener)
     return 'login_started'
@@ -660,12 +654,12 @@ export function noteGskCallFailure(
   const text = err instanceof Error ? err.message : String(err ?? '')
   if (!isGskUnauthorizedText(text)) return false
   rejectedKeys.add(key)
-  invalidateGenofficeKey(key)
+  invalidateLyceroKey(key)
   return true
 }
 export const noteLyceroCallFailure = noteGskCallFailure
 export const noteLycCallFailure = noteGskCallFailure
 
-export function genofficeProxyFallbackPreferred(): boolean {
+export function lyceroProxyFallbackPreferred(): boolean {
   return false
 }

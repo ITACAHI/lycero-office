@@ -18,7 +18,7 @@ import { join, resolve } from 'node:path'
 const REPO = resolve(__dirname, '..')
 const SHELL_DIR = join(REPO, 'apps/shell')
 const OUT_DIR = join(REPO, 'apps/shell/src/renderer/src/i18n/help/topics/img')
-const CLI_BUNDLE = join(REPO, 'packages/cli/dist/genoffice.cjs')
+const CLI_BUNDLE = join(REPO, 'packages/cli/dist/lycero-office.cjs')
 
 /** Only these three names; the other figures in OUT_DIR belong to the other script. */
 type Figure = 'cli' | 'mcp' | 'install'
@@ -39,7 +39,7 @@ function capture(args: string[], env: NodeJS.ProcessEnv = {}): string {
   })
   if (run.error) throw run.error
   const out = `${run.stdout ?? ''}${run.stderr ?? ''}`.replace(/\s+$/, '')
-  if (!out) throw new Error(`genoffice ${args.join(' ')} printed nothing (exit ${run.status})`)
+  if (!out) throw new Error(`lycero-office ${args.join(' ')} printed nothing (exit ${run.status})`)
   return out
 }
 
@@ -210,7 +210,7 @@ async function shootInstall(): Promise<void> {
       'apps/shell is not built; run `npm run build:all` first so the About pane can be captured',
     )
   }
-  const root = mkdtempSync(join(tmpdir(), 'genoffice-install-figs-'))
+  const root = mkdtempSync(join(tmpdir(), 'lycero-install-figs-'))
   const home = join(root, 'home')
   const userData = join(root, 'userdata')
   for (const dir of [home, userData]) mkdirSync(dir, { recursive: true })
@@ -229,10 +229,10 @@ async function shootInstall(): Promise<void> {
       env: {
         ...hostEnv,
         HOME: home,
-        GENOFFICE_USER_DATA: userData,
-        GENOFFICE_AUTH_DIR: join(home, '.genoffice'),
-        GENOFFICE_NO_SPARE_VIEW: '1',
-        GENOFFICE_LANG: 'en',
+        LYCERO_USER_DATA: userData,
+        LYCERO_AUTH_DIR: join(home, '.lycero-office'),
+        LYCERO_NO_SPARE_VIEW: '1',
+        LYCERO_LANG: 'en',
       },
     })
     const page: Page = app.windows()[0] ?? (await app.firstWindow())
@@ -275,8 +275,8 @@ async function main(): Promise<void> {
   if (take('cli')) {
     ensureCliBundle()
     await shootHtml(
-      figureHtml('genoffice --help', [
-        { command: 'genoffice --help', output: capture(['--help']) },
+      figureHtml('lycero-office --help', [
+        { command: 'lycero-office --help', output: capture(['--help']) },
       ]),
       'cli',
     )
@@ -285,8 +285,8 @@ async function main(): Promise<void> {
   if (take('mcp')) {
     ensureCliBundle()
     await shootHtml(
-      figureHtml('genoffice mcp --help', [
-        { command: 'genoffice mcp --help', output: capture(['mcp', '--help']) },
+      figureHtml('lycero-office mcp --help', [
+        { command: 'lycero-office mcp --help', output: capture(['mcp', '--help']) },
       ]),
       'mcp',
     )

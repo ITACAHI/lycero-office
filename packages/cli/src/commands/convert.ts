@@ -9,6 +9,8 @@ import { basename, dirname, extname, join } from 'node:path'
 import { PdfLoadError } from '@lycero/pdf2docx'
 import { flagBool, flagString, type ParsedArgs } from '../args'
 import { csvToXlsx, sheetNameFromStem } from '../formats/csv'
+import { convertHwp } from '../formats/hwp'
+import { convertLegacyDoc } from '../formats/legacy-doc'
 import { convertOdp, convertOdt } from '../formats/odf'
 import { convertPdf, type PdfTarget } from '../formats/pdf'
 import { convertLegacyWorkbook, sheetToCsv } from '../formats/xlsx'
@@ -29,6 +31,10 @@ const NODE_ROUTES: Record<string, readonly string[]> = {
   ots: ['xlsx'],
   odt: ['docx'],
   ott: ['docx'],
+  hwpx: ['docx'],
+  hwp: ['docx'],
+  doc: ['docx'],
+  dot: ['docx'],
   odp: ['pptx'],
   otp: ['pptx'],
   md: ['docx', 'html'],
@@ -159,7 +165,7 @@ async function run(
   const viaApp = appTarget(from, to)
   if (viaApp) {
     const r = await exportViaApp(input, viaApp, output, { env: ctx.env, log: ctx.log })
-    return { detail: { via: 'genoffice --headless-export', summary: r.summary } }
+    return { detail: { via: 'lycero-office --headless-export', summary: r.summary } }
   }
   if (from === 'pdf') {
     const r = await convertPdfOrThrow(input, to as PdfTarget, password, ctx)
@@ -187,8 +193,16 @@ async function run(
     const r = await convertOdt(readInput(input))
     return { bytes: r.bytes, detail: r.detail }
   }
+  if (from === 'hwpx' || from === 'hwp') {
+    const r = await convertHwp(readInput(input))
+    return { bytes: r.bytes, detail: r.detail }
+  }
   if (from === 'odp' || from === 'otp') {
     const r = await convertOdp(readInput(input))
+    return { bytes: r.bytes, detail: r.detail }
+  }
+  if (from === 'doc' || from === 'dot') {
+    const r = await convertLegacyDoc(readInput(input))
     return { bytes: r.bytes, detail: r.detail }
   }
   const r = await convertLegacyWorkbook(input, output)
@@ -210,7 +224,7 @@ async function docxToMarkdown(docx: Uint8Array, ctx: CommandContext): Promise<Pr
       ctx.warn({
         code: 'images_dropped',
         message: `${exported.skipped.images} image(s) have no Markdown form and were dropped`,
-        suggestion: 'use `genoffice docs read --html` when the images matter',
+        suggestion: 'use `lycero-office docs read --html` when the images matter',
       })
     }
     return {
@@ -245,12 +259,12 @@ async function convertPdfViaDocx(
     const md = await docxToMarkdown(pdf.bytes, ctx)
     return { bytes: md.bytes, detail: { ...via, ...md.detail } }
   }
-  const dir = mkdtempSync(join(tmpdir(), 'genoffice-convert-'))
+  const dir = mkdtempSync(join(tmpdir(), 'lycero-convert-'))
   const docxPath = join(dir, `${basename(input, extname(input))}.docx`)
   try {
     writeFileSync(docxPath, pdf.bytes)
     const r = await exportViaApp(docxPath, 'html', output, { env: ctx.env, log: ctx.log })
-    return { detail: { ...via, via: 'genoffice --headless-export', summary: r.summary } }
+    return { detail: { ...via, via: 'lycero-office --headless-export', summary: r.summary } }
   } finally {
     try {
       rmSync(dir, { recursive: true, force: true })

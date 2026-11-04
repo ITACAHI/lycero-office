@@ -6,7 +6,7 @@
 /**
  * Layout skeleton: the recurring "chrome" geometry of a deck (title box, brand
  * image slot, accent shapes, background), extracted deterministically from the
- * current slides and stored inside a style template (genoffice#1821).
+ * current slides and stored inside a style template (#1821).
  *
  * A saved style template used to carry only the Style Skill text — colors and
  * fonts — so pages generated from it reinvented the layout every time and brand

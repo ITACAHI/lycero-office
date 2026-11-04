@@ -21,7 +21,7 @@ Kim chỉ nam bắt buộc cho AI Agent khi lập trình, tái cấu trúc hoặ
 ## 2. Bản Quyền & Tuân Thủ Apache 2.0 (Bắt Buộc)
 
 1. **Tuyệt đối không xóa header bản quyền:**
-   - Mọi tệp tin kế thừa từ GenOffice có header `Copyright © 2026 Mainfunc, Inc.` phải được giữ nguyên.
+   - Mọi tệp tin kế thừa từ Lycero Office có header `Copyright © 2026 Mainfunc, Inc.` phải được giữ nguyên.
    - Khi chỉnh sửa tệp tin, bổ sung dòng chú thích sửa đổi:
      ```ts
      /**

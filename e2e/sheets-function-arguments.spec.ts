@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { launchShell, closeAndSaveVideo, waitForPageWithUrl } from './helpers'
 
-process.env.GENOFFICE_DEBUG_HOOKS = '1'
+process.env.LYCERO_DEBUG_HOOKS = '1'
 
 interface SheetFacade {
   getActiveWorkbook(): {
@@ -29,7 +29,7 @@ interface SheetFacade {
 }
 
 test('Insert Function leads into Function Arguments; fx reopens the call pre-filled', async () => {
-  const scratch = await mkdtemp(join(tmpdir(), 'genoffice-fn-args-'))
+  const scratch = await mkdtemp(join(tmpdir(), 'lycero-fn-args-'))
   const launched = await launchShell({
     onboardingSeen: true,
     videoDir: 'sheets-function-arguments',
@@ -57,8 +57,8 @@ test('Insert Function leads into Function Arguments; fx reopens the call pre-fil
 
     const debugSheet = (fn: string) =>
       sheets.evaluate((body) => {
-        const debug = (window as unknown as { __genofficeDebug: { univerAPI: SheetFacade } })
-          .__genofficeDebug
+        const debug = (window as unknown as { __lyceroDebug: { univerAPI: SheetFacade } })
+          .__lyceroDebug
         const sheet = debug.univerAPI.getActiveWorkbook().getActiveSheet()
         return new Function('sheet', body)(sheet) as unknown
       }, fn)

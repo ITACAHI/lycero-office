@@ -7,7 +7,7 @@
  *     theo Apache-2.0 Section 4(b)(c) - giu Mainfunc goc + them ITAC.
  *  2. Khong co chuoi "GENSPARK_API_KEY" / "gsk-" (secrets) sot lai.
  *
- * File moi do Lycero viet hoan toan (khong ke thua GenOffice) se chi
+ * File moi do Lycero viet hoan toan (khong ke thua Lycero Office) se chi
  * co header 1 lop ITAC; file ke thua se co header 2 lop.
  *
  * Thoat ma 0 neu pass; 1 neu fail.
@@ -92,7 +92,7 @@ const WHITELIST_SECRETS_FILES = new Set([
   'apps/shell/tests/cloud-projects.test.ts',
   'packages/ai-search/tests/lycero-office-auth.test.ts',
   'packages/ai-search/tests/lycero-auth.test.ts',
-  'packages/ai-search/tests/genoffice-auth.test.ts',
+  'packages/ai-search/tests/lycero-device-auth.test.ts',
   'packages/ai-search/tests/gsk-reauth.test.ts',
 ])
 

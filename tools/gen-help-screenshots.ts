@@ -63,7 +63,7 @@ interface Scratch {
 }
 
 async function makeScratch(): Promise<Scratch> {
-  const root = mkdtempSync(join(tmpdir(), 'genoffice-help-shots-'))
+  const root = mkdtempSync(join(tmpdir(), 'lycero-help-shots-'))
   const home = join(root, 'home')
   const userData = join(root, 'userdata')
   const samples = join(root, 'help-samples')
@@ -131,10 +131,10 @@ async function launch(scratch: Scratch, lang: string): Promise<ElectronApplicati
     env: {
       ...hostEnv,
       HOME: scratch.home,
-      GENOFFICE_USER_DATA: scratch.userData,
-      GENOFFICE_AUTH_DIR: join(scratch.home, '.genoffice'),
-      GENOFFICE_NO_SPARE_VIEW: '1',
-      GENOFFICE_LANG: lang,
+      LYCERO_USER_DATA: scratch.userData,
+      LYCERO_AUTH_DIR: join(scratch.home, '.lycero-office'),
+      LYCERO_NO_SPARE_VIEW: '1',
+      LYCERO_LANG: lang,
     },
   })
 }

@@ -16,6 +16,11 @@ declare global {
   interface Window {
     readonly desktopApi: DesktopApi
     readonly projectApi: ProjectApi
+    /** the frame's spell engine, bridged from webFrame in the preload */
+    readonly nativeSpell?: {
+      readonly isWordMisspelled: (word: string) => boolean
+      readonly getWordSuggestions: (word: string) => string[]
+    }
   }
 }
 

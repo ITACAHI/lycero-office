@@ -70,7 +70,7 @@ const REQUEST_TIMEOUT_MS = 30_000
 const IDLE_SHUTDOWN_MS = 120_000
 const MAX_NATIVE_SESSIONS = 64
 const MAX_MODEL_PAGES = 10
-const CODEX_TEMP_PREFIX = 'genoffice-codex-app-server-'
+const CODEX_TEMP_PREFIX = 'lycero-codex-app-server-'
 const CODEX_BASE_INSTRUCTIONS =
   'You are the language-model backend embedded in Lycero Office. Never inspect or modify local files, run shell commands, browse, call MCP, use apps, or invoke any built-in Codex tool. The caller supplies the complete relevant conversation and a JSON Schema. Return exactly one assistant response matching that schema; Lycero Office itself executes document tools.'
 
@@ -477,7 +477,7 @@ class CodexAppServerClient {
 
   private async initialize(): Promise<void> {
     await this.requestWire('initialize', {
-      clientInfo: { name: 'genoffice', title: 'Lycero Office', version: '0.1.0' },
+      clientInfo: { name: 'lycero-office', title: 'Lycero Office', version: '0.1.0' },
       capabilities: { experimentalApi: false, requestAttestation: false },
     })
     this.notify('initialized')
@@ -698,9 +698,9 @@ export function buildCodexAppServerPrompt(
     'Do not use Codex tools. Lycero Office will execute only the tool calls returned in the required response schema.',
     'Put user-visible prose in text. Put requested Lycero Office tool calls in toolCalls; inputJson must be a JSON-encoded object matching the listed inputSchema. Use only listed tool names. If no tool is needed, return an empty toolCalls array.',
     `Keep this one-turn response within roughly ${maxTokens} output tokens.`,
-    '<genoffice_payload>',
+    '<lycero_payload>',
     JSON.stringify(payload),
-    '</genoffice_payload>',
+    '</lycero_payload>',
   ].join('\n')
 }
 
@@ -801,7 +801,7 @@ function finalMessageFromTurn(params: unknown): string {
   return ''
 }
 
-const CODEX_PERMISSION_PROFILE = 'genoffice'
+const CODEX_PERMISSION_PROFILE = 'lycero-office'
 
 /**
  * Codex keeps its own shell tool even when told not to use it, and the plain
@@ -818,7 +818,7 @@ export function codexThreadStartParams(
     ...(config.model.trim() ? { model: config.model.trim() } : {}),
     cwd: tempDir,
     approvalPolicy: 'never',
-    serviceName: 'genoffice',
+    serviceName: 'lycero-office',
     baseInstructions: CODEX_BASE_INSTRUCTIONS,
     ephemeral: true,
   }

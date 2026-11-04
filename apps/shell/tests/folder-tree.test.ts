@@ -49,7 +49,7 @@ function touch(rel: string, content = 'x'): string {
 }
 
 beforeEach(() => {
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'genoffice-folders-')))
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'lycero-folders-')))
 })
 
 afterEach(() => {
@@ -80,7 +80,7 @@ describe('listFolder', () => {
   it('hides the Markdown assets folder only when it holds the asset manifest', () => {
     mkdirSync(join(root, 'assets'))
     expect(isHiddenEntry(root, 'assets', true)).toBe(false)
-    touch('assets/.genoffice-assets.json', '{}')
+    touch('assets/.lycero-assets.json', '{}')
     expect(isHiddenEntry(root, 'assets', true)).toBe(true)
     expect(listFolder(root, new Set()).folders).toEqual([])
   })
@@ -151,7 +151,7 @@ describe('isInsideRoot', () => {
   })
 
   it('rejects a symlink inside the root that points outside it', () => {
-    const outside = mkdtempSync(join(tmpdir(), 'genoffice-outside-'))
+    const outside = mkdtempSync(join(tmpdir(), 'lycero-outside-'))
     try {
       symlinkSync(outside, join(root, 'escape'))
       expect(isInsideRoot(root, join(root, 'escape'))).toBe(false)

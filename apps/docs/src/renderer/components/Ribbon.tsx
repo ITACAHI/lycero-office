@@ -34,6 +34,7 @@ import type {
   CustomNumberingLevel,
   DocDefaults,
   HeaderFooter,
+  HfImage,
   Run,
   SectionSettings,
   SourceInfo,
@@ -44,12 +45,16 @@ import type {
   TextboxParaDisplay,
   ThemeColors,
   ThemeFonts,
+  PictureWatermarkSpec,
+  Watermark,
+  WatermarkSpec,
 } from '@lycero/docx-engine'
 import {
   Dropdown,
   isSymbolFontFamily,
   useDismissablePopover,
   useRibbonCollapse,
+  useScrollWindow,
 } from '@lycero/ui'
 import { HIGHLIGHT_CSS } from '../editor/extensions'
 import { applyCase, type CaseMode } from '../editor/case-transform'
@@ -80,6 +85,7 @@ import {
 } from '../list-presets'
 import type { ListDialogKind } from './ListDialogs'
 import type { InkTool } from '../editor/ink'
+import type { InkPreset } from '../editor/ink-presets'
 import type { RibbonFormatState } from './ribbon-format-state'
 import { distributeSelectedColumns, setSelectedColumnWidth } from '../editor/table-sizing'
 import {
@@ -123,7 +129,7 @@ import {
   setTableLookOption,
   toggleRepeatHeaderRows,
 } from '../editor/table-properties'
-import { useI18n, type StringKey } from '../i18n/locale'
+import { useI18n, type StringKey, type TFunc } from '../i18n/locale'
 import type { MergeDataSource } from '../../shared/ipc'
 import type { MailMergeRequest, MailMergeResponse } from '../mail-merge/output'
 import { pxToTwips, twipsToPx } from '../units'
@@ -149,6 +155,7 @@ import {
 } from '../font-sizes'
 import { useSystemFontFamilies } from '../system-fonts'
 import { cssFontFamily } from '../line-metrics'
+import type { RevisionFilter, RevisionScope } from '../editor/revision-filters'
 import {
   DesignTab,
   DrawTab,
@@ -159,13 +166,14 @@ import {
   ReferencesTab,
   ReviewTab,
   ViewTab,
-  type InkPenSettings,
+  type BalloonMode,
   type RevisionDisplayMode,
   type ViewMode,
   applyGalleryStyle,
   setParaAttrs,
   toggleParaSpace as toggleParaSpaceImpl,
 } from './ribbon-tabs'
+import type { CommentsMode } from './comments-mode'
 import { WRAP_OPTIONS } from './ContextMenu'
 import { CropDialog, CutoutDialog } from './PictureDialogs'
 import {
@@ -240,6 +248,7 @@ import {
   IconBringToFront,
   IconSendBackward,
   IconSendToBack,
+  IconComments,
 } from './icons'
 interface RibbonProps {
   /** App keyboard shortcuts reuse ribbon closures through here (font-size stepping keeps its coalescing) */
@@ -286,6 +295,8 @@ interface RibbonProps {
   onSave: () => void
   onSaveAs: () => void
   onConvert: (format: ConvertFormat) => void
+  /** File ▸ Name with AI…: ask the model for a name and offer it in the dialog */
+  onNameWithAi: () => void
   showAi: boolean
   onToggleAi: () => void
   section: SectionSettings | null
@@ -293,6 +304,8 @@ interface RibbonProps {
   /** Multi-section documents: index of the cursor's section (0-based); null for single-section */
   activeSection: number | null
   onInsertSectionBreak: (type: 'nextPage' | 'continuous' | 'evenPage' | 'oddPage') => void
+  /** page border for every section (Page Border dialog > Whole document); null removes it */
+  onPageBorderAll: (props: SectionSettings['pageBorderProps'] | null) => void
   /** paper size for every section (More Paper Sizes… > Whole document); portrait dimensions */
   onPaperSizeAll: (
     portraitW: number,
@@ -305,7 +318,10 @@ interface RibbonProps {
   onPageColor: (hex: string | null) => void
   /** Design → Watermark / Themes */
   watermark: string | null
-  onWatermark: (text: string | null) => void
+  watermarkStyle: Omit<WatermarkSpec, 'text'> | null
+  watermarkPicture: PictureWatermarkSpec | null
+  watermarkDocImage: HfImage | null
+  onWatermark: (spec: Watermark | null) => void
   themeFonts: ThemeFonts | null
   onThemeFonts: (fonts: ThemeFonts) => void
   themeColors: ThemeColors | null
@@ -313,10 +329,10 @@ interface RibbonProps {
   /** Draw → pen / highlighter / eraser */
   inkTool: InkTool
   onInkTool: (tool: InkTool) => void
-  inkPen: InkPenSettings
-  onInkPen: (settings: InkPenSettings) => void
-  inkHighlighter: InkPenSettings
-  onInkHighlighter: (settings: InkPenSettings) => void
+  inkPresets: InkPreset[]
+  inkActiveId: string
+  onInkPresets: (presets: InkPreset[]) => void
+  onInkActivate: (id: string) => void
   inkCount: number
   onInkClearAll: () => void
   /** References → footnotes / endnotes / citations */
@@ -362,6 +378,11 @@ interface RibbonProps {
   openCommentCount: number
   resolvedCommentCount: number
   onShowComments: () => void
+  /** Word-style top-right cluster: Show Comments toggle with its Contextual / List caret */
+  showComments: boolean
+  onToggleComments: () => void
+  commentsMode: CommentsMode
+  onCommentsMode: (mode: CommentsMode) => void
   /** Review → comments / revisions / compare / protection */
   canComment: boolean
   onNewComment: () => void
@@ -376,10 +397,18 @@ interface RibbonProps {
   onSpellcheck: (on: boolean) => void
   revisionDisplay: RevisionDisplayMode
   onRevisionDisplay: (mode: RevisionDisplayMode) => void
+  balloonMode: BalloonMode
+  onBalloonMode: (mode: BalloonMode) => void
+  onTrackChangesOptions: () => void
   revisionCount: number
-  onAcceptRevision: (all: boolean) => void
-  onRejectRevision: (all: boolean) => void
+  onAcceptRevision: (scope: RevisionScope) => void
+  onRejectRevision: (scope: RevisionScope) => void
   onGotoRevision: (dir: 1 | -1) => void
+  revisionFilter: RevisionFilter
+  onRevisionFilter: (filter: RevisionFilter) => void
+  revisionAuthors: string[]
+  showReviewPane: boolean
+  onToggleReviewPane: () => void
   isProtected: boolean
   /** comments restriction: adding comments stays allowed although the body is read-only */
   commentsAllowed: boolean
@@ -603,6 +632,46 @@ const ARRANGE_ORDER_ITEMS: Array<
   ['appSendBackward', IconSendBackward, sendBackward],
   ['appSendToBack', IconSendToBack, sendToBack],
 ]
+/**
+ * Shape Format ▸ outline weight gallery, in points — the weights Word offers.
+ * The model stores CSS px (1 pt = 12700 EMU = 4/3 px), so a pick converts
+ * through `outlineWidthPxOf` and the trigger maps the stored width back.
+ */
+const SHAPE_OUTLINE_WEIGHTS_PT = [
+  '0.25',
+  '0.5',
+  '0.75',
+  '1',
+  '1.5',
+  '2.25',
+  '3',
+  '4.5',
+  '6',
+] as const
+const PX_PER_PT = 4 / 3
+
+/** a gallery weight in points as CSS px, rounded like the docx parser (1.5 pt -> 2 px) */
+const outlineWidthPxOf = (pt: number): number => Math.round(pt * PX_PER_PT * 100) / 100
+
+/** a stored px width back in points, rounded the same way (2 px -> 1.5 pt) */
+const outlineWidthPtOf = (px: number): number => Math.round((px / PX_PER_PT) * 100) / 100
+
+/** the gallery option matching a stored width; null when the box has none or an off-gallery one */
+const outlineWeightOptionOf = (px: number | null): string | null => {
+  if (px == null) return null
+  const pt = outlineWidthPtOf(px)
+  return SHAPE_OUTLINE_WEIGHTS_PT.find((weight) => Number(weight) === pt) ?? null
+}
+
+/**
+ * Trigger text for the weight picker: the matching gallery option (the trigger
+ * then reads as that option's label), the box's own off-gallery width, or the
+ * control name while the shape still carries Word's default width.
+ */
+function outlineWeightValueOf(px: number | null, tr: TFunc): string {
+  if (px == null) return tr('ribbonShapeOutlineWeight')
+  return outlineWeightOptionOf(px) ?? tr('ribbonPtValue', { n: String(outlineWidthPtOf(px)) })
+}
 const HF_TABS = ['headerFooter'] as const
 type RibbonTab =
   | (typeof TABS)[number]
@@ -680,6 +749,17 @@ export const PICTURE_TWIPS_MAX = 31680
 export const clampPictureTwips = (twips: number) =>
   Math.min(PICTURE_TWIPS_MAX, Math.max(PICTURE_TWIPS_MIN, twips))
 
+/** Word's top-right document mode: Viewing wins over Reviewing (read mode hides editing state) */
+export type DocMode = 'editing' | 'reviewing' | 'viewing'
+export const docModeOf = (readMode: boolean, trackChanges: boolean): DocMode =>
+  readMode ? 'viewing' : trackChanges ? 'reviewing' : 'editing'
+
+const DOC_MODE_KEYS = {
+  editing: 'ribbonModeEditing',
+  reviewing: 'ribbonModeReviewing',
+  viewing: 'ribbonModeViewing',
+} as const
+
 /** swallows every command when the document is read-only (protected / read mode) */
 const NOOP_CHAIN = new Proxy(
   {},
@@ -755,28 +835,33 @@ function RibbonInner({
   onSave,
   onSaveAs,
   onConvert,
+  onNameWithAi,
   showAi,
   onToggleAi,
   section,
   onSection,
   activeSection,
   onInsertSectionBreak,
+  onPageBorderAll,
   onPaperSizeAll,
   mirrorMargins,
   onMirrorMargins,
   pageColor,
   onPageColor,
   watermark,
+  watermarkStyle,
+  watermarkPicture,
+  watermarkDocImage,
   onWatermark,
   themeFonts,
   onThemeFonts,
   onThemeColors,
   inkTool,
   onInkTool,
-  inkPen,
-  onInkPen,
-  inkHighlighter,
-  onInkHighlighter,
+  inkPresets,
+  inkActiveId,
+  onInkPresets,
+  onInkActivate,
   inkCount,
   onInkClearAll,
   onInsertNote,
@@ -816,6 +901,10 @@ function RibbonInner({
   openCommentCount,
   resolvedCommentCount,
   onShowComments,
+  showComments,
+  onToggleComments,
+  commentsMode,
+  onCommentsMode,
   canComment,
   onNewComment,
   commentAtCaret,
@@ -828,10 +917,18 @@ function RibbonInner({
   onSpellcheck,
   revisionDisplay,
   onRevisionDisplay,
+  balloonMode,
+  onBalloonMode,
+  onTrackChangesOptions,
   revisionCount,
   onAcceptRevision,
   onRejectRevision,
   onGotoRevision,
+  revisionFilter,
+  onRevisionFilter,
+  revisionAuthors,
+  showReviewPane,
+  onToggleReviewPane,
   isProtected,
   commentsAllowed,
   trackChangesForced,
@@ -853,7 +950,7 @@ function RibbonInner({
   const collapse = useRibbonCollapse('aidocs.ribbonCollapsed', {
     collapse: t('ribbonCollapse'),
     expand: t('ribbonExpand'),
-    // ⌥⌘K / Ctrl+Alt+K: the icon-only middle density (see genoffice#362)
+    // ⌥⌘K / Ctrl+Alt+K: the icon-only middle density (see #362)
     compact: t('ribbonCompact'),
     expandFull: t('ribbonExpand'),
   })
@@ -936,6 +1033,19 @@ function RibbonInner({
   // read-only (Restrict Editing / Read Mode): every edit command is fenced here,
   // button disabled states are only the visual layer on top
   const canEdit = hasDoc && fs.editable
+  const docMode = docModeOf(readMode, trackChanges)
+  const applyDocMode = (m: DocMode) => {
+    if (m === 'viewing') {
+      onReadMode(true)
+      return
+    }
+    if (readMode) onReadMode(false)
+    if (m === 'reviewing') {
+      if (!trackChanges) onTrackChanges(true)
+    } else if (trackChanges && !trackChangesForced) {
+      onTrackChanges(false)
+    }
+  }
   const chain = () => (canEdit ? ed.chain().focus() : NOOP_CHAIN)
   const inTable = fs.inTable
 
@@ -1010,8 +1120,17 @@ function RibbonInner({
     }
   }, [inShape])
 
-  /** apply fill/outline to the selected floating box (first box of the node) */
-  const setShapeStyle = (patch: { fill?: string | null; borderColor?: string | null }) => {
+  /**
+   * apply fill/outline/rotation/weight to the selected floating box (first box
+   * of the node). Null deletes the attribute so the file keeps Word's own
+   * default instead of an explicit no-op value.
+   */
+  const setShapeStyle = (patch: {
+    fill?: string | null
+    borderColor?: string | null
+    rotDeg?: number | null
+    borderWidthPx?: number | null
+  }) => {
     if (!canEdit) return
     const attrs = editor.getAttributes('docProtected')
     const boxes = attrs?.textboxes as TextboxDisplay[] | null
@@ -1025,11 +1144,37 @@ function RibbonInner({
       if (patch.borderColor) box.borderColor = patch.borderColor
       else delete box.borderColor
     }
+    if ('rotDeg' in patch) {
+      if (patch.rotDeg) box.rotDeg = patch.rotDeg
+      else delete box.rotDeg
+    }
+    if ('borderWidthPx' in patch) {
+      if (patch.borderWidthPx) box.borderWidthPx = patch.borderWidthPx
+      else delete box.borderWidthPx
+    }
     editor
       .chain()
       .focus()
       .updateAttributes('docProtected', { textboxes: [box, ...boxes.slice(1)] })
       .run()
+  }
+
+  /**
+   * rotate the selected shape by `delta` degrees clockwise (Word's quarter
+   * turns): the stored angle is normalized to 0-359 and dropped once it is 0.
+   */
+  const setShapeRotation = (delta: number) => {
+    if (!canEdit) return
+    const attrs = editor.getAttributes('docProtected')
+    const boxes = attrs?.textboxes as TextboxDisplay[] | null
+    if (!Array.isArray(boxes) || boxes.length === 0) return
+    const rotDeg = ((Math.round((boxes[0].rotDeg ?? 0) + delta) % 360) + 360) % 360
+    setShapeStyle({ rotDeg: rotDeg || null })
+  }
+
+  /** set the selected shape's outline width from one of Word's weights, in points */
+  const setShapeOutlineWidth = (pt: number) => {
+    setShapeStyle({ borderWidthPx: outlineWidthPxOf(pt) })
   }
 
   /**
@@ -1380,6 +1525,11 @@ function RibbonInner({
   useLayoutEffect(() => {
     const el = styleGalleryRef.current
     if (!el || typeof ResizeObserver === 'undefined') return
+    // the pending deferred re-check, so a second check() cancels the first's
+    let raf: number | null = null
+    // the last applied outcome: a re-check that recomputes exactly this stops
+    // the chain, so a settled layout converges instead of looping
+    let lastApplied: string | null = null
     const check = () => {
       // measure the natural (uncapped) layout at the current wrapper width
       el.style.maxWidth = ''
@@ -1391,16 +1541,34 @@ function RibbonInner({
         el.style.maxWidth = `${last.offsetLeft - firstRow[0].offsetLeft + last.offsetWidth}px`
       }
       setStyleGalleryOverflow(overflow)
+      // A cap shrinks the gallery without resizing the wrapper, so the
+      // ResizeObserver below never fires again — a measurement taken during
+      // a layout transition (density flip, fonts still swapping in) would
+      // lock the cap forever. Re-measure next frame while the outcome keeps
+      // changing; a settled layout recomputes the same cap and stops.
+      const applied = `${overflow ? el.style.maxWidth : ''}|${overflow}`
+      if (applied !== lastApplied) {
+        lastApplied = applied
+        if (raf !== null) cancelAnimationFrame(raf)
+        raf = requestAnimationFrame(() => {
+          raf = null
+          check()
+        })
+      }
     }
     check()
     const ro = new ResizeObserver(check)
     // observe the wrapper, not the gallery: once capped, the gallery no longer
     // resizes with the window, so it would never re-trigger the observer
     ro.observe(el.parentElement ?? el)
-    return () => ro.disconnect()
-    // re-check when the card set can change, and after the expander mounts or
-    // unmounts (it takes row width, which can change how many cards fit)
-  }, [tab, galleryEntries.length, lang, styleGalleryOverflow])
+    return () => {
+      if (raf !== null) cancelAnimationFrame(raf)
+      ro.disconnect()
+    }
+    // re-check when the card set can change, after the expander mounts or
+    // unmounts (it takes row width, which can change how many cards fit), and
+    // on a density switch (compact cards size to their label, full ones don't)
+  }, [tab, galleryEntries.length, lang, styleGalleryOverflow, collapse.density])
 
   const currentSize = fs.fontSizePt
   // computed unconditionally (not inside the dropdown render): cheap, and the
@@ -1439,6 +1607,7 @@ function RibbonInner({
     ...fontFamilies.map((name) => ({ key: `b:${name}`, name, section: 'b' as const })),
     ...systemFontFamilies.map((name) => ({ key: `s:${name}`, name, section: 's' as const })),
   ]
+  const fontMenuWindow = useScrollWindow(dropdown === 'fontFamily')
   const openFontMenu = () => {
     if (dropdown === 'fontFamily') return
     loadSystemFonts()
@@ -2159,6 +2328,16 @@ function RibbonInner({
                 >
                   {t('ribbonSaveAs')} <span className="file-menu-key">Ctrl+Shift+S</span>
                 </button>
+                <button
+                  className="qa-name-with-ai"
+                  disabled={!hasDoc}
+                  onClick={() => {
+                    setDropdown(null)
+                    onNameWithAi()
+                  }}
+                >
+                  {t('ribbonNameWithAi')}
+                </button>
                 <div className="file-menu-sep" />
                 {convertItems}
               </div>
@@ -2242,6 +2421,88 @@ function RibbonInner({
             </button>
           ))}
         <span className="ribbon-tabs-spacer" />
+        <div className="ribbon-mode-cluster">
+          <div className="ribbon-mode-split">
+            <button
+              type="button"
+              className={`ribbon-mode-btn ${showComments ? 'on' : ''}`}
+              disabled={!hasDoc}
+              aria-pressed={showComments}
+              data-tip={t('ribbonShowCommentsTip', { count: commentCount })}
+              onClick={onToggleComments}
+            >
+              <IconComments size={14} />
+              <span className="ribbon-mode-text">{t('ribbonShowComments')}</span>
+            </button>
+            <div className="mode-menu-wrap">
+              <button
+                type="button"
+                className={`ribbon-mode-btn ${dropdown === 'commentsMode' ? 'open' : ''}`}
+                disabled={!hasDoc}
+                aria-label={t('ribbonShowComments')}
+                aria-haspopup="menu"
+                aria-expanded={dropdown === 'commentsMode'}
+                onClick={() => setDropdown((v) => (v === 'commentsMode' ? null : 'commentsMode'))}
+              >
+                <span className="ribbon-mode-caret">▾</span>
+              </button>
+              {dropdown === 'commentsMode' && (
+                <div data-rb-panel="" className="file-menu mode-menu" role="menu">
+                  {(['contextual', 'list'] as const).map((m) => (
+                    <button
+                      key={m}
+                      role="menuitemradio"
+                      aria-checked={commentsMode === m}
+                      onClick={() => {
+                        setDropdown(null)
+                        onCommentsMode(m)
+                      }}
+                    >
+                      <span className="mode-menu-check">{commentsMode === m ? '✓' : ''}</span>
+                      {t(m === 'list' ? 'ribbonShowCommentsList' : 'ribbonShowCommentsContextual')}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="mode-menu-wrap">
+            <button
+              type="button"
+              className={`ribbon-mode-btn ${dropdown === 'docMode' ? 'open' : ''}`}
+              disabled={!hasDoc}
+              onClick={() => setDropdown((v) => (v === 'docMode' ? null : 'docMode'))}
+            >
+              <span className="ribbon-mode-text">{t(DOC_MODE_KEYS[docMode])}</span>
+              <span className="ribbon-mode-caret">▾</span>
+            </button>
+            {dropdown === 'docMode' && (
+              <div data-rb-panel="" className="file-menu mode-menu">
+                {(['editing', 'reviewing', 'viewing'] as const).map((m) => (
+                  <button
+                    key={m}
+                    // Editing needs the recorder off (impossible under forced track changes);
+                    // Reviewing records changes, so it needs an editable document
+                    disabled={
+                      m === 'editing'
+                        ? !fs.editable || trackChangesForced
+                        : m === 'reviewing'
+                          ? !fs.editable
+                          : false
+                    }
+                    onClick={() => {
+                      setDropdown(null)
+                      applyDocMode(m)
+                    }}
+                  >
+                    <span className="mode-menu-check">{docMode === m ? '✓' : ''}</span>
+                    {t(DOC_MODE_KEYS[m])}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
         {trailingActions}
       </div>
 
@@ -2319,6 +2580,20 @@ function RibbonInner({
                     />
                   )}
                 </div>
+                <Dropdown
+                  className="rb-wrap-dd"
+                  disabled={!canEdit}
+                  tip={t('ribbonShapeOutlineWeight')}
+                  value={outlineWeightValueOf(fs.shapeBorderWidthPx, t)}
+                  options={SHAPE_OUTLINE_WEIGHTS_PT.map((pt) => ({
+                    value: pt,
+                    label: t('ribbonPtValue', { n: pt }),
+                  }))}
+                  onPick={(v) => {
+                    if (!canEdit) return
+                    setShapeOutlineWidth(Number(v))
+                  }}
+                />
               </div>
               <div className="ribbon-group-label">{t('ribbonGroupShapeStyles')}</div>
             </div>
@@ -2420,6 +2695,30 @@ function RibbonInner({
                     <Icon size={17} />
                   </button>
                 ))}
+                <button
+                  className="table-tool-button"
+                  disabled={!canEdit}
+                  data-tip={t('ribbonRotateRight')}
+                  aria-label={t('ribbonRotateRight')}
+                  onClick={() => {
+                    if (!canEdit) return
+                    setShapeRotation(90)
+                  }}
+                >
+                  <IconRotateRight size={17} />
+                </button>
+                <button
+                  className="table-tool-button"
+                  disabled={!canEdit}
+                  data-tip={t('ribbonRotateLeft')}
+                  aria-label={t('ribbonRotateLeft')}
+                  onClick={() => {
+                    if (!canEdit) return
+                    setShapeRotation(-90)
+                  }}
+                >
+                  <IconRotateLeft size={17} />
+                </button>
               </div>
               <div className="ribbon-group-label">{t('ribbonGroupArrange')}</div>
             </div>
@@ -2558,6 +2857,28 @@ function RibbonInner({
                         {icon}
                       </button>
                     ))}
+                  </div>
+                  <div className="ribbon-group-label">{t('ribbonGroupArrange')}</div>
+                </div>
+                <div className="ribbon-sep" />
+              </>
+            )}
+            {fs.inlinePicture && (
+              <>
+                {/* ---- Arrange: wrap text of a run picture (its own node) ---- */}
+                <div className="table-tool-group">
+                  <div className="table-tool-row">
+                    <Dropdown
+                      className="rb-wrap-dd"
+                      disabled={!canEdit}
+                      tip={t('ribbonWrapText')}
+                      value={fs.imageWrap ?? ''}
+                      options={WRAP_OPTIONS.map((opt) => ({
+                        value: opt.value ?? '',
+                        label: t(opt.labelKey),
+                      }))}
+                      onPick={(v) => canEdit && setFloatingWrap(ed, v || null)}
+                    />
                   </div>
                   <div className="ribbon-group-label">{t('ribbonGroupArrange')}</div>
                 </div>
@@ -3471,16 +3792,22 @@ function RibbonInner({
                       <IconCaret />
                     </button>
                     {dropdown === 'fontFamily' && (
-                      <div data-rb-panel="" className="spacing-menu rb-font-family-menu">
+                      <div
+                        data-rb-panel=""
+                        className="spacing-menu rb-font-family-menu"
+                        ref={fontMenuWindow.ref}
+                        onScroll={fontMenuWindow.onScroll}
+                      >
                         {(['b', 's'] as const).map((section) => {
                           const items = fontMenuItems.filter((it) => it.section === section)
                           if (items.length === 0) return null
+                          const offset = section === 'b' ? 0 : fontFamilies.length
                           return (
                             <div key={section}>
                               <div className="rb-menu-group-label">
                                 {t(section === 'b' ? 'ribbonFontsCommon' : 'ribbonFontsSystem')}
                               </div>
-                              {items.map((it) => (
+                              {items.map((it, i) => (
                                 <button
                                   key={it.key}
                                   data-font-key={it.key}
@@ -3489,9 +3816,11 @@ function RibbonInner({
                                   }`}
                                   // symbol fonts would render their own name as pictographs
                                   style={{
-                                    fontFamily: isSymbolFontFamily(it.name)
-                                      ? undefined
-                                      : cssFontFamily(it.name),
+                                    fontFamily:
+                                      isSymbolFontFamily(it.name) ||
+                                      !fontMenuWindow.inWindow(offset + i)
+                                        ? undefined
+                                        : cssFontFamily(it.name),
                                   }}
                                   onClick={() => setFont(it.name)}
                                 >
@@ -4248,12 +4577,14 @@ function RibbonInner({
         ) : tab === 'draw' ? (
           <DrawTab
             hasDoc={hasDoc}
+            dropdown={dropdown}
+            setDropdown={setDropdown}
             tool={inkTool}
             onTool={onInkTool}
-            pen={inkPen}
-            onPen={onInkPen}
-            highlighter={inkHighlighter}
-            onHighlighter={onInkHighlighter}
+            presets={inkPresets}
+            activeId={inkActiveId}
+            onPresets={onInkPresets}
+            onActivate={onInkActivate}
             annotationCount={inkCount}
             onClearAll={onInkClearAll}
           />
@@ -4286,7 +4617,11 @@ function RibbonInner({
             onPageColor={onPageColor}
             section={section}
             onSection={onSection}
+            onPageBorderAll={onPageBorderAll}
             watermark={watermark}
+            watermarkStyle={watermarkStyle}
+            watermarkPicture={watermarkPicture}
+            watermarkDocImage={watermarkDocImage}
             onWatermark={onWatermark}
             themeFonts={themeFonts}
             onThemeFonts={onThemeFonts}
@@ -4353,10 +4688,18 @@ function RibbonInner({
             onSpellcheck={onSpellcheck}
             revisionDisplay={revisionDisplay}
             onRevisionDisplay={onRevisionDisplay}
+            balloonMode={balloonMode}
+            onBalloonMode={onBalloonMode}
+            onTrackChangesOptions={onTrackChangesOptions}
             revisionCount={revisionCount}
             onAcceptRevision={onAcceptRevision}
             onRejectRevision={onRejectRevision}
             onGotoRevision={onGotoRevision}
+            revisionFilter={revisionFilter}
+            onRevisionFilter={onRevisionFilter}
+            revisionAuthors={revisionAuthors}
+            showReviewPane={showReviewPane}
+            onToggleReviewPane={onToggleReviewPane}
             isProtected={isProtected}
             commentsAllowed={commentsAllowed}
             trackChangesForced={trackChangesForced}

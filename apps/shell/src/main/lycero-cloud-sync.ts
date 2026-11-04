@@ -5,7 +5,7 @@
  *
  * Lycero Cloud Sync IPC Handler
  *
- * Lycero Hub cloud sync replacing GenOffice cloud projects.
+ * Lycero Hub cloud sync replacing Lycero Office cloud projects.
  * Supports:
  * - Device registration & heartbeat
  * - Project CRUD with local-first caching

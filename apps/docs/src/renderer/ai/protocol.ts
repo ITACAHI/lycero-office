@@ -15,9 +15,11 @@ import {
   type TableModel,
 } from '@lycero/docx-engine'
 import { pmTableToModel, tableModelToPmNode, type PmMark, type PmNode } from '../editor/convert'
+import { wordTableCell, wordTableModel } from '../editor/new-table'
 import { equationBlockJson, inlineEquationNodeJson } from '../editor/equation'
 import { inheritFrom, inheritTableFormatting, sameBlockRole } from './inherit-formatting'
-import { TRACK_IGNORE, type RevisionRange } from '../editor/revisions'
+import { TRACK_AUTHOR, TRACK_IGNORE, type RevisionRange } from '../editor/revisions'
+import { aiRevisionAuthor } from './revision-author'
 import { countWords, documentTextForWordCount, leafTextForWordCount } from '../word-count'
 import { blockRangePositions, isTrackedDeleted, liveText } from './doc-utils'
 import {
@@ -30,6 +32,7 @@ import {
 import { opSignatures } from './ops'
 import { pageSetupContextLines, type AiSectionState } from './page-setup'
 import { listRevisionEntries } from './revision-ops'
+import type { StoryRevision } from '../editor/story-revisions'
 
 export { blockRangePositions, isTrackedDeleted, liveText }
 
@@ -181,7 +184,7 @@ export const AGENT_SYSTEM_PROMPT = [
   '- The root is the document title (or the focus topic when the user named one — also pass it as `focus`); its children are the main sections/headings, then key concepts, 2-5 per node, 2-4 levels deep;',
   "- Labels are short phrases (2-8 words) in the document's own language and wording, taken from its headings and key sentences — never invent topics the document does not cover;",
   "- Cite each node's source with `block` (a block index from the current block list); omit it for nodes that span several blocks. Only cite indexes that exist;",
-  '- generate_mindmap does not modify the document. After it returns, reply with one short sentence (e.g. that the map is ready and branches can be expanded).',
+  "- generate_mindmap does not modify the document. After it returns, reply with one short sentence (e.g. that the map is ready and branches can be expanded). If the user wants the map inside the document, point at the card's insert button — it places the map in the document as a picture.",
   '',
   '# HTML fragment rules',
   HTML_RULES,
@@ -791,9 +794,6 @@ const REVISIONS_CONTEXT_MAX = 200
 const REVISION_KIND_LABEL: Record<RevisionRange['kind'], string> = {
   ins: 'inserted',
   del: 'deleted',
-  // ins+del marks on the same text: added while tracking, then deleted —
-  // never part of the base document; both accept and reject remove it
-  both: 'inserted then deleted (not in the base document)',
   pPrChange: 'paragraph formatting changed',
   paraMarkDel: 'paragraph mark deleted (joins the next paragraph)',
   paraMarkIns: 'paragraph mark inserted',
@@ -807,18 +807,27 @@ const REVISION_KIND_LABEL: Record<RevisionRange['kind'], string> = {
   cellDel: 'table cell deleted',
   blockIns: 'block inserted',
   blockDel: 'block deleted',
+  tblPrChange: 'table formatting changed',
+  tblGridChange: 'table grid changed',
+  trPrChange: 'table row formatting changed',
+  tblPrExChange: 'table row exceptions changed',
+  tcPrChange: 'table cell formatting changed',
+  cellMerge: 'table cells merged',
+  numberingChange: 'numbering changed',
+  sectPrChange: 'section formatting changed',
 }
 
 /** flat listing of every pending tracked change; backs the read_revisions tool */
-export function buildRevisionsContext(editor: Editor): string {
-  const revisions = listRevisionEntries(editor.state.doc)
+export function buildRevisionsContext(editor: Editor, stories?: StoryRevision[]): string {
+  const revisions = listRevisionEntries(editor.state.doc, stories)
   if (revisions.length === 0) return '(the document has no tracked revisions)'
   const shown = revisions.slice(0, REVISIONS_CONTEXT_MAX)
   const lines = shown.map((rev) => {
     const date = rev.date ? ` on ${rev.date.slice(0, 10)}` : ''
     const excerpt = rev.text ? `: "${clip(rev.text, 200)}"` : ''
     const change = rev.change ? ` (${rev.change})` : ''
-    return `- ${rev.id} | block ${rev.blockIndex} | ${REVISION_KIND_LABEL[rev.kind]} by ${rev.author || 'unknown'}${date}${change}${excerpt}`
+    const where = rev.location ? `in ${rev.location}` : `block ${rev.blockIndex}`
+    return `- ${rev.id} | ${where} | ${REVISION_KIND_LABEL[rev.kind]} by ${rev.author || 'unknown'}${date}${change}${excerpt}`
   })
   const header = `Tracked revisions (${revisions.length} pending; deleted text shows what will disappear on accept; ids are positional and renumber after every edit):`
   const overflow =
@@ -3668,7 +3677,9 @@ export function replaceBlockRange(
     scrollPosIntoView(editor, from)
     return true
   }
-  editor.view.dispatch(editor.state.tr.replaceWith(from, to, pmNodes))
+  editor.view.dispatch(
+    editor.state.tr.replaceWith(from, to, pmNodes).setMeta(TRACK_AUTHOR, aiRevisionAuthor()),
+  )
   scrollPosIntoView(editor, from)
   return true
 }
@@ -3702,6 +3713,7 @@ export function replaceInlineRange(
     tr.setSelection(TextSelection.create(tr.doc, from, from + inserted))
     const block = tr.doc.nodeAt(blockPos)
     if (block) tr.setNodeMarkup(blockPos, undefined, { ...block.attrs, aiChanged: true })
+    tr.setMeta(TRACK_AUTHOR, aiRevisionAuthor())
   }
   editor.view.dispatch(tr)
   scrollPosIntoView(editor, blockPos)
@@ -3739,7 +3751,7 @@ export function insertBlocksAfter(
       offset += node.nodeSize
     }
     tr.setMeta(TRACK_IGNORE, true)
-  }
+  } else tr.setMeta(TRACK_AUTHOR, aiRevisionAuthor())
   editor.view.dispatch(tr)
   scrollPosIntoView(editor, to)
   return true

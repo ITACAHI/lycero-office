@@ -29,15 +29,18 @@ const LYCERO_WORKSPACE_PACKAGES = [
   '@lycero/ai-search',
   '@lycero/cli',
   '@lycero/cloud-sync',
+  '@lycero/doc2docx',
   '@lycero/docx-engine',
   '@lycero/electron-utils',
   '@lycero/file-parse',
   '@lycero/font-metrics',
   '@lycero/html2docx',
+  '@lycero/hwp2docx',
   '@lycero/i18n',
   '@lycero/odf2ooxml',
   '@lycero/pdf2docx',
   '@lycero/pipelines',
+  '@lycero/ppt2pptx',
   '@lycero/pptx-engine',
   '@lycero/pptx-ops',
   '@lycero/pptx-render',
@@ -72,7 +75,7 @@ export default defineConfig({
     plugins: [react()],
     resolve: { alias: localAlias },
     server: {
-      // Overridable so multiple genoffice dev instances can coexist (default 5173).
+      // Overridable so multiple lycero-office dev instances can coexist (default 5173).
       port: Number(process.env.DOCS_DEV_PORT) || 5173,
       strictPort: Boolean(process.env.DOCS_DEV_PORT),
     },

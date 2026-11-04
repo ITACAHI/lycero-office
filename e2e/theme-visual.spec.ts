@@ -64,7 +64,7 @@ function minimalPdf(): Buffer {
 
 test.describe('theme visual adoption', () => {
   test('html editor surface follows dark theme', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'genoffice-theme-html-'))
+    const dir = await mkdtemp(join(tmpdir(), 'lycero-theme-html-'))
     const htmlPath = join(dir, 'doc.html')
     await writeFile(htmlPath, '<html><body><p>Body.</p></body></html>\n')
 
@@ -96,7 +96,7 @@ test.describe('theme visual adoption', () => {
   })
 
   test('markdown editor surface follows dark theme', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'genoffice-theme-md-'))
+    const dir = await mkdtemp(join(tmpdir(), 'lycero-theme-md-'))
     const mdPath = join(dir, 'doc.md')
     await writeFile(mdPath, '# Doc\n\nBody.\n')
 
@@ -210,7 +210,7 @@ test.describe('theme visual adoption', () => {
     }
   })
 
-  // genoffice#2041: Univer renders its menus from the DOCUMENT theme while
+  // #2041: Univer renders its menus from the DOCUMENT theme while
   // `color-scheme` on :root follows the APP theme. With a dark app and the
   // document theme pinned light the UA button text went white, so every
   // context-menu label vanished on the light menu surface.
@@ -291,7 +291,7 @@ test.describe('theme visual adoption', () => {
   })
 
   test('pdf chrome follows dark theme while the page stays paper-white', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'genoffice-theme-pdf-'))
+    const dir = await mkdtemp(join(tmpdir(), 'lycero-theme-pdf-'))
     const pdfPath = join(dir, 'doc.pdf')
     await writeFile(pdfPath, minimalPdf())
 

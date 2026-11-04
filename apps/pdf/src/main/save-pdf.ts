@@ -18,12 +18,20 @@ import {
   PDFRef,
   PDFSignature,
   PDFString,
+  StandardFonts,
   TextAlignment,
   degrees,
   rgb,
 } from 'pdf-lib'
 import type { PDFPage } from 'pdf-lib'
 import { VISUAL_SIGNATURE_CONTENT_PREFIX } from '../shared/ipc'
+import {
+  decryptDocument,
+  encryptDocument,
+  encryptDocumentWithOriginalProtection,
+  type OriginalProtection,
+} from './pdf-crypt'
+import { applyAttachments } from './pdf-attachments'
 import type {
   BlankPageInput,
   DrawingInput,
@@ -35,6 +43,7 @@ import type {
   MarkupInput,
   MetadataInput,
   NoteReplyTarget,
+  PdfEncryptionInput,
   SavePdfRequest,
   StaticFormFillRecord,
   TextEditFailure,
@@ -44,7 +53,9 @@ import { writePdfAtomically } from './atomic-write'
 import { redactPdf } from './redaction'
 
 const num = (v: number) => Math.round(v * 100) / 100
-const STATIC_FORM_FILLS_KEY = PDFName.of('GenOfficeStaticFormFills')
+const STATIC_FORM_FILLS_KEY = PDFName.of('LyceroStaticFormFills')
+/** /T of a new annotation when the request names no author */
+const DEFAULT_ANNOT_AUTHOR = 'Lycero Office'
 
 const rectsIntersect = (a: readonly number[], b: readonly number[]): boolean =>
   Math.min(a[0]!, a[2]!) < Math.max(b[0]!, b[2]!) &&
@@ -106,7 +117,7 @@ function resultingStaticFormFills(
 
 function setVisualSignatureMetadata(annot: PDFDict, fieldName: string | undefined): void {
   if (!fieldName) return
-  annot.set(PDFName.of('GenOfficeFormField'), PDFHexString.fromText(fieldName))
+  annot.set(PDFName.of('LyceroFormField'), PDFHexString.fromText(fieldName))
   annot.set(
     PDFName.of('Contents'),
     PDFHexString.fromText(`${VISUAL_SIGNATURE_CONTENT_PREFIX}${fieldName}`),
@@ -124,7 +135,8 @@ const quadBounds = (q: number[]) => {
  * Acrobat/Preview/pdfjs all render from AP for consistent results.
  * Highlight uses Multiply blending to mimic a highlighter; underline/strikeout are stroked
  * segments drawn along the "visual bottom edge" (pageRot is the page's final /Rotate;
- * at 90/270 line height runs along the x axis).
+ * at 90/270 line height runs along the x axis); squiggly is a repeating wave on the
+ * same edge.
  */
 function markupAppearance(
   pdfDoc: PDFDocument,
@@ -139,6 +151,24 @@ function markupAppearance(
     for (const q of m.quads) {
       const [x1, y1, x2, y2] = quadBounds(q)
       ops.push(`${num(x1)} ${num(y1)} ${num(x2 - x1)} ${num(y2 - y1)} re f`)
+    }
+  } else if (m.type === 'squiggly') {
+    const t = 0.08 // same visual bottom-edge offset as underline
+    ops.push(`${r} ${g} ${b} RG`)
+    for (const q of m.quads) {
+      const [x1, y1, x2, y2] = quadBounds(q)
+      const h = pageRot % 180 === 0 ? y2 - y1 : x2 - x1
+      ops.push(`${Math.max(0.8, num(h * 0.06))} w`)
+      // The perpendicular points the way the wave bulges: from the visual bottom
+      // edge into the text, which is -x at rot 90 and -y at rot 180
+      if (pageRot === 90) {
+        squigglyOps(ops, x2 - h * t, y1, 0, 1, -1, 0, y2 - y1)
+      } else if (pageRot === 270) {
+        squigglyOps(ops, x1 + h * t, y1, 0, 1, 1, 0, y2 - y1)
+      } else {
+        const y = pageRot === 180 ? y2 - h * t : y1 + h * t
+        squigglyOps(ops, x1, y, 1, 0, 0, pageRot === 180 ? -1 : 1, x2 - x1)
+      }
     }
   } else {
     const t = m.type === 'underline' ? 0.08 : 0.46
@@ -174,6 +204,7 @@ const SUBTYPE: Record<MarkupInput['type'], string> = {
   highlight: 'Highlight',
   underline: 'Underline',
   strikeout: 'StrikeOut',
+  squiggly: 'Squiggly',
 }
 
 /**
@@ -195,7 +226,7 @@ function validMarkup(m: MarkupInput): boolean {
   )
 }
 
-function addMarkup(pdfDoc: PDFDocument, page: PDFPage, m: MarkupInput): void {
+function addMarkup(pdfDoc: PDFDocument, page: PDFPage, m: MarkupInput, author: string): void {
   const xs = m.quads.flatMap((q) => [q[0]!, q[2]!, q[4]!, q[6]!])
   const ys = m.quads.flatMap((q) => [q[1]!, q[3]!, q[5]!, q[7]!])
   const rect = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
@@ -208,7 +239,7 @@ function addMarkup(pdfDoc: PDFDocument, page: PDFPage, m: MarkupInput): void {
     QuadPoints: m.quads.flat(),
     C: m.color,
     F: 4, // print
-    T: 'Lycero Office',
+    T: PDFHexString.fromText(author),
     P: page.ref,
     AP: { N: apRef },
   })
@@ -222,6 +253,46 @@ function appendAnnot(pdfDoc: PDFDocument, page: PDFPage, annotRef: PDFRef): void
   } else {
     page.node.set(PDFName.of('Annots'), pdfDoc.context.obj([annotRef]))
   }
+}
+
+/**
+ * One squiggly (wavy underline) stroke: repeating quadratic Bezier humps along a
+ * baseline, started and ended on the wave's midline — period ≈ 4 user units,
+ * amplitude ≈ 1.5. The midline sits one amplitude above the underline position so
+ * troughs stay inside the quad (the /AP BBox clips). (dx,dy) walks the line, (px,py)
+ * is its unit perpendicular.
+ */
+function squigglyOps(
+  ops: string[],
+  ax: number,
+  ay: number,
+  dx: number,
+  dy: number,
+  px: number,
+  py: number,
+  length: number,
+): void {
+  const half = 2 // half period
+  const amp = 1.5
+  const at = (d: number, off: number) =>
+    `${num(ax + dx * d + px * off)} ${num(ay + dy * d + py * off)}`
+  ops.push(`${at(0, amp)} m`)
+  let side = 1
+  let from = 0
+  while (from < length) {
+    const to = Math.min(from + half, length)
+    // The quadratic hump PDF has no operator for, written as the cubic that
+    // reproduces it: control points at 1/3 and 2/3 of the segment, 4/3 of the
+    // apex above the midline (a symmetric cubic peaks at 3/4 of its control
+    // height). A single 'v' control point skewed the hump and pushed the
+    // troughs below the midline.
+    const ctrl = amp + (side * 4 * amp) / 3
+    const third = (to - from) / 3
+    ops.push(`${at(from + third, ctrl)} ${at(from + 2 * third, ctrl)} ${at(to, amp)} c`)
+    from = to
+    side = -side
+  }
+  ops.push('S')
 }
 
 /** 4-segment Bezier approximation of an ellipse */
@@ -251,6 +322,7 @@ async function addImageStamp(
   pdfDoc: PDFDocument,
   page: PDFPage,
   d: Extract<DrawingInput, { kind: 'image' }>,
+  author: string,
 ): Promise<void> {
   const png = await pdfDoc.embedPng(d.image)
   const [x1, y1, x2, y2] = d.rect
@@ -280,7 +352,7 @@ async function addImageStamp(
     P: page.ref,
     AP: { N: pdfDoc.context.register(ap) },
   })
-  annot.set(PDFName.of('T'), PDFHexString.fromText('Lycero Office'))
+  annot.set(PDFName.of('T'), PDFHexString.fromText(author))
   setVisualSignatureMetadata(annot, d.formFieldName)
   appendAnnot(pdfDoc, page, pdfDoc.context.register(annot))
 }
@@ -549,14 +621,25 @@ function noteAppearance(
   })
 }
 
-/** Drawing annots: hand-written AP for Ink/Square/Circle/Line; notes get an AP
- *  icon so Preview (Quartz) draws them instead of nothing. */
+/** The caret wedge: the insertion point is the tip, the arms reach half a box out
+ *  and two thirds of it down — the renderer's chevron, filled. */
+const CARET_HALF_WIDTH = 8
+const CARET_DEPTH = 6
+
+/** Drawing annots: hand-written AP for every shape (Ink/Square/Circle/Line, Caret,
+ *  Polygon); notes get an AP icon so Preview (Quartz) draws them instead of nothing.
+ *  The AP is what makes a saved shape visible: pdf.js has no default appearance for
+ *  a Caret and pdfium's generator covers neither Caret nor Polygon, so both would
+ *  come back blank in Lycero Office, Preview, Chrome or Edge. */
 function addDrawing(
   pdfDoc: PDFDocument,
   page: PDFPage,
   d: DrawingInput,
   /** localId → registered ref of notes written earlier in this request (reply parenting) */
   noteRefs?: Map<string, PDFRef>,
+  /** the label font's ref for measure drawings (their appearance names /F1) */
+  measureFontRef?: PDFRef,
+  author = DEFAULT_ANNOT_AUTHOR,
 ): void {
   if (d.kind === 'image') return // handled by addImageStamp (needs async embed)
   if (d.kind === 'link') return // handled by addLinkAnnot (needs the page list)
@@ -576,7 +659,7 @@ function addDrawing(
       AP: { N: pdfDoc.context.register(noteAppearance(pdfDoc, rect, d.color)) },
     })
     annot.set(PDFName.of('Contents'), PDFHexString.fromText(d.contents))
-    annot.set(PDFName.of('T'), PDFHexString.fromText(d.author || 'Lycero Office'))
+    annot.set(PDFName.of('T'), PDFHexString.fromText(d.author || author))
     const when = pdfDateString(d.createdMs ?? Date.now())
     annot.set(PDFName.of('CreationDate'), PDFString.of(when))
     annot.set(PDFName.of('M'), PDFString.of(when))
@@ -594,6 +677,67 @@ function addDrawing(
     const ref = pdfDoc.context.register(annot)
     if (d.localId) noteRefs?.set(d.localId, ref)
     appendAnnot(pdfDoc, page, ref)
+    return
+  }
+
+  if (d.kind === 'caret') {
+    const [x, y] = d.point
+    const rect = [num(x - 10), num(y - 10), num(x + 10), num(y + 10)]
+    // The wedge as a filled path: the tip is the insertion point, the arms open
+    // downwards. The AP BBox is the annotation rect — a viewer maps BBox → /Rect,
+    // so the two must match or the mark is scaled.
+    const ops = [
+      `${r} ${g} ${b} rg`,
+      `${num(x)} ${num(y)} m ${num(x - CARET_HALF_WIDTH)} ${num(y - CARET_DEPTH)} l ${num(x + CARET_HALF_WIDTH)} ${num(y - CARET_DEPTH)} l f`,
+    ]
+    const ap = pdfDoc.context.stream(ops.join('\n'), {
+      Type: 'XObject',
+      Subtype: 'Form',
+      BBox: rect,
+    })
+    const annot = pdfDoc.context.obj({
+      Type: 'Annot',
+      Subtype: 'Caret',
+      Rect: rect,
+      F: 4,
+      P: page.ref,
+      C: d.color,
+      AP: { N: pdfDoc.context.register(ap) },
+    })
+    annot.set(PDFName.of('T'), PDFHexString.fromText(author))
+    appendAnnot(pdfDoc, page, pdfDoc.context.register(annot))
+    return
+  }
+
+  if (d.kind === 'polygon') {
+    const xs = d.vertices.map((v) => v[0])
+    const ys = d.vertices.map((v) => v[1])
+    const rect = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)].map(num)
+    // The vertices as a closed stroked path, like Ink/Line: round caps and joins
+    // match the renderer's preview, and the stroke is the annotation's own color.
+    const ops = [`${num(d.width)} w 1 J 1 j ${r} ${g} ${b} RG`]
+    d.vertices.forEach(([vx, vy], i) => {
+      ops.push(`${num(vx)} ${num(vy)} ${i === 0 ? 'm' : 'l'}`)
+    })
+    ops.push('h S')
+    const ap = pdfDoc.context.stream(ops.join('\n'), {
+      Type: 'XObject',
+      Subtype: 'Form',
+      BBox: rect,
+    })
+    const annot = pdfDoc.context.obj({
+      Type: 'Annot',
+      Subtype: 'Polygon',
+      Rect: rect,
+      Vertices: d.vertices.flat().map(num),
+      F: 4,
+      P: page.ref,
+      C: d.color,
+      BS: { W: d.width },
+      AP: { N: pdfDoc.context.register(ap) },
+    })
+    annot.set(PDFName.of('T'), PDFHexString.fromText(author))
+    appendAnnot(pdfDoc, page, pdfDoc.context.register(annot))
     return
   }
 
@@ -628,6 +772,28 @@ function addDrawing(
     ops.push(`${num(fx)} ${num(fy)} m ${num(tx)} ${num(ty)} l S`)
     xs = [fx, tx]
     ys = [fy, ty]
+    if (d.kind === 'measure') {
+      // the label rides the line's own angle at its midpoint, flipped into
+      // left-to-right when the line runs right-to-left; the whole appearance
+      // rotates with the page like any other annotation's. The label takes the
+      // drawing's own colour, matching the on-screen preview.
+      const mx = (fx + tx) / 2
+      const my = (fy + ty) / 2
+      const ang = Math.atan2(ty - fy, tx - fx)
+      const flip = Math.abs(ang) > Math.PI / 2
+      const tilt = flip ? ang + Math.PI : ang
+      ops.push(`BT ${r} ${g} ${b} rg /F1 9 Tf`)
+      ops.push(
+        `${num(Math.cos(tilt))} ${num(Math.sin(tilt))} ${num(-Math.sin(tilt))} ${num(Math.cos(tilt))} ${num(mx)} ${num(my + 6)} Tm`,
+      )
+      const esc = d.label.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
+      ops.push(`(${esc}) Tj ET`)
+      // Helvetica 9pt averages ~4.5pt per glyph, and the extent follows the
+      // label's tilt — an axis-aligned half-width clipped steep lines
+      const halfW = (d.label.length * 4.5) / 2
+      xs.push(mx + Math.cos(tilt) * halfW, mx - Math.cos(tilt) * halfW)
+      ys.push(my + 6 + Math.sin(tilt) * halfW, my + 6 - Math.sin(tilt) * halfW)
+    }
     if (d.kind === 'arrow') {
       const ang = Math.atan2(ty - fy, tx - fx)
       const len = Math.max(9, d.width * 4.5)
@@ -648,7 +814,16 @@ function addDrawing(
     Math.max(...xs) + pad,
     Math.max(...ys) + pad,
   ]
-  const ap = pdfDoc.context.stream(ops.join('\n'), { Type: 'XObject', Subtype: 'Form', BBox: rect })
+  // Preview and Acrobat synthesize nothing for an unresolvable font reference:
+  // the label's /F1 must be reachable through the form's /Resources
+  const ap = pdfDoc.context.stream(ops.join('\n'), {
+    Type: 'XObject',
+    Subtype: 'Form',
+    BBox: rect,
+    ...(d.kind === 'measure' && measureFontRef
+      ? { Resources: { Font: { F1: measureFontRef } } }
+      : {}),
+  })
   const annot = pdfDoc.context.obj({
     Type: 'Annot',
     Subtype: subtype,
@@ -663,7 +838,11 @@ function addDrawing(
   if (d.kind === 'line' || d.kind === 'arrow') {
     annot.set(PDFName.of('L'), pdfDoc.context.obj([...d.from, ...d.to]))
   }
-  annot.set(PDFName.of('T'), PDFHexString.fromText('Lycero Office'))
+  if (d.kind === 'measure') {
+    annot.set(PDFName.of('L'), pdfDoc.context.obj([...d.from, ...d.to]))
+    annot.set(PDFName.of('Contents'), PDFHexString.fromText(d.label))
+  }
+  annot.set(PDFName.of('T'), PDFHexString.fromText(author))
   if (d.kind === 'ink') setVisualSignatureMetadata(annot, d.formFieldName)
   appendAnnot(pdfDoc, page, pdfDoc.context.register(annot))
 }
@@ -1274,6 +1453,14 @@ function finalPageIndex(request: SavePdfRequest, p: number): number | null {
   return p - del.filter((d) => d < p).length
 }
 
+/** password the saved output accepts, for the read-back verification of content edits */
+function savedOutputPassword(request: SavePdfRequest): string | undefined {
+  // an unchanged protection keeps the password the source file already had; a
+  // protection change writes the new user password; a plain save has none
+  if (request.protectionDirty === false) return request.decryption?.userPassword
+  return request.encryption?.userPassword
+}
+
 /**
  * Read-back verification of applied content-stream edits against the final bytes.
  * Anything that fails here would have been silent data loss; the caller aborts the
@@ -1295,7 +1482,7 @@ async function verifyContentEdits(
       const pageIndex = finalPageIndex(request, e.pageIndex)
       return pageIndex === null ? [] : [{ pageIndex, newText: e.newText }]
     })
-    failures.push(...(await verifyTextEdits(bytes, remapped)))
+    failures.push(...(await verifyTextEdits(bytes, remapped, savedOutputPassword(request))))
   }
   const appliedInserts = (request.textInserts ?? []).filter(
     (_insert, editIndex) =>
@@ -1307,7 +1494,7 @@ async function verifyContentEdits(
       const pageIndex = finalPageIndex(request, insert.pageIndex)
       return pageIndex === null ? [] : [{ pageIndex, newText: insert.text }]
     })
-    failures.push(...(await verifyTextEdits(bytes, remapped)))
+    failures.push(...(await verifyTextEdits(bytes, remapped, savedOutputPassword(request))))
   }
   const appliedImages = (request.imageEdits ?? []).filter(
     (e, i) => e.kind !== 'deleteImage' && !skips.skippedImageEdits.some((s) => s.editIndex === i),
@@ -1318,7 +1505,7 @@ async function verifyContentEdits(
       const pageIndex = finalPageIndex(request, e.pageIndex)
       return pageIndex === null || e.kind === 'deleteImage' ? [] : [{ pageIndex, rect: e.rect }]
     })
-    failures.push(...(await verifyImageEdits(bytes, remapped)))
+    failures.push(...(await verifyImageEdits(bytes, remapped, savedOutputPassword(request))))
   }
   if (failures.length > 0) {
     const pages = [...new Set(failures.map((f) => f.pageIndex + 1))].sort((a, b) => a - b)
@@ -1372,6 +1559,29 @@ export async function applySaveRequest(
   bytes: Uint8Array,
   request: SavePdfRequest,
 ): Promise<AppliedSaveRequest> {
+  // A protected session works on the document's plain form: the bytes on disk are
+  // the protected output of the previous save, and the session's edits only make
+  // sense against the plaintext (a failure here means the file changed underneath
+  // the session — surfaced to the user as a save error).
+  const sourcePassword = request.decryption?.userPassword ?? request.encryption?.userPassword
+  let originalProtection: OriginalProtection | null = null
+  if (sourcePassword !== undefined) {
+    const opened = await decryptDocument(bytes, sourcePassword)
+    bytes = opened.bytes
+    originalProtection = opened.protection ?? null
+  }
+  // A save that does not change protection re-protects under the source's own
+  // entries and file key: deriving fresh entries would replace both passwords
+  // with the one password this session knows. Only a dialog save sets
+  // protectionDirty, and only that one may write new entries.
+  const preserved = request.protectionDirty === false ? originalProtection : null
+  const protection: { preserved: OriginalProtection } | { fresh: PdfEncryptionInput } | null =
+    preserved !== null ? { preserved } : request.encryption ? { fresh: request.encryption } : null
+  const protect = (doc: PDFDocument): void => {
+    if (protection === null) return
+    if ('preserved' in protection) encryptDocumentWithOriginalProtection(doc, protection.preserved)
+    else encryptDocument(doc, protection.fresh)
+  }
   let skippedTextEdits: TextEditFailure[] = []
   let skippedTextInserts: TextInsertFailure[] = []
   let skippedImageEdits: ImageEditFailure[] = []
@@ -1426,17 +1636,25 @@ export async function applySaveRequest(
   if (request.formFields && request.formFields.length > 0) {
     applyFormFields(pdfDoc, request.formFields)
   }
+  const author = request.annotationAuthor || DEFAULT_ANNOT_AUTHOR
   for (const m of request.markups) {
     const page = pages[m.pageIndex]
-    if (page && validMarkup(m)) addMarkup(pdfDoc, page, m)
+    if (page && validMarkup(m)) addMarkup(pdfDoc, page, m, author)
   }
   const noteRefs = new Map<string, PDFRef>()
-  for (const d of request.drawings ?? []) {
+  // the measure label's font: standard-14 Helvetica, no bytes to embed — but
+  // only when a measure drawing is actually written, so saves without one
+  // leave the document's font dict untouched
+  const drawings = request.drawings ?? []
+  const measureFontRef = drawings.some((d) => d.kind === 'measure')
+    ? (await pdfDoc.embedFont(StandardFonts.Helvetica)).ref
+    : undefined
+  for (const d of drawings) {
     const page = pages[d.pageIndex]
     if (!page) continue
-    if (d.kind === 'image') await addImageStamp(pdfDoc, page, d)
+    if (d.kind === 'image') await addImageStamp(pdfDoc, page, d, author)
     else if (d.kind === 'link') addLinkAnnot(pdfDoc, pages, page, d)
-    else addDrawing(pdfDoc, page, d, noteRefs)
+    else addDrawing(pdfDoc, page, d, noteRefs, measureFontRef, author)
   }
   // Note content edits go after the drawings: replies added above locate their /IRT
   // parent by its old contents, which an earlier in-place rewrite would break. An
@@ -1510,11 +1728,33 @@ export async function applySaveRequest(
         PDFHexString.fromText(JSON.stringify(staticFormFills)),
       )
   }
+  if (request.attachments) applyAttachments(pdfDoc, request.attachments)
   refreshFieldAppearances(pdfDoc)
+  // Protection serializes with the document: strings and streams are encrypted in
+  // place, so no object/xref stream may be created after this point (all saves here
+  // already run with useObjectStreams off). Redaction below re-serializes a cleaned
+  // graph, which would drop the trailer entry — protect that output instead.
+  // Redaction is a PDFium pass and cannot read an encrypted file, so with
+  // redactions the protection is written after the reload below instead.
+  if (protection !== null && !request.redactions?.length) {
+    // flush first: pdf-lib embeds fonts and images only at save/flush time, and
+    // a payload created after this pass would land in the file as plaintext
+    // inside a document declared encrypted
+    await pdfDoc.flush()
+    protect(pdfDoc)
+  }
   let saved = await pdfDoc.save({ useObjectStreams: false, updateFieldAppearances: false })
   // Redaction is the final serializer. EmbedPDF's full SaveAsCopy writes only the
   // reachable cleaned object graph; no subsequent pdf-lib pass can revive old streams.
-  if (request.redactions?.length) saved = await redactPdf(saved, request.redactions)
+  if (request.redactions?.length) {
+    saved = await redactPdf(saved, request.redactions)
+    if (protection !== null) {
+      const cleaned = await PDFDocument.load(saved, { updateMetadata: false })
+      await cleaned.flush()
+      protect(cleaned)
+      saved = await cleaned.save({ useObjectStreams: false })
+    }
+  }
   return {
     bytes: saved,
     skippedTextEdits,

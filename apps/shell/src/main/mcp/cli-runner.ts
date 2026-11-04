@@ -6,7 +6,7 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 
 /**
- * Shell-main half of the MCP → `genoffice` CLI delegation.
+ * Shell-main half of the MCP → `lycero-office` CLI delegation.
  *
  * The app already ships the CLI (`@lycero/cli`) and runs it on its own Node
  * runtime, so the headless MCP tools do not reimplement document engines: they
@@ -54,14 +54,14 @@ export interface CliRunOptions {
   timeoutMs?: number
   /** working directory relative paths resolve against (default: the app's) */
   cwd?: string
-  /** per-run environment on top of the runner's (e.g. GENOFFICE_ALLOWED_ROOTS) */
+  /** per-run environment on top of the runner's (e.g. LYCERO_ALLOWED_ROOTS) */
   env?: NodeJS.ProcessEnv
   /** optional abort signal to kill the child process immediately on Stop / New Chat */
   signal?: AbortSignal
 }
 
 export interface CliRunner {
-  /** run `genoffice <args> --json`; never rejects — failures come back as `ok:false` */
+  /** run `lycero-office <args> --json`; never rejects — failures come back as `ok:false` */
   run(args: string[], options?: CliRunOptions): Promise<CliRunOutcome>
 }
 
@@ -123,7 +123,7 @@ export function createCliRunner(paths: CliRunnerPaths): CliRunner {
         : 120_000
       return new Promise<CliRunOutcome>((resolve) => {
         if (options.signal?.aborted) {
-          resolve({ ok: false, code: -1, stdout: '', stderr: 'genoffice aborted by user' })
+          resolve({ ok: false, code: -1, stdout: '', stderr: 'lycero-office aborted by user' })
           return
         }
         const child = spawn(paths.executable, [paths.entry, ...args, '--json'], {
@@ -144,7 +144,7 @@ export function createCliRunner(paths: CliRunnerPaths): CliRunner {
               child.kill()
             } catch {}
           }
-          finish({ ok: false, code: -1, stdout, stderr: `${stderr}\ngenoffice aborted by user` })
+          finish({ ok: false, code: -1, stdout, stderr: `${stderr}\nlycero-office aborted by user` })
         }
         options.signal?.addEventListener('abort', onAbort, { once: true })
         const finish = (outcome: CliRunOutcome): void => {
@@ -170,7 +170,7 @@ export function createCliRunner(paths: CliRunnerPaths): CliRunner {
         }
         const timer = setTimeout(() => {
           child.kill()
-          finish({ ok: false, code: -1, stdout, stderr: `${stderr}\ngenoffice timed out` })
+          finish({ ok: false, code: -1, stdout, stderr: `${stderr}\nlycero-office timed out` })
         }, timeoutMs)
         child.stdout?.on('data', (chunk: Buffer) => onChunk(chunk, 'out'))
         child.stderr?.on('data', (chunk: Buffer) => onChunk(chunk, 'err'))
@@ -198,5 +198,5 @@ export function createCliRunner(paths: CliRunnerPaths): CliRunner {
 export function cliErrorMessage(outcome: CliRunOutcome): string {
   if (outcome.json && outcome.json.status === 'error') return outcome.json.message
   const detail = outcome.stderr.trim() || outcome.stdout.trim()
-  return detail ? `genoffice failed: ${detail}` : `genoffice exited with code ${outcome.code}`
+  return detail ? `lycero-office failed: ${detail}` : `lycero-office exited with code ${outcome.code}`
 }

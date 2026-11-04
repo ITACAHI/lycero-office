@@ -12,7 +12,7 @@ import type { Block, Run } from './types'
  * keeps it an instrField run), so what is missing is everything that gives the
  * field a value. This module reads a recipient list, substitutes the fields
  * with one record's data and honours Word's control fields (NEXT / SKIPIF / IF).
- * genoffice#1984.
+ * #1984.
  *
  * Deliberately no UI here: the panel, the recipient list, the preview and the
  * batch export are all built on top of these two functions, and none of them
@@ -66,7 +66,7 @@ export function placeholderText(name: string): string {
  * The name is quoted so a header with a space survives, and the MERGEFORMAT
  * switch is the one Word writes: a template built here is then the same field
  * a template built in Word carries, and both read back through mergeFieldName.
- * genoffice#2097.
+ * #2097.
  */
 export function mergeFieldInstruction(name: string): string {
   return `MERGEFIELD "${name.replace(/"/g, '')}" \\* MERGEFORMAT`

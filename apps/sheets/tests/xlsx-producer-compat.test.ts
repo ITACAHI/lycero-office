@@ -3,7 +3,7 @@
  * Copyright © 2026 ITAC AI Heavy Industries.
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
-/// Regression tests for genoffice#10: workbook.xml serialization styles that
+/// Regression tests for #10: workbook.xml serialization styles that
 /// differ from Excel's (attribute order, numeric character references,
 /// relationship namespace prefix) are valid OOXML and must not break saves.
 import JSZip from 'jszip'

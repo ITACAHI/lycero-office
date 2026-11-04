@@ -35,7 +35,7 @@ function createEditor(content: PmNode[]): Editor {
 
 describe('footnote / endnote reference conversion', () => {
   it('a styled reference keeps its rPr through an edit to its own paragraph', async () => {
-    // genoffice#2005: a rebuilt paragraph used to emit the marker as a bare superscript
+    // #2005: a rebuilt paragraph used to emit the marker as a bare superscript
     const XML_DECL = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
     const body =

@@ -19,7 +19,7 @@ import {
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { atomicWriteFile } from './atomic-write'
 
-export const ASSET_MANIFEST_FILENAME = '.genoffice-assets.json'
+export const ASSET_MANIFEST_FILENAME = '.lycero-assets.json'
 
 export interface OwnedAssetRecord {
   name: string
@@ -101,7 +101,12 @@ function replaceControlCharacters(value: string): string {
 }
 
 function sanitizeAssetName(input: string): string {
-  const raw = basename(input.replace(/\\/g, '/'))
+  // path.win32.basename reads a leading <letter>: as a drive prefix and
+  // strips it before the sanitizer ever sees the colon (a:b.png ->
+  // b.png on Windows, a_b.png elsewhere). Replace colons first so the
+  // sanitizer - not the platform's path semantics - decides what a
+  // colon becomes, identically on every platform.
+  const raw = basename(input.replace(/\\/g, '/').replace(/:/g, '_'))
   const rawExt = extname(raw)
   const ext = /^\.[a-z0-9]{1,10}$/i.test(rawExt) ? rawExt.toLowerCase() : ''
   const maxStem = 140 - ext.length

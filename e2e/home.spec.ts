@@ -27,7 +27,7 @@ test.describe('home screen', () => {
     }
   })
 
-  test('renders localized UI when GENOFFICE_LANG=zh-CN', async () => {
+  test('renders localized UI when LYCERO_LANG=zh-CN', async () => {
     const launched = await launchShell({
       onboardingSeen: true,
       lang: 'zh-CN',

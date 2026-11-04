@@ -48,7 +48,7 @@ async function copyActiveCell(page: Page): Promise<string> {
 
 test.describe('sheets: macro-enabled workbook (.xlsm)', () => {
   test('opens, edits, and saves with the VBA project preserved verbatim', async () => {
-    const scratch = await mkdtemp(join(tmpdir(), 'genoffice-xlsm-e2e-'))
+    const scratch = await mkdtemp(join(tmpdir(), 'lycero-xlsm-e2e-'))
     const workbook = join(scratch, 'macro.xlsm')
     await copyFile(FIXTURE, workbook)
     const vbaBefore = zipEntry(workbook, 'xl/vbaProject.bin')

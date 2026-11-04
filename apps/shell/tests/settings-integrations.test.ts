@@ -67,15 +67,16 @@ function baseStatus(): IntegrationsStatus {
   return {
     cli: {
       status: 'missing',
-      location: '/usr/local/bin/genoffice',
+      location: '/usr/local/bin/lycero-office',
       manual:
-        'sudo ln -sf /Applications/Lycero Office.app/Contents/Resources/cli/genoffice /usr/local/bin/genoffice',
+        'sudo ln -sf /Applications/Lycero Office.app/Contents/Resources/cli/lycero-office /usr/local/bin/lycero-office',
       launcherDir: '/Applications/Lycero Office.app/Contents/Resources/cli',
       ephemeral: false,
       version: '0.4.0',
     },
     skillVersion: '2.1.0',
     skillNeedsCli: '0.4.0',
+    legacy: [],
     agents: [
       {
         id: 'claude-code',
@@ -160,21 +161,26 @@ describe('Settings → Integrations', () => {
     expect(host.textContent).toContain("not on your terminal's PATH")
     expect(host.querySelector('.set-intg-cli code')?.textContent).toContain('sudo ln -sf')
     expect(host.textContent).toContain('skill 2.1.0')
-    // guidance: hero steps, one-of-three note, example prompts, npx command shown inline
+    // guidance: hero steps, one-of-three note, npx command shown inline
     expect(host.querySelectorAll('.set-intg-hero-steps li')).toHaveLength(3)
     expect(host.textContent).toContain('Pick any one of these three ways')
-    // the same three prompts appear under both the CLI and the MCP part
-    expect(host.querySelectorAll('.set-intg-example')).toHaveLength(6)
-    expect(host.textContent).toContain('npx skills add genspark-ai/genoffice')
-    // MCP block: the launcher itself while genoffice is not on the PATH, as a command and as JSON
+    // one "try it" block after both routes: its heading, the three prompt rows
+    // (each copyable) and the closing note that names both routes
+    expect(host.textContent).toContain('Try it')
+    const examples = [...host.querySelectorAll('.set-intg-example')]
+    expect(examples).toHaveLength(3)
+    expect(examples.every((row) => row.querySelector('button'))).toBe(true)
+    expect(host.textContent).toContain('through the command line or MCP')
+    expect(host.textContent).toContain('npx skills add genspark-ai/lycero-office')
+    // MCP block: the launcher itself while lycero-office is not on the PATH, as a command and as JSON
     const mcp = [...host.querySelectorAll('.set-intg-mcp code')].map((c) => c.textContent)
     expect(mcp[0]).toBe(
-      'claude mcp add --transport stdio genoffice -- /Applications/Lycero Office.app/Contents/Resources/cli/genoffice mcp',
+      'claude mcp add --transport stdio lycero-office -- /Applications/Lycero Office.app/Contents/Resources/cli/lycero-office mcp',
     )
     expect(JSON.parse(mcp[1]!)).toEqual({
       mcpServers: {
-        genoffice: {
-          command: '/Applications/Lycero Office.app/Contents/Resources/cli/genoffice',
+        'lycero-office': {
+          command: '/Applications/Lycero Office.app/Contents/Resources/cli/lycero-office',
           args: ['mcp'],
         },
       },
@@ -182,7 +188,34 @@ describe('Settings → Integrations', () => {
     expect(host.textContent).toContain('assistant picks one')
   })
 
-  it('names the bare command once genoffice is on the PATH and runs the app as Node on Windows', () => {
+  it('shows the copies the shared row replaced and removes them on request', async () => {
+    const status = baseStatus()
+    status.legacy = [
+      {
+        agent: 'codex',
+        label: 'Codex',
+        skillsDir: '/home/u/.codex/skills',
+        path: '/home/u/.codex/skills/lycero-office/SKILL.md',
+        ours: true,
+      },
+    ]
+    let swept = 0
+    await openIntegrations({
+      status: async () => status,
+      copyText: async () => {},
+      sweepLegacySkillCopies: async () => {
+        swept += 1
+        return { removed: status.legacy, kept: [] }
+      },
+    })
+    const legacyRow = host.querySelector('.set-intg-row[data-agent="legacy"]')
+    expect(legacyRow).toBeTruthy()
+    expect(legacyRow!.textContent).toContain('/home/u/.codex/skills/lycero-office/SKILL.md')
+    await click(buttonWithText('Remove old copies', legacyRow!))
+    expect(swept).toBe(1)
+  })
+
+  it('names the bare command once lycero-office is on the PATH and runs the app as Node on Windows', () => {
     expect(
       mcpLaunch({
         status: 'present',
@@ -192,19 +225,19 @@ describe('Settings → Integrations', () => {
     const winDir = 'C:\\Users\\Jane Doe\\AppData\\Local\\Programs\\Lycero Office\\resources\\cli'
     const win = {
       command: `${winDir}\\..\\..\\Lycero Office.exe`,
-      args: [`${winDir}\\genoffice.cjs`, 'mcp'],
+      args: [`${winDir}\\lycero-office.cjs`, 'mcp'],
       env: { ELECTRON_RUN_AS_NODE: '1' },
     }
     expect(mcpLaunch({ status: 'missing', launcherDir: winDir })).toEqual(win)
     expect(mcpLaunch({ status: 'present', launcherDir: winDir })).toEqual(win)
     expect(mcpClaudeCommand(win)).toBe(
-      `claude mcp add -e ELECTRON_RUN_AS_NODE=1 --transport stdio genoffice -- "${win.command}" "${win.args[0]}" mcp`,
+      `claude mcp add -e ELECTRON_RUN_AS_NODE=1 --transport stdio lycero-office -- "${win.command}" "${win.args[0]}" mcp`,
     )
-    expect(JSON.parse(mcpConfigJson(win))).toEqual({ mcpServers: { genoffice: win } })
+    expect(JSON.parse(mcpConfigJson(win))).toEqual({ mcpServers: { 'lycero-office': win } })
     expect(
-      mcpClaudeCommand({ command: '/Applications/Gen Office.app/cli/genoffice', args: ['mcp'] }),
+      mcpClaudeCommand({ command: '/Applications/Gen Office.app/cli/lycero-office', args: ['mcp'] }),
     ).toBe(
-      'claude mcp add --transport stdio genoffice -- "/Applications/Gen Office.app/cli/genoffice" mcp',
+      'claude mcp add --transport stdio lycero-office -- "/Applications/Gen Office.app/cli/lycero-office" mcp',
     )
   })
 
@@ -240,7 +273,7 @@ describe('Settings → Integrations', () => {
   it('installs into a picked folder and saves the zip through the main process', async () => {
     const install = vi.fn(async () => ({
       status: 'installed' as const,
-      path: '/x/genoffice/SKILL.md',
+      path: '/x/lycero-office/SKILL.md',
       installedVersion: '2.1.0',
     }))
     const saveZip = vi.fn(async () => '/Users/u/Downloads/lycero-office-skill-2.1.0.zip')
@@ -251,7 +284,7 @@ describe('Settings → Integrations', () => {
       saveSkillZip: saveZip,
     })
     await click(buttonWithText('Install into another folder…'))
-    expect(host.textContent).toContain('Will write: /x/genoffice/SKILL.md')
+    expect(host.textContent).toContain('Will write: /x/lycero-office/SKILL.md')
     await click(buttonWithText('Confirm'))
     expect(install).toHaveBeenCalledWith({ dir: '/x' })
 

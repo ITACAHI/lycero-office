@@ -7,17 +7,17 @@
 /**
  * Lycero Office Desktop
  * Copyright ? 2026 ITAC AI Heavy Industries.
- * Original work Copyright ? 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
+ * Original work Copyright ? 2026 Mainfunc, Inc. (Lycero Office, Apache-2.0).
  */
 
 /**
- * GenOffice MCP stdio bridge.
+ * Lycero Office MCP stdio bridge.
  *
  * MCP clients that only speak stdio (Claude Desktop, Cursor) can't reach the
- * GenOffice localhost server directly. This script bridges stdin/stdout
+ * Lycero Office localhost server directly. This script bridges stdin/stdout
  * JSON-RPC to the running app's legacy SSE transport (/sse + /messages).
  *
- * The GenOffice app must be running with the MCP server enabled
+ * The Lycero Office app must be running with the MCP server enabled
  * (Settings > MCP Settings).
  *
  * Usage:
@@ -293,10 +293,10 @@ async function main() {
   log(`bridging stdio to ${baseUrl}`)
   try {
     const health = await httpRequest('GET', '/health')
-    if (health.status === 200) log('GenOffice MCP server is reachable')
-    else log('warning: unexpected /health response; is GenOffice running?')
+    if (health.status === 200) log('Lycero Office MCP server is reachable')
+    else log('warning: unexpected /health response; is Lycero Office running?')
   } catch {
-    log('warning: cannot reach GenOffice. Start the app and enable Settings > MCP Settings.')
+    log('warning: cannot reach Lycero Office. Start the app and enable Settings > MCP Settings.')
   }
 
   try {

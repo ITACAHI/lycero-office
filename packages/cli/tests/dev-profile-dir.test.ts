@@ -9,7 +9,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import { controlEndpoint } from '../src/control'
-import { genofficeUserDataDir, genofficeUserDataDirs, guiOpenDocuments } from '../src/gui'
+import { lyceroUserDataDir, lyceroUserDataDirs, guiOpenDocuments } from '../src/gui'
 
 /** Where the packaged profile sits for this platform, under a fake home. */
 function appData(home: string): string {
@@ -19,7 +19,7 @@ function appData(home: string): string {
 }
 
 function fakeHome(): { home: string; env: NodeJS.ProcessEnv } {
-  const home = mkdtempSync(join(tmpdir(), 'genoffice-devdir-'))
+  const home = mkdtempSync(join(tmpdir(), 'lycero-devdir-'))
   return { home, env: { HOME: home } }
 }
 
@@ -32,26 +32,26 @@ describe('userData directory list', () => {
   it('scans the dev profile under both spellings it has had', () => {
     const { env, home } = fakeHome()
     const packaged = join(appData(home), 'Lycero Office')
-    // The shell writes "-Dev" since genoffice#1879; " Dev" is what it wrote
+    // The shell writes "-Dev" since #1879; " Dev" is what it wrote
     // before, and a profile nobody migrated is still there.
-    expect(genofficeUserDataDirs(env)).toEqual([packaged, `${packaged}-Dev`, `${packaged} Dev`])
+    expect(lyceroUserDataDirs(env)).toEqual([packaged, `${packaged}-Dev`, `${packaged} Dev`])
   })
 
   it('prefers the current spelling and keeps the packaged profile first', () => {
     const { env } = fakeHome()
-    const dirs = genofficeUserDataDirs(env)
-    expect(dirs[0]).toBe(genofficeUserDataDir(env))
+    const dirs = lyceroUserDataDirs(env)
+    expect(dirs[0]).toBe(lyceroUserDataDir(env))
     expect(dirs.indexOf(`${dirs[0]}-Dev`)).toBeLessThan(dirs.indexOf(`${dirs[0]} Dev`))
   })
 
   it('scans nothing else when LYCERO_USER_DATA is set', () => {
-    expect(genofficeUserDataDirs({ LYCERO_USER_DATA: '/u' })).toEqual(['/u'])
+    expect(lyceroUserDataDirs({ LYCERO_USER_DATA: '/u' })).toEqual(['/u'])
   })
 })
 
 describe('a dev shell is reachable', () => {
   it('finds the control endpoint published under "-Dev"', () => {
-    // The regression genoffice#1879 left behind: the shell moved to "-Dev"
+    // The regression #1879 left behind: the shell moved to "-Dev"
     // and this reader still looked for " Dev", so `open` stopped finding a
     // running dev instance and could only ever find the packaged one.
     const { env, home } = fakeHome()
@@ -76,7 +76,7 @@ describe('a dev shell is reachable', () => {
   })
 
   it('reads a dev registry of open documents under "-Dev"', () => {
-    // genoffice#980 made this check cover every live instance; it could only
+    // #980 made this check cover every live instance; it could only
     // ever cover the packaged one for as long as the name was wrong.
     const { env, home } = fakeHome()
     const dev = join(appData(home), 'Lycero Office-Dev')

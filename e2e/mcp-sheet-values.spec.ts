@@ -4,12 +4,12 @@
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
 import { test, expect } from '@playwright/test'
-import { launchShell, closeAndSaveVideo, waitForPageWithUrl } from './helpers'
+import { launchShell, closeAndSaveVideo, waitForPageWithUrl, freeMcpPort } from './helpers'
 import { existsSync } from 'node:fs'
 import { mkdtemp, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import http, { createServer } from 'node:http'
+import http from 'node:http'
 import JSZip from 'jszip'
 import { SHELL_DIR } from './helpers'
 
@@ -26,18 +26,6 @@ import { SHELL_DIR } from './helpers'
  */
 
 const APP_ROOT = resolve(SHELL_DIR, '..', '..')
-
-async function freePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = createServer()
-    server.on('error', reject)
-    server.listen(0, '127.0.0.1', () => {
-      const address = server.address()
-      const port = typeof address === 'object' && address ? address.port : 0
-      server.close(() => resolve(port))
-    })
-  })
-}
 
 interface RpcResponse {
   status: number
@@ -143,10 +131,10 @@ async function connect(port: number) {
 
 test.describe('MCP sheet values and addressing', () => {
   test('a repeating formula stays a number in the result, the read and the file', async () => {
-    const port = await freePort()
-    const outDir = await mkdtemp(join(tmpdir(), 'genoffice-sheet-values-'))
+    const port = await freeMcpPort()
+    const outDir = await mkdtemp(join(tmpdir(), 'lycero-sheet-values-'))
     const outFile = join(outDir, 'values.xlsx')
-    const userDataDir = await mkdtemp(join(tmpdir(), 'genoffice-sheet-values-userdata-'))
+    const userDataDir = await mkdtemp(join(tmpdir(), 'lycero-sheet-values-userdata-'))
     // seed settings that skip onboarding and turn MCP on (launchShell only
     // writes its own file when onboardingSeen/settings are passed)
     const { writeFile } = await import('node:fs/promises')
@@ -217,8 +205,8 @@ test.describe('MCP sheet values and addressing', () => {
   })
 
   test('addresses worksheets by name after a reopen (ids do not survive)', async () => {
-    const port = await freePort()
-    const outDir = await mkdtemp(join(tmpdir(), 'genoffice-sheet-names-'))
+    const port = await freeMcpPort()
+    const outDir = await mkdtemp(join(tmpdir(), 'lycero-sheet-names-'))
     const workbookPath = join(outDir, 'two-sheets.xlsx')
     // build a two-sheet workbook with the repo's CLI, the way a user's file exists
     const { execFileSync } = await import('node:child_process')
@@ -249,7 +237,7 @@ test.describe('MCP sheet values and addressing', () => {
     )
     expect(existsSync(workbookPath)).toBe(true)
 
-    const userDataDir = await mkdtemp(join(tmpdir(), 'genoffice-sheet-names-userdata-'))
+    const userDataDir = await mkdtemp(join(tmpdir(), 'lycero-sheet-names-userdata-'))
     await writeFile(
       join(userDataDir, 'app-settings.json'),
       JSON.stringify({ onboardingSeen: true, mcpEnabled: true, mcpPort: port }),
@@ -257,7 +245,7 @@ test.describe('MCP sheet values and addressing', () => {
     const launched = await launchShell({
       videoDir: 'mcp-sheet-names',
       userDataDir,
-      env: { GENOFFICE_DEBUG_HOOKS: '1' },
+      env: { LYCERO_DEBUG_HOOKS: '1' },
     })
     const { app, page } = launched
     try {
@@ -266,7 +254,7 @@ test.describe('MCP sheet values and addressing', () => {
 
       // open the user's file through the app's own routing — NOT a session,
       // so its sheet ids are whatever that open produced
-      const opened = await call('open_in_genoffice', { path: workbookPath })
+      const opened = await call('open_in_lycero', { path: workbookPath })
       expect(opened.isError, opened.text).toBeFalsy()
       const editorTab = page.locator('.tab-bar .tab-item:not(.tab-home)')
       await expect(editorTab).toHaveCount(1)
@@ -276,7 +264,7 @@ test.describe('MCP sheet values and addressing', () => {
         editorPage.evaluate(() => {
           const api = (
             window as unknown as {
-              __genofficeDebug?: {
+              __lyceroDebug?: {
                 univerAPI?: {
                   getActiveWorkbook(): {
                     getActiveSheet(): { getSheetName(): string } | null
@@ -284,7 +272,7 @@ test.describe('MCP sheet values and addressing', () => {
                 }
               }
             }
-          ).__genofficeDebug?.univerAPI
+          ).__lyceroDebug?.univerAPI
           return api?.getActiveWorkbook()?.getActiveSheet()?.getSheetName() ?? null
         })
 

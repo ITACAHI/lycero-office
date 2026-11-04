@@ -16,7 +16,7 @@
 | 2 | **Pro/Enterprise AI quota — số cụ thể** | ⏳ OPEN | @product-owner | Quyết định #1 | Pro: giới hạn/tháng là bao nhiêu? Enterprise: quota tập trung tính như thế nào? |
 | 3 | **Token metering vs. request metering** | ⏳ OPEN | @product-owner + @backend | Backend Hub API cần thay đổi để trả về token breakdown (input/output/cached) | Hiện tại Hub meter bằng request count. Muốn token count → cần backend thay đổi. Sau khi backend xong, update `HubQuota` type + quota display UI. |
 | 4 | **Root `package.json` version** | ✅ RESOLVED | @engineering | Đã xong | Đồng bộ `0.1.0` → `1.0.1`, khớp `apps/shell/package.json` và `RELEASE_NOTES.md`. |
-| 5 | **App ID trong `electron-builder.cjs`** | ⏳ OPEN | @product-owner | Không có | Code hiện là `vn.itac.lycero.office`. Chưa có người dùng cài bản nào (dự án clone từ GenOffice, chưa phát hành), nên chưa cần lo về kế thừa userData. Cần chốt tên reverse-DNS chính thức theo quy chuẩn đăng ký của ITAC. |
+| 5 | **App ID trong `electron-builder.cjs`** | ⏳ OPEN | @product-owner | Không có | Code hiện là `vn.itac.lycero.office`. Chưa có người dùng cài bản nào (dự án clone từ Lycero Office, chưa phát hành), nên chưa cần lo về kế thừa userData. Cần chốt tên reverse-DNS chính thức theo quy chuẩn đăng ký của ITAC. |
 | 6 | **Be Vietnam Pro — self-host hay CDN?** | ⏳ OPEN | @engineering | Không có | Self-host (~2-5 MB woff2) hay dùng CDN (LYCERO_FONT_CDN_URL)? AUDIT_REBRAND_GAP.md §14 câu 2 đã hỏi từ 22/09/2026. |
 | 7 | **Polymorphic Switcher — vị trí UI** | ⏳ OPEN | @product-owner | GĐ 10 EdTech Archetype wiring | Trên TitleBar (PRODUCT.md §3.2 mockup) hay trong Settings → Workspace? |
 | 8 | **Pricing — Pro tier giá bao nhiêu?** | ⏳ OPEN | @product-owner | BYOK feature đã implement | Chưa có bảng giá. |

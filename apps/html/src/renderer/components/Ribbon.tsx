@@ -3,7 +3,7 @@
  * Copyright © 2026 ITAC AI Heavy Industries.
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   RibbonCollapseButton,
   RibbonExpandButton,
@@ -69,6 +69,8 @@ interface Props {
   dirty: boolean
   onSave: () => void
   onSaveAs: () => void
+  /** Ask the model for a name, then open Save As with it prefilled */
+  onNameWithAi: () => void
   onFind: () => void
   canUndo: boolean
   canRedo: boolean
@@ -146,28 +148,14 @@ export function Ribbon(p: Props) {
   const themeRef = useRef<HTMLDivElement>(null)
   useDismissablePopover(themeOpen, () => setThemeOpen(false), {
     inside: () => [themeRef.current],
+    escape: true,
   })
-  useEffect(() => {
-    if (!themeOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setThemeOpen(false)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [themeOpen])
   const [presentOpen, setPresentOpen] = useState(false)
   const presentRef = useRef<HTMLDivElement>(null)
   useDismissablePopover(presentOpen, () => setPresentOpen(false), {
     inside: () => [presentRef.current],
+    escape: true,
   })
-  useEffect(() => {
-    if (!presentOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setPresentOpen(false)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [presentOpen])
 
   const [insertPop, setInsertPop] = useState<InsertPopover | null>(null)
   const [imageUrl, setImageUrl] = useState('')
@@ -185,15 +173,8 @@ export function Ribbon(p: Props) {
     insertPop === pop ? closeInsert() : setInsertPop(pop)
   useDismissablePopover(insertPop !== null, closeInsert, {
     inside: () => [imageRef.current, tableRef.current, moreRef.current],
+    escape: true,
   })
-  useEffect(() => {
-    if (insertPop === null) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeInsert()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [insertPop])
   const submitImageUrl = () => {
     const url = imageUrl.trim()
     if (!url) return
@@ -232,6 +213,17 @@ export function Ribbon(p: Props) {
           onClick={p.onSaveAs}
         >
           {t('saveAs')}
+        </button>
+        <button
+          type="button"
+          className="qa-btn qa-name-with-ai"
+          data-tip={t('aiNameFile')}
+          aria-label={t('aiNameFile')}
+          disabled={off}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={p.onNameWithAi}
+        >
+          {t('aiNameFile')}
         </button>
         <button
           type="button"

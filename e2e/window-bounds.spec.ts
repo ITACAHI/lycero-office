@@ -10,7 +10,7 @@ import { closeAndSaveVideo, launchShell } from './helpers'
 
 /**
  * The shell window remembers its position and size across sessions
- * (genoffice#2049): a moved and resized window comes back at the same
+ * (#2049): a moved and resized window comes back at the same
  * geometry after a restart, and a saved position no display can show — an
  * unplugged monitor — is discarded instead of opening off-screen.
  *

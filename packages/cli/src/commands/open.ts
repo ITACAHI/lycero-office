@@ -168,7 +168,7 @@ export function parseTarget(args: ParsedArgs, path: string): ControlTarget | und
     EXIT.usage,
     `targets are supported for pptx, docx, xlsx and pdf files, not ${ext || 'this file'}`,
     { supported: ['.pptx', '.docx', '.xlsx', '.pdf'] },
-    { reason: 'unsupported', suggestion: 'run `genoffice open <file>` without a target' },
+    { reason: 'unsupported', suggestion: 'run `lycero-office open <file>` without a target' },
   )
 }
 

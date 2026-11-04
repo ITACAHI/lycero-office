@@ -14,6 +14,8 @@ import {
   cssFontFamily,
   cutAdjustedAlias,
   lineHeightFactor,
+  runSlotFaces,
+  wordSlotFaces,
 } from '../line-metrics'
 import { isEastAsianFontName } from '../font-list'
 import { t } from '../i18n/locale'
@@ -21,7 +23,7 @@ import { dkBackground } from './dark-page'
 import { runBorderDecls } from './run-border'
 import { fillInk } from './shading-ink'
 import { textColorDecls } from './text-color'
-import type { RevisionDisplayMode } from './revision-view'
+import { DEFAULT_BALLOON_MODE, type BalloonMode, type RevisionDisplayMode } from './revision-view'
 import { parseTextOutlineAttr, textOutlineDecl } from './text-outline'
 import {
   charScaleXDecls,
@@ -196,18 +198,20 @@ export const InsMark = Mark.create({
       date: { default: null as string | null },
       dateUtc: { default: null as string | null },
       id: { default: null as string | null },
+      move: { default: null as string | null },
     }
   },
   parseHTML() {
     return [{ tag: 'span[data-ins-author]' }]
   },
   renderHTML({ mark }) {
+    const moved = !!mark.attrs.move
     return [
       'span',
       {
         'data-ins-author': mark.attrs.author,
-        class: 'doc-ins',
-        title: `${t('editorInsertedBy', { author: String(mark.attrs.author) })}${mark.attrs.date ? ` · ${String(mark.attrs.date).slice(0, 10)}` : ''}`,
+        class: moved ? 'doc-ins doc-move-to' : 'doc-ins',
+        title: `${t(moved ? 'editorMovedBy' : 'editorInsertedBy', { author: String(mark.attrs.author) })}${mark.attrs.date ? ` · ${String(mark.attrs.date).slice(0, 10)}` : ''}`,
       },
       0,
     ]
@@ -224,18 +228,20 @@ export const DelMark = Mark.create({
       date: { default: null as string | null },
       dateUtc: { default: null as string | null },
       id: { default: null as string | null },
+      move: { default: null as string | null },
     }
   },
   parseHTML() {
     return [{ tag: 'span[data-del-author]' }]
   },
   renderHTML({ mark }) {
+    const moved = !!mark.attrs.move
     return [
       'span',
       {
         'data-del-author': mark.attrs.author,
-        class: 'doc-del',
-        title: `${t('editorDeletedBy', { author: String(mark.attrs.author) })}${mark.attrs.date ? ` · ${String(mark.attrs.date).slice(0, 10)}` : ''}`,
+        class: moved ? 'doc-del doc-move-from' : 'doc-del',
+        title: `${t(moved ? 'editorMovedBy' : 'editorDeletedBy', { author: String(mark.attrs.author) })}${mark.attrs.date ? ` · ${String(mark.attrs.date).slice(0, 10)}` : ''}`,
       },
       0,
     ]
@@ -320,7 +326,12 @@ export const SymMark = Mark.create({
 })
 
 /** Revision display mode (synced by App; in original mode the extension below restores old formatting via decorations) */
-export const revisionDisplayState = { mode: 'all' as RevisionDisplayMode }
+export const revisionDisplayState = {
+  mode: 'all' as RevisionDisplayMode,
+  balloons: DEFAULT_BALLOON_MODE as BalloonMode,
+  /** balloons exist on screen (All Markup, print layout) — the root carries data-balloons */
+  balloonsActive: false,
+}
 
 const revisionOriginalKey = new PluginKey('revisionOriginal')
 
@@ -376,6 +387,8 @@ export const RprChangeMark = Mark.create({
       dateUtc: { default: null as string | null },
       id: { default: null as string | null },
       old: { default: null as Record<string, unknown> | null, rendered: false },
+      /** the recorded previous w:rPr's inner XML; reject writes it back verbatim */
+      oldRPr: { default: null as string | null, rendered: false },
     }
   },
   parseHTML() {
@@ -386,6 +399,7 @@ export const RprChangeMark = Mark.create({
       'span',
       {
         'data-rpr-change': '1',
+        'data-rpr-author': mark.attrs.author,
         class: 'has-rpr-change',
         title: t('editorFormatChangeBy', {
           author: String(mark.attrs.author || t('editorUnknownAuthor')),
@@ -420,7 +434,7 @@ export const InstrFieldMark = Mark.create({
         // getAttrs the mark falls back to its defaults, so a pasted citation
         // loses its instruction and saves as an empty w:instrText — which the
         // next parse turns into a protected passthrough, locking the whole
-        // paragraph (genoffice#2099).
+        // paragraph (#2099).
         getAttrs: (el) => ({ instr: el.getAttribute('data-instr-field') ?? '' }),
       },
     ]
@@ -492,7 +506,7 @@ export function fontAttrsFromFamilyChain(chain: string | undefined): Record<stri
         // internal fonts.css aliases are not user picks: 'Lycero Office *', the
         // '* GO' renamed/range-limited faces (Carlito GO, KR Theme Latin GO,
         // Noto Sans/Serif CJK GO...) and the size-adjusted Noto Arabic aliases
-        !/^genoffice /i.test(x) &&
+        !/^(?:lycero office|lycero-office) /i.test(x) &&
         !/ go$/i.test(x) &&
         !/^noto (naskh|sans) arabic (w|ta|tnr)$/i.test(x),
     )
@@ -717,14 +731,13 @@ export const TextStyleMark = Mark.create({
       if (half <= 2) styles.push('line-height:0')
     }
     if (mark.attrs.font || mark.attrs.fontAscii || mark.attrs.csFont) {
-      const ea = mark.attrs.font ? String(mark.attrs.font) : null
-      const ascii = mark.attrs.fontAscii ? String(mark.attrs.fontAscii) : null
-      const cs = mark.attrs.csFont ? String(mark.attrs.csFont) : null
       // a Latin-only chain fills both slots (fontAttrsFromFamilyChain), so an
       // unparsed run's font only names an East Asian face when the slots differ
-      const explicitEa = mark.attrs.eastAsiaFont ?? (!mark.attrs.rawRPr && ea !== ascii ? ea : null)
+      const { ascii, eastAsia: ea, declaredEa } = runSlotFaces(mark.attrs)
+      const cs = mark.attrs.csFont ? String(mark.attrs.csFont) : null
+      const explicitEa = declaredEa ? wordSlotFaces(null, declaredEa).eastAsia : null
       if (explicitEa && !mark.attrs.eaSlotEmpty)
-        styles.push(`--doc-east-asian-font:${cssFontFamily(String(explicitEa))}`)
+        styles.push(`--doc-east-asian-font:${cssFontFamily(explicitEa)}`)
       const family = cs
         ? cssCsFontFamily(cs, ascii ?? undefined, ea ?? undefined)
         : cssRunFontFamily(ascii, ea)
@@ -737,7 +750,7 @@ export const TextStyleMark = Mark.create({
       styles.push(`--doc-run-lh:${lh}`)
     }
     if (!mark.attrs.font && !mark.attrs.fontAscii && !mark.attrs.csFont && tbl?.fontAscii) {
-      const family = cssRunFontFamily(tbl.fontAscii, null)
+      const family = cssRunFontFamily(wordSlotFaces(tbl.fontAscii, null).ascii, null)
       styles.push(`font-family:${family}`, `--doc-run-ff:${family}`)
     }
     const charSpacingTwips = mark.attrs.charSpacingTwips ?? tbl?.charSpacingTwips

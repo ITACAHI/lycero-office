@@ -6,10 +6,10 @@ SRC_DMG=""
 OUT_DMG=""
 
 if [ "$ARCH" = "arm64" ]; then
-  SRC_DMG="/work/GenOffice-0.10.488-arm64.dmg"
+  SRC_DMG="/work/Lycero Office-0.10.488-arm64.dmg"
   OUT_DMG="/work/Lycero-Office-1.0.0-arm64.dmg"
 else
-  SRC_DMG="/work/GenOffice-0.10.488.dmg"
+  SRC_DMG="/work/Lycero Office-0.10.488.dmg"
   OUT_DMG="/work/Lycero-Office-1.0.0-x64.dmg"
 fi
 
@@ -43,7 +43,7 @@ EOF
 
 # Update Info.plist
 echo "[DMG-BUILDER] Updating Info.plist..."
-sed -i 's|<string>GenOffice</string>|<string>Lycero Office</string>|g' "$DEST_APP/Contents/Info.plist"
+sed -i 's|<string>Lycero Office</string>|<string>Lycero Office</string>|g' "$DEST_APP/Contents/Info.plist"
 sed -i 's|<string>ai.genspark.office</string>|<string>vn.lycero.office</string>|g' "$DEST_APP/Contents/Info.plist"
 sed -i 's|<string>Copyright  2026 Mainfunc, Inc.</string>|<string>Copyright  2026 ITAC AI Heavy Industries. All rights reserved.</string>|g' "$DEST_APP/Contents/Info.plist"
 

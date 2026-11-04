@@ -15,7 +15,7 @@ import type { SlidesApi } from '../apps/slides/src/shared/ipc'
 test('Slides copy provides an OS image while internal paste stays editable and stale captures are rejected', async ({
   browserName: _browserName,
 }, info) => {
-  const dir = await mkdtemp(join(tmpdir(), 'genoffice-clipboard-'))
+  const dir = await mkdtemp(join(tmpdir(), 'lycero-clipboard-'))
   const fixture = join(dir, 'fixture')
   await cp(resolve('e2e/assets/font-manager-rubik'), fixture, { recursive: true })
   const xmlPath = join(fixture, 'ppt/slides/slide1.xml')
@@ -31,7 +31,7 @@ test('Slides copy provides an OS image while internal paste stays editable and s
       resolve('apps/slides'),
       pptx,
     ],
-    env: { ...env, GENOFFICE_USER_DATA: join(dir, 'user-data'), GENOFFICE_LANG: 'en' },
+    env: { ...env, LYCERO_USER_DATA: join(dir, 'user-data'), LYCERO_LANG: 'en' },
   })
   try {
     const page = await app.firstWindow()

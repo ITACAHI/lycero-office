@@ -4,12 +4,11 @@
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-// the shared gsk CLI login (~/.genspark-tool-cli) is a key fallback: point
-// homedir at an empty dir so the developer's real login cannot leak in
+// Keep credential tests isolated from the developer's real home directory.
 const home = vi.hoisted(() => ({ dir: '' }))
 vi.mock('node:os', async (importOriginal) => {
   const os = await importOriginal<typeof import('node:os')>()
@@ -18,9 +17,10 @@ vi.mock('node:os', async (importOriginal) => {
 
 import {
   FRESH_AUTH_REQUIRED,
-  resetGenofficeAuthCache,
-  setGenofficeLoginOpener,
-} from '../src/genoffice-auth'
+  lyceroLogout,
+  resetLyceroAuthCache,
+  setLyceroLoginOpener,
+} from '../src/lycero-device-auth'
 import {
   GskAuthError,
   gskApiKey,
@@ -39,11 +39,11 @@ let dir: string
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'gsk-reauth-'))
   home.dir = dir
-  process.env.GENOFFICE_AUTH_DIR = dir
+  process.env.LYCERO_AUTH_DIR = dir
   process.env.GSK_CLI_PATH = '/fake/gsk.js'
   delete process.env.GSK_API_KEY
   delete process.env.AI_SEARCH_DISABLE_GSK
-  resetGenofficeAuthCache()
+  resetLyceroAuthCache()
   resetGskRejectedKeys()
   writeFileSync(
     join(dir, 'auth.json'),
@@ -53,12 +53,12 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
-  setGenofficeLoginOpener(null)
-  resetGenofficeAuthCache()
+  setLyceroLoginOpener(null)
+  resetLyceroAuthCache()
   resetGskRejectedKeys()
   rmSync(dir, { recursive: true, force: true })
   home.dir = ''
-  delete process.env.GENOFFICE_AUTH_DIR
+  delete process.env.LYCERO_AUTH_DIR
   delete process.env.GSK_CLI_PATH
 })
 
@@ -131,6 +131,64 @@ describe('gsk CLI 401 recovery', () => {
     return log
   }
 
+  function sharedLogin(): string {
+    const config = join(dir, '.genspark-tool-cli', 'config.json')
+    mkdirSync(join(dir, '.genspark-tool-cli'), { recursive: true })
+    writeFileSync(config, JSON.stringify({ api_key: 'gsk-other-app', key_name: 'other app' }))
+    return config
+  }
+
+  it('stays signed out with only a shared CLI login and never spawns the CLI', async () => {
+    const config = sharedLogin()
+    const before = readFileSync(config, 'utf-8')
+    const log = fakeCli()
+    rmSync(join(dir, 'auth.json'))
+    resetLyceroAuthCache()
+
+    expect(gskApiKey()).toBe('')
+    expect(hasGskAuth()).toBe(false)
+    await expect(gskWebSearch('q')).rejects.toBeInstanceOf(GskAuthError)
+    expect(existsSync(log)).toBe(false)
+    expect(readFileSync(config, 'utf-8')).toBe(before)
+  })
+
+  it('does not resume billing through the shared login after Lycero Office sign-out', async () => {
+    const config = sharedLogin()
+    const before = readFileSync(config, 'utf-8')
+    const log = fakeCli()
+    stubServer(() => response({ status: 0 }))
+
+    await lyceroLogout()
+
+    expect(gskApiKey()).toBe('')
+    expect(hasGskAuth()).toBe(false)
+    await expect(gskWebSearch('q')).rejects.toBeInstanceOf(GskAuthError)
+    expect(existsSync(log)).toBe(false)
+    expect(readFileSync(config, 'utf-8')).toBe(before)
+  })
+
+  it('never spawns an unauthenticated CLI even without a shared config file', async () => {
+    const log = fakeCli()
+    rmSync(join(dir, 'auth.json'))
+    resetLyceroAuthCache()
+
+    await expect(gskWebSearch('q')).rejects.toBeInstanceOf(GskAuthError)
+
+    expect(existsSync(log)).toBe(false)
+  })
+
+  it('does not switch to another app key when reauthentication fails', async () => {
+    sharedLogin()
+    const log = fakeCli()
+    stubServer(() => response({ detail: FRESH_AUTH_REQUIRED }, 403))
+
+    await expect(gskWebSearch('q')).rejects.toBeInstanceOf(GskAuthError)
+
+    expect(gskApiKey()).toBe('')
+    expect(hasGskAuth()).toBe(false)
+    expect(readFileSync(log, 'utf-8').trim().split('\n')).toEqual(['gsk-expired'])
+  })
+
   it('re-mints after a CLI 401 and reruns the command with the new key', async () => {
     const log = fakeCli()
     stubServer(() => response({ status: 0, data: { key_id: 'kid-2', token: 'gsk-new' } }))
@@ -178,7 +236,7 @@ describe('passive calls', () => {
   it('a 401 from a background call drops the key without opening the browser', async () => {
     stubServer(() => response({ detail: FRESH_AUTH_REQUIRED }, 403))
     const opener = vi.fn()
-    setGenofficeLoginOpener(opener)
+    setLyceroLoginOpener(opener)
     await expect(noteGskKeyRejected('gsk-expired', { allowLogin: false })).resolves.toBe(
       'login_required',
     )

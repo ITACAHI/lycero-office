@@ -54,6 +54,8 @@ export interface RibbonFormatState {
   textboxSelected: boolean
   shapeFill: string | null
   shapeBorderColor: string | null
+  /** outline width of the selected shape in CSS px (a:ln w; null = Word's own default) */
+  shapeBorderWidthPx: number | null
   shapePrst: string | null
   /**
    * What the selected shape's own text agrees on, for the Shape Format Text
@@ -130,6 +132,7 @@ export const EMPTY_FORMAT_STATE: RibbonFormatState = {
   textboxSelected: false,
   shapeFill: null,
   shapeBorderColor: null,
+  shapeBorderWidthPx: null,
   shapePrst: null,
   shapeHasText: false,
   shapeTextBold: false,
@@ -319,8 +322,9 @@ export function computeFormatState(
       : imageSelected
         ? str(protAttrs.imageDataUrl)
         : null,
-    imageWrap:
-      Array.isArray(protAttrs.textboxes) && protAttrs.textboxes.length > 0
+    imageWrap: inlinePic
+      ? str(inlinePic.wrap)
+      : Array.isArray(protAttrs.textboxes) && protAttrs.textboxes.length > 0
         ? shapeWrapOf(protAttrs.textboxes[0] as TextboxDisplay)
         : str(protAttrs.imageWrap),
     imageAlign: str(protAttrs.imageAlign),
@@ -336,6 +340,9 @@ export function computeFormatState(
       : null,
     shapeBorderColor: Array.isArray(protAttrs.textboxes)
       ? str((protAttrs.textboxes[0] as { borderColor?: string } | undefined)?.borderColor)
+      : null,
+    shapeBorderWidthPx: Array.isArray(protAttrs.textboxes)
+      ? num((protAttrs.textboxes[0] as TextboxDisplay | undefined)?.borderWidthPx)
       : null,
     shapePrst: Array.isArray(protAttrs.textboxes)
       ? str((protAttrs.textboxes[0] as { prst?: string } | undefined)?.prst)
@@ -387,10 +394,10 @@ export function computeFormatState(
   }
 }
 
-/** attrs of the inline run picture under a node selection (rules and floating pictures excluded) */
+/** attrs of the run picture (in line or floating) under a node selection (rules excluded) */
 function inlinePictureOf(ed: Editor): Record<string, unknown> | null {
   const sel = ed.state.selection
   if (!(sel instanceof NodeSelection) || sel.node.type.name !== 'docInlineImage') return null
   const attrs = sel.node.attrs
-  return attrs.rule || attrs.wrap || !attrs.dataUrl ? null : attrs
+  return attrs.rule || !attrs.dataUrl ? null : attrs
 }

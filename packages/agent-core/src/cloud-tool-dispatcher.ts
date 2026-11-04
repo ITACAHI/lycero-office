@@ -162,7 +162,7 @@ export const LOCAL_EDITOR_TOOL_NAMES: ReadonlySet<string> = new Set([
   'create_document',
   'run_cli',
   'load_guide',
-  'run_genoffice',
+  'run_lycero',
   'web_search',
   'image_search',
   'generate_image',

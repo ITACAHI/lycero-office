@@ -41,7 +41,7 @@ function setTheme(page: Page, theme: 'light' | 'dark' | 'system'): Promise<void>
 
 test.describe('theme pipeline', () => {
   test('setTheme reaches home and editor tabs, persists across relaunch', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'genoffice-theme-'))
+    const dir = await mkdtemp(join(tmpdir(), 'lycero-theme-'))
     const mdPath = join(dir, 'doc.md')
     await writeFile(mdPath, '# Doc\n\nBody.\n')
 

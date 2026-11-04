@@ -7,24 +7,24 @@ import { describe, expect, it } from 'vitest'
 import { classifySkill, parseSkillFrontmatter, SKILL_FORMAT_TOKENS } from '../src'
 
 const SKILL = `---
-name: genoffice
+name: lycero-office
 description: Create, convert, read and edit Office documents locally with Lycero Office's command line.
 metadata:
   version: 2.67.1
   cli: '>=0.9.0'
 ---
 
-# genoffice
+# lycero-office
 
-Run \`genoffice --version\` first.
+Run \`lycero-office --version\` first.
 `
 
 describe('parseSkillFrontmatter', () => {
   it('reads name, description and body, and keeps unknown keys', () => {
     const out = parseSkillFrontmatter(SKILL)!
-    expect(out.name).toBe('genoffice')
+    expect(out.name).toBe('lycero-office')
     expect(out.description).toContain('Office documents')
-    expect(out.body.startsWith('# genoffice')).toBe(true)
+    expect(out.body.startsWith('# lycero-office')).toBe(true)
     expect(out.body).not.toContain('---')
     // nested YAML is not modelled: `metadata:`'s children are kept as its text
     expect(out.extra.metadata).toContain('version: 2.67.1')
@@ -71,13 +71,13 @@ describe('parseSkillFrontmatter', () => {
   })
 
   it('survives a byte-order mark, which a hand-edited file can carry', () => {
-    expect(parseSkillFrontmatter('﻿' + SKILL)!.name).toBe('genoffice')
+    expect(parseSkillFrontmatter('﻿' + SKILL)!.name).toBe('lycero-office')
   })
 })
 
 describe('classifySkill', () => {
   it('keeps a skill that names a format Lycero Office opens', () => {
-    const out = classifySkill('genoffice', 'Create and convert docx, xlsx, pptx and pdf files')
+    const out = classifySkill('lycero-office', 'Create and convert docx, xlsx, pptx and pdf files')
     expect(out.relevant).toBe(true)
     expect(out.matched).toEqual(['docx', 'pdf', 'pptx', 'xlsx'])
   })

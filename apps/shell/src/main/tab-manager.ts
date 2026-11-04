@@ -127,7 +127,7 @@ export class TabManager {
     /** localized placeholder title for a tab that has no file yet */
     private readonly untitledTitleFor?: (kind: TabKind) => string,
     /**
-     * The live interface scale (genoffice#1913). A getter rather than a value so a change
+     * The live interface scale (#1913). A getter rather than a value so a change
      * made from the View menu reaches the next layout without rebuilding this.
      */
     private readonly uiScale: () => number = () => 1,
@@ -153,7 +153,7 @@ export class TabManager {
   }
 
   private scheduleSpareSheetsView(delayMs: number): void {
-    if (process.env.GENOFFICE_NO_SPARE_VIEW || this.spareSheetsTimer || this.spareSheetsView) return
+    if (process.env.LYCERO_NO_SPARE_VIEW || this.spareSheetsTimer || this.spareSheetsView) return
     if (this.tabs.find((t) => t.id === this.activeId)?.kind !== 'sheets') return
     this.spareSheetsTimer = setTimeout(() => {
       this.spareSheetsTimer = null
@@ -869,9 +869,9 @@ export class TabManager {
   startSleepSweeper(enabled: () => boolean): () => void {
     const policy: SleepPolicy = {
       maxLiveTabs:
-        envNumber('GENOFFICE_TAB_SLEEP_MAX_LIVE') ??
+        envNumber('LYCERO_TAB_SLEEP_MAX_LIVE') ??
         defaultMaxLiveTabs(process.getSystemMemoryInfo().total * 1024),
-      idleMs: envNumber('GENOFFICE_TAB_SLEEP_IDLE_MS') ?? DEFAULT_IDLE_MS,
+      idleMs: envNumber('LYCERO_TAB_SLEEP_IDLE_MS') ?? DEFAULT_IDLE_MS,
     }
     let running = false
     const timer = setInterval(
@@ -882,7 +882,7 @@ export class TabManager {
           running = false
         })
       },
-      envNumber('GENOFFICE_TAB_SLEEP_SWEEP_MS') ?? SLEEP_SWEEP_INTERVAL_MS,
+      envNumber('LYCERO_TAB_SLEEP_SWEEP_MS') ?? SLEEP_SWEEP_INTERVAL_MS,
     )
     timer.unref?.()
     return () => clearInterval(timer)

@@ -13,14 +13,14 @@ vi.mock('electron', () => ({ app: { isPackaged: false, getVersion: () => '0.0.0'
 
 import { isEphemeralInstall, launcherFilePath, writeLauncherFile } from '../src/main/cli-link'
 
-describe('genoffice launcher file', () => {
-  it('lives in the genoffice auth directory, overridable like auth.json', () => {
+describe('lycero-office launcher file', () => {
+  it('lives in the lycero-office auth directory, overridable like auth.json', () => {
     expect(launcherFilePath({})).toBe(join(process.env.HOME ?? '', '.lycero-office', 'launcher'))
-    expect(launcherFilePath({ GENOFFICE_AUTH_DIR: '/tmp/x' })).toBe(join('/tmp/x', 'launcher'))
+    expect(launcherFilePath({ LYCERO_AUTH_DIR: '/tmp/x' })).toBe(join('/tmp/x', 'launcher'))
   })
 
   it('writes one line, creates the directory, and only rewrites on change', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'genoffice-launcher-'))
+    const dir = mkdtempSync(join(tmpdir(), 'lycero-launcher-'))
     const file = join(dir, 'nested', 'launcher')
     expect(writeLauncherFile(file, '/Applications/Lycero Office.app/Contents/Resources/cli')).toBe(true)
     expect(readFileSync(file, 'utf-8')).toBe('/Applications/Lycero Office.app/Contents/Resources/cli\n')
@@ -29,8 +29,8 @@ describe('genoffice launcher file', () => {
       false,
     )
     expect(statSync(file).mtimeMs).toBe(before)
-    expect(writeLauncherFile(file, 'C:\\Programs\\Lycero Office\\resources\\genoffice')).toBe(true)
-    expect(readFileSync(file, 'utf-8')).toBe('C:\\Programs\\Lycero Office\\resources\\genoffice\n')
+    expect(writeLauncherFile(file, 'C:\\Programs\\Lycero Office\\resources\\lycero-office')).toBe(true)
+    expect(readFileSync(file, 'utf-8')).toBe('C:\\Programs\\Lycero Office\\resources\\lycero-office\n')
   })
 
   it('treats dmg and AppImage mounts as temporary', () => {

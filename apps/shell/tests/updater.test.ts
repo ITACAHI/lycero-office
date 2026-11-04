@@ -152,7 +152,7 @@ beforeEach(() => {
   vi.resetModules()
   vi.useFakeTimers()
   appState.isPackaged = true
-  delete process.env.GENOFFICE_FAKE_UPDATE
+  delete process.env.LYCERO_FAKE_UPDATE
   updaterState.listeners.clear()
   updaterState.autoDownload = true
   updaterState.autoInstallOnAppQuit = false
@@ -180,7 +180,7 @@ afterEach(() => {
   vi.useRealTimers()
   platformSpy?.restore()
   platformSpy = null
-  delete process.env.GENOFFICE_FAKE_UPDATE
+  delete process.env.LYCERO_FAKE_UPDATE
 })
 
 describe('initAutoUpdater', () => {
@@ -440,6 +440,125 @@ describe('initAutoUpdater', () => {
   })
 })
 
+describe('quiet background updates (#2389)', () => {
+  const silent = () => true
+
+  it('is off by default: a background check opens the card and downloads nothing', async () => {
+    const { initAutoUpdater } = await loadUpdater()
+    initAutoUpdater(() => null)
+    vi.advanceTimersByTime(FIRST_CHECK_DELAY_MS)
+    updaterState.listeners.get('update-available')!({ version: '0.2.0' })
+    expect(showUpdateWindow).toHaveBeenCalledTimes(1)
+    expect(downloadUpdate).not.toHaveBeenCalled()
+  })
+
+  it('a background check downloads the package instead of opening the card', async () => {
+    const { initAutoUpdater } = await loadUpdater()
+    initAutoUpdater(
+      () => null,
+      'stable',
+      () => true,
+      silent,
+    )
+    vi.advanceTimersByTime(FIRST_CHECK_DELAY_MS)
+    expect(checkForUpdates).toHaveBeenCalledTimes(1)
+
+    updaterState.listeners.get('update-available')!({ version: '0.2.0' })
+
+    expect(showUpdateWindow).not.toHaveBeenCalled()
+    expect(downloadUpdate).toHaveBeenCalledTimes(1)
+  })
+
+  it('a quiet download stays quiet and installs the package on quit', async () => {
+    const { initAutoUpdater } = await loadUpdater()
+    initAutoUpdater(
+      () => null,
+      'stable',
+      () => true,
+      silent,
+    )
+    vi.advanceTimersByTime(FIRST_CHECK_DELAY_MS)
+    updaterState.listeners.get('update-available')!({ version: '0.2.0' })
+    expect(showUpdateWindow).not.toHaveBeenCalled()
+
+    updaterState.listeners.get('download-progress')!({ percent: 50 })
+    updaterState.listeners.get('update-downloaded')!({ version: '0.2.0' })
+
+    expect(showUpdateWindow).not.toHaveBeenCalled()
+    expect(updaterState.autoInstallOnAppQuit).toBe(true)
+  })
+
+  it('a failed quiet download stays quiet too: the next check retries', async () => {
+    downloadUpdate.mockImplementation(() => Promise.reject(new Error('network')))
+    const { initAutoUpdater } = await loadUpdater()
+    initAutoUpdater(
+      () => null,
+      'stable',
+      () => true,
+      silent,
+    )
+    vi.advanceTimersByTime(FIRST_CHECK_DELAY_MS)
+    updaterState.listeners.get('update-available')!({ version: '0.2.0' })
+    await flushAsync()
+
+    expect(showUpdateWindow).not.toHaveBeenCalled()
+  })
+
+  it('a manual check after a quiet download shows the package is ready', async () => {
+    const { initAutoUpdater, checkForUpdatesNow } = await loadUpdater()
+    initAutoUpdater(
+      () => null,
+      'stable',
+      () => true,
+      silent,
+    )
+    vi.advanceTimersByTime(FIRST_CHECK_DELAY_MS)
+    updaterState.listeners.get('update-available')!({ version: '0.2.0' })
+    updaterState.listeners.get('update-downloaded')!({ version: '0.2.0' })
+    expect(showUpdateWindow).not.toHaveBeenCalled()
+
+    void checkForUpdatesNow()
+    await flushAsync()
+    updaterState.listeners.get('update-available')!({ version: '0.2.0' })
+
+    expect(showUpdateWindow).toHaveBeenCalledTimes(1)
+    expect(lastShownState().phase).toBe('downloaded')
+  })
+
+  it('a check the user asked for still reports a failure', async () => {
+    checkForUpdates.mockRejectedValueOnce(new Error('network'))
+    const { initAutoUpdater, checkForUpdatesNow } = await loadUpdater()
+    initAutoUpdater(
+      () => null,
+      'stable',
+      () => true,
+      silent,
+    )
+    void checkForUpdatesNow()
+    await flushAsync()
+
+    expect(showMessageBox).toHaveBeenCalled()
+    expect(showUpdateWindow).not.toHaveBeenCalled()
+  })
+
+  it('a check the user asked for still opens the card', async () => {
+    const { initAutoUpdater, checkForUpdatesNow } = await loadUpdater()
+    initAutoUpdater(
+      () => null,
+      'stable',
+      () => true,
+      silent,
+    )
+    void checkForUpdatesNow()
+    await flushAsync()
+
+    updaterState.listeners.get('update-available')!({ version: '0.2.0' })
+
+    expect(showUpdateWindow).toHaveBeenCalledTimes(1)
+    expect(downloadUpdate).not.toHaveBeenCalled()
+  })
+})
+
 describe('manual download fallback', () => {
   const macFiles = [
     { url: 'Lycero Office-0.2.0-arm64.zip' },
@@ -498,8 +617,8 @@ describe('manual download fallback', () => {
   })
 
   const winFiles = [
-    { url: 'GenOfficeSetup-v0.2.0.exe' },
-    { url: 'GenOfficeSetup-v0.2.0-arm64.exe' },
+    { url: 'LyceroSetup-v0.2.0.exe' },
+    { url: 'LyceroSetup-v0.2.0-arm64.exe' },
   ]
 
   it('picks the arm64 installer on Windows arm64', async () => {
@@ -512,7 +631,7 @@ describe('manual download fallback', () => {
       const actions = await failTwiceIntoManual(winFiles)
       actions.onOpenDownload()
       expect(openExternal).toHaveBeenCalledWith(
-        'https://cdn.example.com/win/GenOfficeSetup-v0.2.0-arm64.exe',
+        'https://cdn.example.com/win/LyceroSetup-v0.2.0-arm64.exe',
       )
     } finally {
       restoreArch()
@@ -529,7 +648,7 @@ describe('manual download fallback', () => {
       const actions = await failTwiceIntoManual([...winFiles].reverse())
       actions.onOpenDownload()
       expect(openExternal).toHaveBeenCalledWith(
-        'https://cdn.example.com/win/GenOfficeSetup-v0.2.0.exe',
+        'https://cdn.example.com/win/LyceroSetup-v0.2.0.exe',
       )
     } finally {
       restoreArch()
@@ -543,10 +662,10 @@ describe('manual download fallback', () => {
     setPlatform('win32')
     const restoreArch = setArch('arm64')
     try {
-      const actions = await failTwiceIntoManual([{ url: 'GenOfficeSetup-v0.2.0.exe' }])
+      const actions = await failTwiceIntoManual([{ url: 'LyceroSetup-v0.2.0.exe' }])
       actions.onOpenDownload()
       expect(openExternal).toHaveBeenCalledWith(
-        'https://cdn.example.com/win/GenOfficeSetup-v0.2.0.exe',
+        'https://cdn.example.com/win/LyceroSetup-v0.2.0.exe',
       )
     } finally {
       restoreArch()
@@ -597,7 +716,7 @@ describe('manual download fallback', () => {
 describe('initAutoUpdater (fake update preview)', () => {
   it('runs a simulated download to completion in unpacked runs', async () => {
     appState.isPackaged = false
-    process.env.GENOFFICE_FAKE_UPDATE = '9.9.9'
+    process.env.LYCERO_FAKE_UPDATE = '9.9.9'
     const { initAutoUpdater } = await loadUpdater()
     initAutoUpdater(() => null)
 
@@ -618,7 +737,7 @@ describe('initAutoUpdater (fake update preview)', () => {
 
   it('closes the window on later and install without touching electron-updater', async () => {
     appState.isPackaged = false
-    process.env.GENOFFICE_FAKE_UPDATE = '9.9.9'
+    process.env.LYCERO_FAKE_UPDATE = '9.9.9'
     const { initAutoUpdater } = await loadUpdater()
     initAutoUpdater(() => null)
     vi.advanceTimersByTime(1500)
@@ -832,9 +951,9 @@ describe('checkForUpdatesNow (r148 manual check)', () => {
     expect(showUpdateWindow).not.toHaveBeenCalled()
   })
 
-  it('re-shows the simulated update window in GENOFFICE_FAKE_UPDATE runs', async () => {
+  it('re-shows the simulated update window in LYCERO_FAKE_UPDATE runs', async () => {
     appState.isPackaged = false
-    process.env.GENOFFICE_FAKE_UPDATE = '9.9.9'
+    process.env.LYCERO_FAKE_UPDATE = '9.9.9'
     const { initAutoUpdater, checkForUpdatesNow } = await loadUpdater()
     initAutoUpdater(() => null)
 

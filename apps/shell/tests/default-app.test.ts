@@ -13,7 +13,7 @@ import {
 } from '../src/main/default-app'
 import type { RunCommand } from '../src/main/default-app'
 
-const ME = 'com.genoffice.app'
+const ME = 'com.lycero-office.app'
 const WPS = 'com.kingsoft.wpsoffice.mac'
 
 function macStatusJson(
@@ -131,7 +131,7 @@ describe('createDefaultAppService', () => {
     const run = vi.fn<RunCommand>(async (cmd, args) => {
       calls.push([cmd, ...args])
       if (args[0] === 'query')
-        return args[2].includes('spreadsheetml') ? 'wps-office-et.desktop\n' : 'genoffice.desktop\n'
+        return args[2].includes('spreadsheetml') ? 'wps-office-et.desktop\n' : 'lycero-office.desktop\n'
       return ''
     })
     const svc = createDefaultAppService({
@@ -153,7 +153,7 @@ describe('createDefaultAppService', () => {
     expect(calls.find((c) => c[1] === 'default')).toEqual([
       'xdg-mime',
       'default',
-      'genoffice.desktop',
+      'lycero-office.desktop',
       ...OFFICE_TYPES.map((t) => t.mime),
     ])
   })

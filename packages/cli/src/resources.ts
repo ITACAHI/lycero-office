@@ -10,7 +10,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /**
- * Two layouts: packaged (Resources/cli/genoffice.cjs next to Resources/wasm,
+ * Two layouts: packaged (Resources/cli/lycero-office.cjs next to Resources/wasm,
  * Resources/native, Resources/ocr — see apps/shell/electron-builder.cjs) and
  * the dev checkout (packages/cli/{src,dist} inside the monorepo).
  */
@@ -36,7 +36,7 @@ export function repoRoot(): string | null {
     if (existsSync(pkg)) {
       try {
         const pkgName = JSON.parse(readFileSync(pkg, 'utf-8')).name
-        if (pkgName === 'lycero-office' || pkgName === 'genoffice') {
+        if (pkgName === 'lycero-office' || pkgName === 'lycero-office') {
           cachedRepo = dir
           return dir
         }
@@ -86,19 +86,19 @@ export function ocrHelperPath(): string | null {
   return candidates.find((p) => existsSync(p)) ?? null
 }
 
-/** skills/genoffice/SKILL.md as shipped beside this bundle (Resources/cli/skills) or in the checkout. */
+/** skills/lycero-office/SKILL.md as shipped beside this bundle (Resources/cli/skills) or in the checkout. */
 export function bundledSkillPath(): string | null {
   const packaged = packagedResourcesDir()
   const candidates = [
     ...(packaged
       ? [
-          join(packaged, 'cli', 'skills', 'genoffice', 'SKILL.md'),
+          join(packaged, 'cli', 'skills', 'lycero-office', 'SKILL.md'),
           join(packaged, 'cli', 'skills', 'lycero-office', 'SKILL.md'),
         ]
       : []),
     ...(repoRoot()
       ? [
-          join(repoRoot()!, 'skills', 'genoffice', 'SKILL.md'),
+          join(repoRoot()!, 'skills', 'lycero-office', 'SKILL.md'),
           join(repoRoot()!, 'skills', 'lycero-office', 'SKILL.md'),
         ]
       : []),
@@ -148,7 +148,7 @@ function installedAppBinaries(
         env.ProgramFiles ? join(env.ProgramFiles, 'Lycero Office', 'Lycero Office.exe') : '',
       ].filter(Boolean)
     default:
-      return [...(shipped ? [shipped] : []), '/opt/Lycero Office/genoffice', '/usr/bin/genoffice']
+      return [...(shipped ? [shipped] : []), '/opt/Lycero Office/lycero-office', '/usr/bin/lycero-office']
   }
 }
 
@@ -156,7 +156,7 @@ export function appBinaryForResources(resources: string, platform: NodeJS.Platfo
   const install = dirname(resources)
   if (platform === 'darwin') return join(install, 'MacOS', 'Lycero Office')
   if (platform === 'win32') return join(install, 'Lycero Office.exe')
-  return join(install, 'genoffice')
+  return join(install, 'lycero-office')
 }
 
 /**

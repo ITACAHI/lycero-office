@@ -21,8 +21,8 @@ let store: FileIndexStore
 let indexer: FileIndexer | null
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'genoffice-indexer-'))
-  storeDir = mkdtempSync(join(tmpdir(), 'genoffice-indexer-db-'))
+  dir = mkdtempSync(join(tmpdir(), 'lycero-indexer-'))
+  storeDir = mkdtempSync(join(tmpdir(), 'lycero-indexer-db-'))
   mkdirSync(join(dir, 'hang'))
   writeFileSync(join(dir, 'hang', 'poison.pdf'), 'unparseable')
   mkdirSync(join(dir, 'good'))

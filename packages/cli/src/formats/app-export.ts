@@ -11,7 +11,7 @@ import { CliError, EXIT } from '../result'
 /**
  * Conversions that need an app renderer (Word, Excel and PowerPoint layout,
  * HTML and Markdown print, Word ↔ HTML) run in the Lycero Office binary itself through its
- * `--headless-export` entry: Dock hidden, no window, one export, exit. genoffice
+ * `--headless-export` entry: Dock hidden, no window, one export, exit. lycero-office
  * just spawns it and reads the JSON envelope it prints. The app skips the
  * single-instance lock in that mode, so a running GUI does not interfere.
  */

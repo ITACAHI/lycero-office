@@ -9,7 +9,7 @@
  * a series repeats instead. Univer's default hook picks COPY for a single
  * numeric cell and SERIES otherwise; an APPEND hook's answer outranks it,
  * so this one flips the choice whenever the modifier was down when the drag
- * ended (public issue genoffice#808).
+ * ended (public issue #808).
  */
 import {
   CellValueType,
@@ -58,7 +58,7 @@ export function installCtrlDragFill(runtime: UniverRuntime): { dispose(): void }
   window.addEventListener('pointerup', onPointerUp, true)
   const injector = runtime.univer.__getInjector()
   const hook = injector.get(IAutoFillService).addHook({
-    id: 'genoffice.ctrl-drag-fill',
+    id: 'lycero-office.ctrl-drag-fill',
     type: AUTO_FILL_HOOK_TYPE.APPEND,
     onBeforeFillData: (location) => {
       if (!modifier) return undefined

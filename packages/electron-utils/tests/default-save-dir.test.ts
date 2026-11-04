@@ -18,7 +18,7 @@ import {
 let root: string
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'genoffice-save-dir-'))
+  root = mkdtempSync(join(tmpdir(), 'lycero-save-dir-'))
 })
 
 afterEach(() => {

@@ -36,13 +36,13 @@ function okFetch() {
 
 describe('extractAnalyticsKeys', () => {
   it('reads the injected block from package.json', () => {
-    expect(extractAnalyticsKeys({ genofficeAnalytics: KEYS })).toEqual(KEYS)
+    expect(extractAnalyticsKeys({ lyceroAnalytics: KEYS })).toEqual(KEYS)
   })
 
   it('trims whitespace around the values', () => {
     expect(
       extractAnalyticsKeys({
-        genofficeAnalytics: { measurementId: ' G-1 ', apiSecret: ' s ' },
+        lyceroAnalytics: { measurementId: ' G-1 ', apiSecret: ' s ' },
       }),
     ).toEqual({ measurementId: 'G-1', apiSecret: 's' })
   })
@@ -55,17 +55,17 @@ describe('extractAnalyticsKeys', () => {
 
   it('returns null when either credential is empty or not a string', () => {
     expect(
-      extractAnalyticsKeys({ genofficeAnalytics: { measurementId: 'G-1', apiSecret: '' } }),
+      extractAnalyticsKeys({ lyceroAnalytics: { measurementId: 'G-1', apiSecret: '' } }),
     ).toBeNull()
     expect(
-      extractAnalyticsKeys({ genofficeAnalytics: { measurementId: 42, apiSecret: 's' } }),
+      extractAnalyticsKeys({ lyceroAnalytics: { measurementId: 42, apiSecret: 's' } }),
     ).toBeNull()
-    expect(extractAnalyticsKeys({ genofficeAnalytics: { measurementId: 'G-1' } })).toBeNull()
+    expect(extractAnalyticsKeys({ lyceroAnalytics: { measurementId: 'G-1' } })).toBeNull()
   })
 
   it('accepts metadata only for a packaged runtime', () => {
-    expect(extractPackagedAnalyticsKeys({ genofficeAnalytics: KEYS }, true)).toEqual(KEYS)
-    expect(extractPackagedAnalyticsKeys({ genofficeAnalytics: KEYS }, false)).toBeNull()
+    expect(extractPackagedAnalyticsKeys({ lyceroAnalytics: KEYS }, true)).toEqual(KEYS)
+    expect(extractPackagedAnalyticsKeys({ lyceroAnalytics: KEYS }, false)).toBeNull()
   })
 })
 

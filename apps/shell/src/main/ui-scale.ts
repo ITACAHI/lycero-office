@@ -4,7 +4,7 @@
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
 /**
- * Interface scale (issue genoffice#1913) — the user's "make the UI bigger" preference.
+ * Interface scale (issue #1913) — the user's "make the UI bigger" preference.
  *
  * ## Why a CSS variable and not `webContents.setZoomFactor()`
  *

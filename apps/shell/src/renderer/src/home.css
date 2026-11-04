@@ -21,7 +21,7 @@
   --shadow-pill: 0 1px 2px rgb(0 0 0 / 8%);
   --shadow-composer: 0 6px 30px rgb(0 0 0 / 8%);
 
-  /* genoffice-logo.svg is pure black-and-white; dark themes flip it to 1 */
+  /* lycero-logo.svg is pure black-and-white; dark themes flip it to 1 */
   --logo-invert: 0;
   /* lift for the kb-ask composer box */
 }
@@ -119,7 +119,7 @@ body.vib .home {
   overflow-y: auto;
 }
 
-/* drag strip straddling the sidebar's right border (genoffice#2169) */
+/* drag strip straddling the sidebar's right border (#2169) */
 .sidebar-resizer {
   flex: none;
   position: relative;
@@ -2469,6 +2469,7 @@ html[dir='rtl'] .quick-title-row {
   color: var(--accent);
   font-size: 11.5px;
   font-weight: 500;
+  line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2480,7 +2481,7 @@ html[dir='rtl'] .quick-title-row {
   font-weight: 500;
   margin: 1px 0 3px;
 }
-.kb-ask-step span {
+.kb-ask-step > div > span {
   font-size: 12px;
   color: var(--text-secondary);
   line-height: 1.5;

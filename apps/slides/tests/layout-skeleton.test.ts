@@ -4,7 +4,7 @@
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
 /**
- * The template chrome skeleton (genoffice#1821): extraction from a deck's render tree
+ * The template chrome skeleton (#1821): extraction from a deck's render tree
  * (title box / brand-image slot / accent shapes / background per page role)
  * and its prompt formatting. Pure logic — fixtures are loose render nodes.
  */

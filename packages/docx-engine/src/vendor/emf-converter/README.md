@@ -5,7 +5,7 @@ Upstream: emf-converter 2.0.2 (Apache-2.0) — https://github.com/ChristopherVR/
 `index.mjs` / `index.d.mts` are the published npm dist files, plus local WMF fixes
 (marked below); wrapper-level changes still go in `src/metafile.ts`.
 
-Local modifications to `index.mjs` (2026-08, GenOffice):
+Local modifications to `index.mjs` (2026-08, Lycero Office):
 - LOGFONT16 FaceName read at offset +18 (upstream read +14, landing in the
   precision/quality bytes, so every WMF font family came out empty)
 - Font escapement parsed and applied (rotated text), TA_* text alignment honored
@@ -63,3 +63,9 @@ Local modifications to `index.mjs` (2026-08, GenOffice):
   plot with SetClipRect and widen the clip back with SetClipRegion; the region
   never resolved, so titles, legends and axis labels outside the plot area
   vanished
+- META_TEXTOUT / META_EXTTEXTOUT honour TA_UPDATECP like EMR_EXTTEXTOUTW already
+  did: with the flag set the record coords are ignored in favor of the current
+  position, and the position advances by the measured text extent. MathType OLE
+  previews place every run with MOVETO + a zero-coord text record, so all runs
+  stacked at the origin (a MathType equation rendered as its fraction line only,
+  #2316)

@@ -43,7 +43,7 @@ export type {
   CreateDocumentRequest,
   CreateDocumentSkill,
 } from './create-document-skill'
-export { createCliSkill, GUIDE_DOMAINS, LOAD_GUIDE_TOOL, RUN_GENOFFICE_TOOL } from './cli-skill'
+export { createCliSkill, GUIDE_DOMAINS, LOAD_GUIDE_TOOL, RUN_LYCERO_TOOL } from './cli-skill'
 export type {
   CliContext,
   CliRunRequest,

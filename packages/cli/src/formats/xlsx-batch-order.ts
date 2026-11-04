@@ -48,7 +48,7 @@ export function replayStructure(
     if (!REPLAYED_OPS.has(op.op) && op.op !== 'rename_sheet') continue
     const plan = adapter.plan({
       dslVersion: 1,
-      transactionId: `genoffice-structure-${index}`,
+      transactionId: `lycero-structure-${index}`,
       baseRevision: adapter.getSnapshot().revision,
       summary: 'structural replay',
       operations: [op as unknown as StructuralOperation],

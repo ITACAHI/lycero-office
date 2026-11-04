@@ -3,6 +3,7 @@
  * Copyright © 2026 ITAC AI Heavy Industries.
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
+import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -10,7 +11,7 @@ import { run, tempDir } from './helpers'
 
 const REPO = resolve(__dirname, '../../..')
 const bundledVersion = /^\s+version:\s*(\S+)/m.exec(
-  readFileSync(join(REPO, 'skills/genoffice/SKILL.md'), 'utf-8'),
+  readFileSync(join(REPO, 'skills/lycero-office/SKILL.md'), 'utf-8'),
 )![1]!
 
 function fakeMachine(agents: string[]) {
@@ -21,7 +22,30 @@ function fakeMachine(agents: string[]) {
   return { home, env: { LYCERO_HOME: home, LYCERO_USER_DATA: userData } }
 }
 
-describe('genoffice skill', () => {
+/** a machine that installed the skill the old way: a copy in ~/.codex/skills, in the ledger */
+function fakeLegacyMachine() {
+  const m = fakeMachine(['.claude', '.codex'])
+  const text = readFileSync(join(REPO, 'skills/lycero-office/SKILL.md'), 'utf-8')
+  const legacyPath = join(m.home, '.codex', 'skills', 'lycero-office', 'SKILL.md')
+  mkdirSync(join(m.home, '.codex', 'skills', 'lycero-office'), { recursive: true })
+  writeFileSync(legacyPath, text)
+  writeFileSync(
+    join(m.env.LYCERO_USER_DATA, 'app-settings.json'),
+    JSON.stringify({
+      agentSkillInstalls: {
+        [legacyPath]: {
+          version: bundledVersion,
+          sha256: createHash('sha256').update(text).digest('hex'),
+          at: new Date().toISOString(),
+          channel: 'app',
+        },
+      },
+    }),
+  )
+  return { ...m, legacyPath }
+}
+
+describe('lycero-office skill', () => {
   it('path prints the bundled SKILL.md', async () => {
     const r = await run(['skill', 'path', '--json'])
     expect(r.code).toBe(0)
@@ -34,7 +58,8 @@ describe('genoffice skill', () => {
     const r = await run(['skill', 'list', '--json'], { env: m.env })
     expect(r.code).toBe(0)
     const agents = r.json().detail.agents as Array<Record<string, unknown>>
-    expect(agents.map((a) => a.agent)).toContain('codex')
+    // cursor reads the shared directory, so it is detected through the .agents row
+    expect(agents.map((a) => a.agent)).toEqual(['claude-code', 'agents', 'windsurf', 'openclaw'])
     const claude = agents.find((a) => a.agent === 'claude-code')!
     expect(claude).toMatchObject({
       detected: true,
@@ -43,7 +68,11 @@ describe('genoffice skill', () => {
       up_to_date: false,
       skills_dir: join(m.home, '.claude', 'skills'),
     })
-    expect(agents.find((a) => a.agent === 'codex')).toMatchObject({ detected: false })
+    expect(agents.find((a) => a.agent === 'agents')).toMatchObject({
+      detected: true,
+      skills_dir: join(m.home, '.agents', 'skills'),
+    })
+    expect(agents.find((a) => a.agent === 'windsurf')).toMatchObject({ detected: false })
     expect(r.json().detail.bundled_version).toBe(bundledVersion)
     expect((await run(['skill', '--list'], { env: m.env })).stdout).toContain('2 agent(s) detected')
   })
@@ -52,9 +81,9 @@ describe('genoffice skill', () => {
     const m = fakeMachine(['.claude'])
     const first = await run(['skill', 'install', 'claude-code', '--json'], { env: m.env })
     expect(first.code).toBe(0)
-    const path = join(m.home, '.claude', 'skills', 'genoffice', 'SKILL.md')
+    const path = join(m.home, '.claude', 'skills', 'lycero-office', 'SKILL.md')
     expect(readFileSync(path, 'utf-8')).toBe(
-      readFileSync(join(REPO, 'skills/genoffice/SKILL.md'), 'utf-8'),
+      readFileSync(join(REPO, 'skills/lycero-office/SKILL.md'), 'utf-8'),
     )
     expect(first.json().detail.agents[0]).toMatchObject({
       agent: 'claude-code',
@@ -86,34 +115,45 @@ describe('genoffice skill', () => {
     const m = fakeMachine(['.claude', '.codex'])
     const all = await run(['skill', 'install', 'all', '--json'], { env: m.env })
     expect(all.code).toBe(0)
+    // codex is planted but reads the shared row, so the write lands in ~/.agents/skills
     expect(
       all
         .json()
         .detail.agents.map((a: any) => a.agent)
         .sort(),
-    ).toEqual(['claude-code', 'codex'])
+    ).toEqual(['agents', 'claude-code'])
+    expect(existsSync(join(m.home, '.agents', 'skills', 'lycero-office', 'SKILL.md'))).toBe(true)
+    expect(existsSync(join(m.home, '.codex', 'skills'))).toBe(false)
 
     const typo = await run(['skill', 'install', 'claud-code', '--json'], { env: m.env })
     expect(typo.code).toBe(1)
     expect(typo.json()).toMatchObject({ error: 'unsupported' })
     expect(typo.json().suggestion).toContain('claude-code')
 
-    const absent = await run(['skill', 'install', 'cursor', '--json'], { env: m.env })
-    expect(absent.code).toBe(1)
-    expect(absent.json().error).toBe('unsupported')
+    // cursor reads the shared row too, so it is no longer a target of its own
+    const cursor = await run(['skill', 'install', 'cursor', '--json'], { env: m.env })
+    expect(cursor.code).toBe(1)
+    expect(cursor.json().error).toBe('unsupported')
     expect(existsSync(join(m.home, '.cursor'))).toBe(false)
 
-    const forced = await run(['skill', 'install', 'cursor', '--force', '--json'], { env: m.env })
+    const absent = await run(['skill', 'install', 'windsurf', '--json'], { env: m.env })
+    expect(absent.code).toBe(1)
+    expect(absent.json().error).toBe('unsupported')
+    expect(existsSync(join(m.home, '.codeium'))).toBe(false)
+
+    const forced = await run(['skill', 'install', 'windsurf', '--force', '--json'], { env: m.env })
     expect(forced.code).toBe(0)
-    expect(existsSync(join(m.home, '.cursor', 'skills', 'genoffice', 'SKILL.md'))).toBe(true)
+    expect(
+      existsSync(join(m.home, '.codeium', 'windsurf', 'skills', 'lycero-office', 'SKILL.md')),
+    ).toBe(true)
   })
 
   it('refuses to downgrade a newer skill or overwrite a hand-edited one without --force', async () => {
     const m = fakeMachine(['.claude'])
-    const dir = join(m.home, '.claude', 'skills', 'genoffice')
+    const dir = join(m.home, '.claude', 'skills', 'lycero-office')
     mkdirSync(dir, { recursive: true })
     const path = join(dir, 'SKILL.md')
-    writeFileSync(path, '---\nname: genoffice\nmetadata:\n  version: 99.0.0\n---\nfuture\n')
+    writeFileSync(path, '---\nname: lycero-office\nmetadata:\n  version: 99.0.0\n---\nfuture\n')
     const newer = await run(['skill', 'install', 'claude-code', '--json'], { env: m.env })
     expect(newer.code).toBe(2)
     expect(newer.json()).toMatchObject({ error: 'output_exists', detail: { status: 'newer' } })
@@ -125,7 +165,7 @@ describe('genoffice skill', () => {
     expect(occupied.code).toBe(2)
     expect(occupied.json().detail.status).toBe('occupied')
 
-    writeFileSync(path, '---\nname: genoffice\nmetadata:\n  version: 0.0.1\n---\nold\n')
+    writeFileSync(path, '---\nname: lycero-office\nmetadata:\n  version: 0.0.1\n---\nold\n')
     const foreign = await run(['skill', 'install', 'claude-code', '--json'], { env: m.env })
     expect(foreign.code).toBe(0)
     expect(foreign.json().detail.agents[0].action).toBe('written')
@@ -148,12 +188,12 @@ describe('genoffice skill', () => {
       cwd: m.home,
     })
     expect(r.code).toBe(0)
-    expect(existsSync(join(dir, 'genoffice', 'SKILL.md'))).toBe(true)
+    expect(existsSync(join(dir, 'lycero-office', 'SKILL.md'))).toBe(true)
     expect(r.json().detail.agents[0]).toMatchObject({ agent: null, skills_dir: dir })
     const settings = JSON.parse(
       readFileSync(join(m.env.LYCERO_USER_DATA, 'app-settings.json'), 'utf-8'),
     )
-    expect(Object.keys(settings.agentSkillInstalls)).toEqual([join(dir, 'genoffice', 'SKILL.md')])
+    expect(Object.keys(settings.agentSkillInstalls)).toEqual([join(dir, 'lycero-office', 'SKILL.md')])
     const none = await run(['skill', 'install', 'all', '--json'], { env: m.env })
     expect(none.code).toBe(1)
   })
@@ -168,13 +208,50 @@ describe('genoffice skill', () => {
 
   it('install all refuses before writing anything when one target is blocked', async () => {
     const m = fakeMachine(['.claude', '.codex'])
-    const codex = join(m.home, '.codex', 'skills', 'genoffice')
-    mkdirSync(codex, { recursive: true })
-    writeFileSync(join(codex, 'SKILL.md'), '---\nname: other-skill\n---\nx\n')
+    const shared = join(m.home, '.agents', 'skills', 'lycero-office')
+    mkdirSync(shared, { recursive: true })
+    writeFileSync(join(shared, 'SKILL.md'), '---\nname: other-skill\n---\nx\n')
     const r = await run(['skill', 'install', 'all', '--json'], { env: m.env })
     expect(r.code).toBe(2)
-    expect(r.json().detail).toMatchObject({ agent: 'codex', status: 'occupied' })
-    expect(existsSync(join(m.home, '.claude', 'skills', 'genoffice'))).toBe(false)
+    expect(r.json().detail).toMatchObject({ agent: 'agents', status: 'occupied' })
+    expect(existsSync(join(m.home, '.claude', 'skills', 'lycero-office'))).toBe(false)
     expect(existsSync(join(m.env.LYCERO_USER_DATA, 'app-settings.json'))).toBe(false)
+  })
+
+  it('list reports the per-tool copies the shared row replaced', async () => {
+    const m = fakeLegacyMachine()
+    const r = await run(['skill', 'list', '--json'], { env: m.env })
+    expect(r.code).toBe(0)
+    expect(r.json().detail.legacy).toEqual([
+      {
+        agent: 'codex',
+        label: 'Codex',
+        skills_dir: join(m.home, '.codex', 'skills'),
+        path: m.legacyPath,
+        ours: true,
+      },
+    ])
+    expect(r.json().summary).toContain('1 legacy per-tool skill copy')
+  })
+
+  it('install sweeps the per-tool copy once the shared row holds the skill', async () => {
+    const m = fakeLegacyMachine()
+    const r = await run(['skill', 'install', 'agents', '--json'], { env: m.env })
+    expect(r.code).toBe(0)
+    expect(existsSync(join(m.home, '.agents', 'skills', 'lycero-office', 'SKILL.md'))).toBe(true)
+    expect(existsSync(m.legacyPath)).toBe(false)
+    expect(r.json().warnings.map((w: { code: string }) => w.code)).toContain('legacy_copy_removed')
+    const settings = JSON.parse(
+      readFileSync(join(m.env.LYCERO_USER_DATA, 'app-settings.json'), 'utf-8'),
+    )
+    expect(settings.agentSkillInstalls[m.legacyPath]).toBeUndefined()
+  })
+
+  it('keeps the per-tool copy while the shared row holds no skill', async () => {
+    const m = fakeLegacyMachine()
+    const r = await run(['skill', 'install', 'claude-code', '--json'], { env: m.env })
+    expect(r.code).toBe(0)
+    // without the shared copy the old one is all the tool has
+    expect(existsSync(m.legacyPath)).toBe(true)
   })
 })

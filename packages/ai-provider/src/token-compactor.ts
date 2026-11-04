@@ -105,10 +105,10 @@ export function applyRemoteTokenOptimizerPolicy(raw: unknown): void {
 const SNAPSHOT_TAG_REGEX =
   /<(document_context|sheet_context|workbook_context|slide_context)\b[^>]*>[\s\S]*?<\/\1>/gi
 
-const GENOFFICE_DOC_SKELETON_REGEX =
+const LYCERO_DOC_SKELETON_REGEX =
   /\n\nDocument block list:\nThe document has \d+ blocks, listed below[\s\S]*$/i
 
-const GENOFFICE_WORKBOOK_SKELETON_REGEX =
+const LYCERO_WORKBOOK_SKELETON_REGEX =
   /\n\nActive sheet: [^\n]+\nMode: [\s\S]*$/i
 
 function hasSnapshotTag(text: string): boolean {
@@ -212,12 +212,12 @@ export function compactOutboundAgentTurn(
           dedupedSnapshots += 1
           return `<${tagName}_superseded length="${match.length}" note="Bản chụp trạng thái cũ đã được thay thế hoàn toàn bởi bản cập nhật mới nhất ở lượt #${latestUserWithSnapshotIdx + 1}" />`
         })
-        nextText = nextText.replace(GENOFFICE_DOC_SKELETON_REGEX, (match) => {
+        nextText = nextText.replace(LYCERO_DOC_SKELETON_REGEX, (match) => {
           if (match.length < 400) return match
           dedupedSnapshots += 1
           return `\n\n[Document block list (${match.length} chars) superseded by fresh Document block list in latest user turn]`
         })
-        nextText = nextText.replace(GENOFFICE_WORKBOOK_SKELETON_REGEX, (match) => {
+        nextText = nextText.replace(LYCERO_WORKBOOK_SKELETON_REGEX, (match) => {
           if (match.length < 400) return match
           dedupedSnapshots += 1
           return `\n\n[Workbook context (${match.length} chars) superseded by fresh Active sheet context in latest user turn]`

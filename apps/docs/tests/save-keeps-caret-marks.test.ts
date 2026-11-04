@@ -3,7 +3,7 @@
  * Copyright © 2026 ITAC AI Heavy Industries.
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { Editor } from '@tiptap/core'
 import { editorExtensions } from '../src/renderer/editor/extensions'
 import { restoreMarksAfterDocRewrite } from '../src/renderer/file-actions'
@@ -16,7 +16,7 @@ import { serializeMarks } from '../src/renderer/editor/caret-marks'
  * storedMarks — the marks Tiptap applies to text typed *next*. A font the
  * user picked from the ribbon therefore survives only until the next autosave
  * tick (30s, or on window blur), after which new typing falls back to the
- * paragraph default. genofficegenoffice#2004.
+ * paragraph default. lycero-office#2004.
  */
 
 const para = (t: string) => ({
@@ -25,12 +25,22 @@ const para = (t: string) => ({
   content: [{ type: 'text', text: t }],
 })
 
+/** Editors created during the current test; destroyed in afterEach so ProseMirror's
+ * DOMObserver timers can't fire after the JSDOM environment is torn down. */
+const liveEditors: Editor[] = []
+
+afterEach(() => {
+  for (const editor of liveEditors.splice(0)) editor.destroy()
+})
+
 function makeEditor(): Editor {
-  return new Editor({
+  const editor = new Editor({
     element: document.createElement('div'),
     extensions: editorExtensions,
     content: { type: 'doc', content: [para('hello world')] },
   })
+  liveEditors.push(editor)
+  return editor
 }
 
 /** the mark set Tiptap would apply to text typed at the caret right now */

@@ -68,7 +68,7 @@ async function settledPageCount(page: Page): Promise<number> {
 test.describe('page break inside a table cell', () => {
   test('breaks the row so the content below lands on a new page', async () => {
     test.setTimeout(300_000)
-    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'genoffice-e2e-cell-break-')))
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'lycero-e2e-cell-break-')))
     const docPath = join(dir, 'anchor.docx')
     writeFileSync(docPath, await minimalDocx())
 
@@ -81,7 +81,7 @@ test.describe('page break inside a table cell', () => {
     try {
       await page.locator('.doc-page p', { hasText: 'Anchor paragraph.' }).first().waitFor()
 
-      // 1×3 — two content columns and a narrow divider, the shape genoffice#1902 uses,
+      // 1×3 — two content columns and a narrow divider, the shape #1902 uses,
       // appended at the end. Short enough that the row fits page 1 whole: the
       // only thing that can then add a page is the break itself
       await page.evaluate(() => {

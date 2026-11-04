@@ -39,7 +39,7 @@ export interface PathContext {
 }
 
 /**
- * LYCERO_ALLOWED_ROOTS: PATH-style list of directories genoffice may read from and
+ * LYCERO_ALLOWED_ROOTS: PATH-style list of directories lycero-office may read from and
  * write to. Unset means unrestricted. Roots are compared after resolving
  * symlinks so a link inside a root cannot point out of it.
  */
@@ -172,7 +172,7 @@ export function resolveOutput(
     !ctx.env?.VITEST &&
     ctx.env?.NODE_ENV !== 'test' &&
     /^test(?:[._-].*)?\.(?:docx|html?|md)$/i.test(basename(abs)) &&
-    ctx.env?.GENOFFICE_ALLOWED_ROOTS
+    ctx.env?.LYCERO_ALLOWED_ROOTS
   ) {
     throw new CliError(
       EXIT.usage,

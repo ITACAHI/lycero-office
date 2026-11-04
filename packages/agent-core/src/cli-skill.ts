@@ -8,15 +8,15 @@ import type { AgentSkill, ExecutedToolCall } from './skill'
 import { kbCiteHref } from './knowledge-base-skill'
 
 /**
- * The bundled `genoffice` command line as an agent skill: the same engine the
- * CLI, `genoffice mcp` and the app's own MCP server expose, driven here by the
+ * The bundled `lycero-office` command line as an agent skill: the same engine the
+ * CLI, `lycero-office mcp` and the app's own MCP server expose, driven here by the
  * in-app loop. The host owns the one dangerous operation (spawning the CLI):
  * it fixes the executable, confines reads and writes to the roots it hands
  * out, and stages the files the model writes into a per-conversation work
  * directory. This file only shapes the tools and the workflow prompt.
  */
 
-export const RUN_GENOFFICE_TOOL = 'run_genoffice'
+export const RUN_LYCERO_TOOL = 'run_lycero'
 export const LOAD_GUIDE_TOOL = 'load_guide'
 
 export const GUIDE_DOMAINS = ['docs', 'sheets', 'slides'] as const
@@ -63,13 +63,13 @@ export interface CliSkill extends AgentSkill {
 
 const MAX_OUTPUT_CHARS = 24_000
 
-const CLI_SYSTEM_PROMPT = `## Building documents with genoffice
-run_genoffice runs the bundled genoffice command line (always with --json) and
+const CLI_SYSTEM_PROMPT = `## Building documents with lycero-office
+run_lycero runs the bundled lycero-office command line (always with --json) and
 returns its JSON result. Use it whenever the user wants a real file built from
 their material: a Word report with headings and tables, a workbook with live
 formulas and charts, a slide deck. Plain prose a user only wants saved can go
 through create_document; anything with structure, formulas, several files as
-sources, or a .xlsx / .pptx result goes through run_genoffice.
+sources, or a .xlsx / .pptx result goes through run_lycero.
 - Paths: the context names a work directory and an output directory. Write
   ops, specs, markdown and other inputs with the files argument (names relative
   to the work directory), reference them by that relative name in args, and put
@@ -109,7 +109,7 @@ sources, or a .xlsx / .pptx result goes through run_genoffice.
   you need to check the layout.
 - Report the result briefly and link each finished file as
   [file name](cite link), copying the cite link the tool returned exactly.
-  Only claim a file was created when run_genoffice returned status "ok".
+  Only claim a file was created when run_lycero returned status "ok".
 - Global rules (FX-70, FX-74, FX-76, FX-77):
   + Action-First (FX-70): When core facts are present, build the deliverable immediately on the first turn; never re-ask facts already in the prompt; use "……………………" for missing secondary fields and list at most 3 brief questions at the end.
   + Preserve 100% of user numbers & identifiers (FX-76, FX-77): Never alter user-supplied figures or replace user items with invented ones; copy CCCD/MST verbatim without wrapping in "[...]"; never call set_properties with clear: "all".
@@ -167,9 +167,9 @@ export function createCliSkill(deps: CliSkillDeps): CliSkill {
   const created: string[] = []
 
   const runTool: AgentToolDef = {
-    name: RUN_GENOFFICE_TOOL,
+    name: RUN_LYCERO_TOOL,
     description:
-      'Run the bundled genoffice command line and return its JSON result. args is the command ' +
+      'Run the bundled lycero-office command line and return its JSON result. args is the command ' +
       'and its arguments (--json is added), e.g. ["create","--type","docx","--from","report.md","--out","<output dir>/Report.docx"]. ' +
       'files stages inputs into the work directory first (relative names), so ops, specs and markdown ' +
       'never have to be quoted on the command line. Finished documents go under the output directory with --out.',
@@ -179,7 +179,7 @@ export function createCliSkill(deps: CliSkillDeps): CliSkill {
         args: {
           type: 'array',
           items: { type: 'string' },
-          description: 'the genoffice command and its arguments, one string each',
+          description: 'the lycero-office command and its arguments, one string each',
         },
         files: {
           type: 'array',
@@ -201,7 +201,7 @@ export function createCliSkill(deps: CliSkillDeps): CliSkill {
   const guideTool: AgentToolDef = {
     name: LOAD_GUIDE_TOOL,
     description:
-      'The op reference and design guides for one domain (what "genoffice guide" prints). ' +
+      'The op reference and design guides for one domain (what "lycero-office guide" prints). ' +
       'Call it before writing ops or a deck spec; topic narrows it to a group, one op, "design" or "spec" (slides).',
     inputSchema: {
       type: 'object',
@@ -284,7 +284,7 @@ export function createCliSkill(deps: CliSkillDeps): CliSkill {
   }
 
   return {
-    id: 'genoffice-cli',
+    id: 'lycero-cli',
     systemPrompt: CLI_SYSTEM_PROMPT,
     tools: [runTool, guideTool],
     createdPaths: () => created,
@@ -292,7 +292,7 @@ export function createCliSkill(deps: CliSkillDeps): CliSkill {
       const ctx = deps.context()
       if (!ctx) return ''
       return (
-        `genoffice directories:\n  work directory: ${ctx.workDir}\n  output directory: ${ctx.outDir}\n` +
+        `lycero-office directories:\n  work directory: ${ctx.workDir}\n  output directory: ${ctx.outDir}\n` +
         `  (CRITICAL FX-03/FX-18: NEVER put final output files in the work directory; ALWAYS pass --out "${ctx.outDir}/<filename>". NEVER copy any "kb-..." session ID or internal path into document content or filenames.)`
       )
     },
@@ -310,7 +310,7 @@ export function createCliSkill(deps: CliSkillDeps): CliSkill {
         const args = ['guide', domain, ...(topic ? [topic] : [])]
         return execute({ args }, `guide ${domain}${topic ? ` ${topic}` : ''}`, true)
       }
-      if (call.name !== RUN_GENOFFICE_TOOL) {
+      if (call.name !== RUN_LYCERO_TOOL) {
         return { output: `unknown tool: ${call.name}`, isError: true, summary: call.name }
       }
       const args = stringList(call.input.args)
@@ -330,21 +330,21 @@ export function createCliSkill(deps: CliSkillDeps): CliSkill {
         }
       }
       try {
-        return await execute({ args, files }, `genoffice ${args.slice(0, 3).join(' ')}`)
+        return await execute({ args, files }, `lycero-office ${args.slice(0, 3).join(' ')}`)
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         return {
-          output: `genoffice could not run: ${message}`,
+          output: `lycero-office could not run: ${message}`,
           isError: true,
           summary: 'cli failed',
         }
       }
     },
     verifyResponse: (finalText, executed: readonly ExecutedToolCall[]) => {
-      const built = executed.some((c) => c.name === RUN_GENOFFICE_TOOL && c.ok)
+      const built = executed.some((c) => c.name === RUN_LYCERO_TOOL && c.ok)
       if (built || !CLAIMS_BUILT.test(finalText)) return null
       return (
-        'The reply says a file was built or saved, but no run_genoffice call succeeded in this run. ' +
+        'The reply says a file was built or saved, but no run_lycero call succeeded in this run. ' +
         'Say plainly that nothing was written, or build the file first.'
       )
     },

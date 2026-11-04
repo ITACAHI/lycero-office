@@ -6,23 +6,23 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { setGskProxyUrl } from '@lycero/ai-search'
-import { genofficeUserDataDir, genofficeUserDataDirs } from './gui'
+import { lyceroUserDataDir, lyceroUserDataDirs } from './gui'
 import { packagedResourcesDir } from './resources'
 
 /**
  * The cloud commands (search / image / media) reuse the editors' provider
- * routing: Lycero when signed in (~/.genoffice/auth.json) and cloud tools
+ * routing: Lycero when signed in (~/.lycero-office/auth.json) and cloud tools
  * are on, otherwise the BYOK provider chosen in the app's AI settings. That
- * settings file lives in the shell's Electron userData directory, which genoffice
+ * settings file lives in the shell's Electron userData directory, which lycero-office
  * has to locate without Electron.
  */
 export function aiSettingsPath(env: NodeJS.ProcessEnv): string {
   if (env.LYCERO_AI_SETTINGS) return env.LYCERO_AI_SETTINGS
-  for (const dir of genofficeUserDataDirs(env)) {
+  for (const dir of lyceroUserDataDirs(env)) {
     const candidate = join(dir, 'ai-settings.json')
     if (existsSync(candidate)) return candidate
   }
-  return join(genofficeUserDataDir(env), 'ai-settings.json')
+  return join(lyceroUserDataDir(env), 'ai-settings.json')
 }
 
 /** First http(s) proxy in the usual environment variables, as the app's main process reads them. */

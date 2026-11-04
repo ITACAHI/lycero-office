@@ -35,7 +35,7 @@ async function entryText(path: string, entry: string): Promise<string> {
   return file ? file.async('string') : ''
 }
 
-describe('genoffice convert ODF import filters', () => {
+describe('lycero-office convert ODF import filters', () => {
   it('converts .odt to .docx headlessly', async () => {
     const dir = tempDir()
     const content =

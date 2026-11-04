@@ -29,8 +29,8 @@ describe('appBinaryForResources', () => {
   })
 
   it('finds the app in a custom Linux prefix', () => {
-    expect(appBinaryForResources(join('/opt/genoffice-custom/resources'), 'linux')).toBe(
-      join('/opt/genoffice-custom/genoffice'),
+    expect(appBinaryForResources(join('/opt/lycero-custom/resources'), 'linux')).toBe(
+      join('/opt/lycero-custom/lycero-office'),
     )
   })
 })

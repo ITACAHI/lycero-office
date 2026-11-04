@@ -54,7 +54,10 @@ vi.mock('@lycero/cli/agent-skills', () => {
     },
     uninstallSkill: () => false,
     ledgerFromSettings: () => ({ version: '1.0.0', installs: {} }),
-    readInstallState: (dir: string) => ({ status: 'missing', path: `${dir}/genoffice/SKILL.md` }),
+    readInstallState: (dir: string) => ({ status: 'missing', path: `${dir}/lycero-office/SKILL.md` }),
+    findLegacySkillCopies: () => [],
+    sweepLegacySkillCopies: () => ({ removed: [], kept: [] }),
+    currentSkillInstalled: () => false,
   }
 })
 
@@ -83,12 +86,12 @@ beforeEach(() => {
   h.handlers.clear()
   h.installed.length = 0
   h.dialogResult = { canceled: true, filePaths: [] }
-  dir = mkdtempSync(join(tmpdir(), 'genoffice-integrations-'))
-  userData = mkdtempSync(join(tmpdir(), 'genoffice-userdata-'))
-  fakeHome = mkdtempSync(join(tmpdir(), 'genoffice-fakehome-'))
+  dir = mkdtempSync(join(tmpdir(), 'lycero-integrations-'))
+  userData = mkdtempSync(join(tmpdir(), 'lycero-userdata-'))
+  fakeHome = mkdtempSync(join(tmpdir(), 'lycero-fakehome-'))
   realHome = process.env.HOME
   process.env.HOME = fakeHome
-  writeFileSync(join(dir, 'SKILL.md'), '---\nname: genoffice\n---\n')
+  writeFileSync(join(dir, 'SKILL.md'), '---\nname: lycero-office\n---\n')
   writeFileSync(join(dir, 'package.json'), JSON.stringify({ version: '0.0.0' }))
   registerIntegrationsIpc({
     settingsPath: () => join(dir, 'app-settings.json'),

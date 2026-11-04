@@ -4,7 +4,7 @@
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
 /**
- * The shell window's geometry across sessions (issue genoffice#2049) — the
+ * The shell window's geometry across sessions (issue #2049) — the
  * position and size the app reopens with.
  *
  * The state lives in userData/app-settings.json, the file the issue names,

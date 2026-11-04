@@ -31,6 +31,7 @@ import {
   isBasicBundledSkill,
   parseSkillFrontmatter,
 } from '@lycero/agent-core'
+import { getUiLang } from '@lycero/i18n'
 import type { FoundSkill, RecommendedSkill } from '../shared/found-skill'
 
 /**
@@ -410,6 +411,7 @@ export async function recommendedSkills(
   }
   const out: RecommendedSkill[] = []
   for (const name of entries.sort()) {
+    if (name === 'locales') continue // localized descriptions, not a skill
     if (HIDDEN_OR_MERGED_SKILL_SLUGS.has(name.toLowerCase())) continue
     if (isAdvancedCloudSkill(name)) continue
     const path = join(recommendedDir, name, 'SKILL.md')
@@ -430,7 +432,25 @@ export async function recommendedSkills(
     }
     out.push({ ...skill, category, version, state })
   }
+  // the frontmatter descriptions are English; locales/<uiLang>.json carries the
+  // per-language ones, so the Recommended list speaks the UI's language. 'en'
+  // has no file — the frontmatter is the English source.
+  for (const [name, description] of Object.entries(recommendedDescriptions(recommendedDir))) {
+    const skill = out.find((s) => s.name === name)
+    if (skill && typeof description === 'string' && description) skill.description = description
+  }
   return out
+}
+
+/** skill name -> localized description for the UI language, when the file exists */
+function recommendedDescriptions(recommendedDir: string): Record<string, string> {
+  try {
+    return JSON.parse(
+      readFileSync(join(recommendedDir, 'locales', `${getUiLang()}.json`), 'utf8'),
+    ) as Record<string, string>
+  } catch {
+    return {}
+  }
 }
 
 /**
@@ -511,7 +531,7 @@ export function defaultRecommendedSkillsDir(): string {
 
 /**
  * Purges any previously written files for the 155 advanced cloud skills (or out-of-scope skills)
- * from `<userData>/skills`, `~/.config/Lycero Office/skills`, and `~/.genoffice/skills` (FX-43).
+ * from `<userData>/skills`, `~/.config/Lycero Office/skills`, and `~/.lycero-office/skills` (FX-43).
  */
 export function purgeLeakedCloudSkillsFromUserData(userDataDir: string): void {
   const roots = new Set<string>([skillsRoot(userDataDir)])
@@ -519,7 +539,7 @@ export function purgeLeakedCloudSkillsFromUserData(userDataDir: string): void {
     try {
       const home = homedir()
       roots.add(join(home, '.config', 'Lycero Office', 'skills'))
-      roots.add(join(home, '.genoffice', 'skills'))
+      roots.add(join(home, '.lycero-office', 'skills'))
     } catch {
       // ignore
     }
@@ -573,7 +593,7 @@ export async function syncAllCloudSkillsToUserData(
   const recDir = recommendedDir || defaultRecommendedSkillsDir()
   if (existsSync(recDir)) {
     for (const slug of BASIC_BUNDLED_SKILL_SLUGS) {
-      if (slug === 'genoffice') continue
+      if (slug === 'lycero-office') continue
       const srcDir = join(recDir, slug)
       const destMd = join(skillsRoot(userDataDir), slug, 'SKILL.md')
       if (!existsSync(destMd) && existsSync(join(srcDir, 'SKILL.md'))) {

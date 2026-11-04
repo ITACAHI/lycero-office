@@ -4,12 +4,18 @@
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
 import { test, expect } from '@playwright/test'
-import { launchShell, closeAndSaveVideo, waitForPageWithUrl, SHELL_DIR } from './helpers'
+import {
+  launchShell,
+  closeAndSaveVideo,
+  waitForPageWithUrl,
+  SHELL_DIR,
+  freeMcpPort,
+} from './helpers'
 import { existsSync } from 'node:fs'
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import http, { createServer } from 'node:http'
+import http from 'node:http'
 
 /** repository root, for invoking the bundled CLI from a test */
 const APP_ROOT = resolve(SHELL_DIR, '..', '..')
@@ -22,18 +28,6 @@ const APP_ROOT = resolve(SHELL_DIR, '..', '..')
  * file through the app's own routing (as a user open would), then lists, reads
  * and closes it over MCP.
  */
-
-async function freePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = createServer()
-    server.on('error', reject)
-    server.listen(0, '127.0.0.1', () => {
-      const address = server.address()
-      const port = typeof address === 'object' && address ? address.port : 0
-      server.close(() => resolve(port))
-    })
-  })
-}
 
 interface RpcResponse {
   status: number
@@ -110,12 +104,12 @@ async function waitForHealth(port: number, timeoutMs = 20_000): Promise<void> {
 
 test.describe('MCP open documents', () => {
   test('lists, reads and closes a document the app opened', async () => {
-    const port = await freePort()
-    const outDir = await mkdtemp(join(tmpdir(), 'genoffice-open-docs-e2e-'))
+    const port = await freeMcpPort()
+    const outDir = await mkdtemp(join(tmpdir(), 'lycero-open-docs-e2e-'))
     const docPath = join(outDir, 'opened.md')
     await writeFile(docPath, '# Handwritten\n\nA paragraph the agent must see.\n')
 
-    const userDataDir = await mkdtemp(join(tmpdir(), 'genoffice-open-docs-userdata-'))
+    const userDataDir = await mkdtemp(join(tmpdir(), 'lycero-open-docs-userdata-'))
     await writeFile(
       join(userDataDir, 'app-settings.json'),
       JSON.stringify({ onboardingSeen: true, mcpEnabled: true, mcpPort: port }),
@@ -160,7 +154,7 @@ test.describe('MCP open documents', () => {
       expect(JSON.parse(empty.text).documents).toEqual([])
 
       // open the file through the app's own routing: a tab the session does not own
-      const opened = await call('open_in_genoffice', { path: docPath })
+      const opened = await call('open_in_lycero', { path: docPath })
       expect(opened.isError, opened.text).toBeFalsy()
       const editorTab = page.locator('.tab-bar .tab-item:not(.tab-home)')
       await expect(editorTab).toHaveCount(1)
@@ -208,8 +202,8 @@ test.describe('MCP open documents', () => {
   })
 
   test('reads a Word document the app opened, through the docs bridge', async () => {
-    const port = await freePort()
-    const outDir = await mkdtemp(join(tmpdir(), 'genoffice-open-docs-docx-'))
+    const port = await freeMcpPort()
+    const outDir = await mkdtemp(join(tmpdir(), 'lycero-open-docs-docx-'))
     const docxPath = join(outDir, 'report.docx')
     // build the .docx with the repo's own CLI, the way a user's file would exist
     const { execFileSync } = await import('node:child_process')
@@ -231,7 +225,7 @@ test.describe('MCP open documents', () => {
     )
     expect(existsSync(docxPath)).toBe(true)
 
-    const userDataDir = await mkdtemp(join(tmpdir(), 'genoffice-open-docs-docx-userdata-'))
+    const userDataDir = await mkdtemp(join(tmpdir(), 'lycero-open-docs-docx-userdata-'))
     await writeFile(
       join(userDataDir, 'app-settings.json'),
       JSON.stringify({ onboardingSeen: true, mcpEnabled: true, mcpPort: port }),
@@ -266,7 +260,7 @@ test.describe('MCP open documents', () => {
         return { isError: body?.result?.isError === true, text }
       }
 
-      const opened = await call('open_in_genoffice', { path: docxPath })
+      const opened = await call('open_in_lycero', { path: docxPath })
       expect(opened.isError, opened.text).toBeFalsy()
       const editorTab = page.locator('.tab-bar .tab-item:not(.tab-home)')
       await expect(editorTab).toHaveCount(1)
@@ -295,12 +289,12 @@ test.describe('MCP open documents', () => {
   })
 
   test('saves unsaved edits before closing when asked to close a dirty document', async () => {
-    const port = await freePort()
-    const outDir = await mkdtemp(join(tmpdir(), 'genoffice-open-docs-dirty-'))
+    const port = await freeMcpPort()
+    const outDir = await mkdtemp(join(tmpdir(), 'lycero-open-docs-dirty-'))
     const docPath = join(outDir, 'edited.md')
     await writeFile(docPath, '# Original\n\nBefore the edit.\n')
 
-    const userDataDir = await mkdtemp(join(tmpdir(), 'genoffice-open-docs-dirty-userdata-'))
+    const userDataDir = await mkdtemp(join(tmpdir(), 'lycero-open-docs-dirty-userdata-'))
     await writeFile(
       join(userDataDir, 'app-settings.json'),
       JSON.stringify({ onboardingSeen: true, mcpEnabled: true, mcpPort: port }),
@@ -336,7 +330,7 @@ test.describe('MCP open documents', () => {
         return { isError: body?.result?.isError === true, text }
       }
 
-      const opened = await call('open_in_genoffice', { path: docPath })
+      const opened = await call('open_in_lycero', { path: docPath })
       expect(opened.isError, opened.text).toBeFalsy()
       const editorPage = await waitForPageWithUrl(app, 'lycero-app://markdown')
       await expect(editorPage.locator('.doc-editor')).toBeVisible()

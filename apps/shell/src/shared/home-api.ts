@@ -119,7 +119,7 @@ export interface LyceroHubModelsResult {
 }
 
 /**
- * Document page theme preference (genoffice#1811): what the editors' canvas/paper does
+ * Document page theme preference (#1811): what the editors' canvas/paper does
  * relative to the UI theme. 'follow' reproduces the previous single-theme
  * behavior; 'light'/'dark' pin the paper regardless of the UI theme.
  */
@@ -342,7 +342,7 @@ export interface HomeApi {
   }): Promise<{ path: string }>
   /** the work and output directories the Ask AI CLI tools use for one conversation */
   kbCliContext(sessionId: string): Promise<CliContext>
-  /** run the bundled genoffice CLI for one conversation (confined; see main/home-cli.ts);
+  /** run the bundled lycero-office CLI for one conversation (confined; see main/home-cli.ts);
    *  `sources` are the attached files whose folders the CLI may read */
   kbRunCli(
     sessionId: string,
@@ -429,6 +429,9 @@ export interface HomeApi {
   setAutoUpdateCheck(on: boolean): Promise<void>
   /** trigger an explicit update check from Settings → About */
   checkForUpdates?(): Promise<void>
+  /** background checks download quietly and install on quit instead of showing the card (default off) */
+  getSilentInstallUpdate(): Promise<boolean>
+  setSilentInstallUpdate(on: boolean): Promise<void>
   /** Lycero account status (gsk login state; to be upgraded to a signup/account system later) */
   accountStatus(): Promise<AccountStatus>
   /** start Lycero login (opens the browser; accountStatus flips to logged-in on completion); returns whether the launch succeeded */
@@ -476,7 +479,7 @@ export interface HomeApi {
   getTheme(): Promise<UiTheme>
   /** switch + persist the UI theme; broadcasts 'app:theme-changed' to all web contents */
   setTheme(theme: UiTheme): Promise<void>
-  /** current document page theme preference (genoffice#1811, persisted in userData/app-settings.json) */
+  /** current document page theme preference (#1811, persisted in userData/app-settings.json) */
   getDocumentTheme(): Promise<DocTheme>
   /** switch + persist the document page theme; broadcasts 'app:document-theme-changed' to all web contents */
   setDocumentTheme(theme: DocTheme): Promise<void>
@@ -511,6 +514,8 @@ export interface HomeApi {
   setAnalyticsEnabled(enabled: boolean): Promise<boolean>
   /** name on comments and tracked changes; `value` is the stored override ('' = use `fallback`, the OS account) */
   getAuthorName(): Promise<AuthorNameSetting>
+  getLegacyImportPrompt(): Promise<boolean>
+  setLegacyImportPrompt(prompt: boolean): Promise<boolean>
   /** persist; broadcasts 'app:author-name-changed' (the effective name) to all web contents */
   setAuthorName(value: string): Promise<AuthorNameSetting>
   /** AI panel text size + chat-input spellcheck (persisted in userData/app-settings.json) */
@@ -798,6 +803,8 @@ export const HOME_CHANNELS = {
   getAutoUpdateCheck: 'home:get-auto-update-check',
   setAutoUpdateCheck: 'home:set-auto-update-check',
   checkForUpdates: 'home:check-for-updates',
+  getSilentInstallUpdate: 'home:get-silent-install-update',
+  setSilentInstallUpdate: 'home:set-silent-install-update',
   accountStatus: 'home:account-status',
   accountLogin: 'home:account-login',
   accountLoginEvent: 'home:account-login-event',
@@ -832,6 +839,8 @@ export const HOME_CHANNELS = {
   getAnalyticsEnabled: 'home:get-analytics-enabled',
   setAnalyticsEnabled: 'home:set-analytics-enabled',
   getAuthorName: 'home:get-author-name',
+  getLegacyImportPrompt: 'home:get-legacy-import-prompt',
+  setLegacyImportPrompt: 'home:set-legacy-import-prompt',
   setAuthorName: 'home:set-author-name',
   getAiPanelPrefs: 'home:get-ai-panel-prefs',
   setAiPanelPrefs: 'home:set-ai-panel-prefs',

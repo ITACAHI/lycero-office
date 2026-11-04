@@ -17,7 +17,7 @@ import { launchShell, closeAndSaveVideo, waitForPageWithUrl } from './helpers'
  */
 async function buildRubikFixture(): Promise<string> {
   const out = join(
-    await mkdtemp(join(tmpdir(), 'genoffice-font-manager-')),
+    await mkdtemp(join(tmpdir(), 'lycero-font-manager-')),
     'font-manager-rubik.pptx',
   )
   execFileSync('zip', ['-X', '-q', '-r', out, '.'], {
@@ -28,7 +28,7 @@ async function buildRubikFixture(): Promise<string> {
 
 /**
  * Font manager smoke: source builds without an injected font CDN hide download
- * prompts. Providing GENOFFICE_FONT_CDN_URL enables the catalog/banner; the
+ * prompts. Providing LYCERO_FONT_CDN_URL enables the catalog/banner; the
  * actual network download runs only with E2E_FONT_CDN=1.
  */
 test('font download UI follows CDN configuration', async () => {
@@ -57,7 +57,7 @@ test('font download UI follows CDN configuration', async () => {
         missing: await api.fontMissing(),
       }
     })
-    const configured = Boolean(process.env.GENOFFICE_FONT_CDN_URL?.trim())
+    const configured = Boolean(process.env.LYCERO_FONT_CDN_URL?.trim())
     if (!configured) {
       expect(fontState.catalog).toEqual([])
       expect(fontState.missing).toEqual([])

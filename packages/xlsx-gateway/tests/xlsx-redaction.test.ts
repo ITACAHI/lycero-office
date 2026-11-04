@@ -306,7 +306,7 @@ describe('writing the part into the package', () => {
       'xl/_rels/workbook.xml.rels':
         '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
         '<Relationship Id="rId9" Type="' +
-        'https://schemas.lycero.ai/genoffice/2026/relationships/redactions' +
+        'https://schemas.lycero.ai/lycero-office/2026/relationships/redactions' +
         '" Target="gxRedactions.json"/></Relationships>',
       '[Content_Types].xml':
         '<Types xmlns="x"><Override PartName="/xl/gxRedactions.json" ContentType="y"/>' +

@@ -152,7 +152,7 @@ body,
   -webkit-app-region: drag;
 }
 
-html.genoffice-popover-open .ribbon-tabs {
+html.lycero-popover-open .ribbon-tabs {
   -webkit-app-region: no-drag;
 }
 
@@ -194,7 +194,8 @@ html.genoffice-popover-open .ribbon-tabs {
   color: var(--text-primary);
 }
 
-.qa-save-as {
+.qa-save-as,
+.qa-name-with-ai {
   width: auto;
   padding: 0 8px;
   white-space: nowrap;

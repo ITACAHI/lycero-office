@@ -4,10 +4,10 @@
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
 /**
- * How an MCP client starts `genoffice mcp`. Shared by the app's Settings snippet
- * and `genoffice mcp install` so the two cannot drift. Clients spawn without a
- * shell, so on Windows neither genoffice.cmd nor `cmd /c` is safe (a path with
- * a space splits); the entry does what genoffice.cmd does instead: the app
+ * How an MCP client starts `lycero-office mcp`. Shared by the app's Settings snippet
+ * and `lycero-office mcp install` so the two cannot drift. Clients spawn without a
+ * shell, so on Windows neither lycero-office.cmd nor `cmd /c` is safe (a path with
+ * a space splits); the entry does what lycero-office.cmd does instead: the app
  * binary as Node on the bundled CLI. Pure string code: the renderer imports it.
  */
 export interface McpLaunch {
@@ -18,7 +18,7 @@ export interface McpLaunch {
 
 const isWindowsPath = (p: string) => p.includes('\\')
 
-/** The app's snippet: the bare name once genoffice is on the PATH, else the launcher itself. */
+/** The app's snippet: the bare name once lycero-office is on the PATH, else the launcher itself. */
 export function mcpLaunch(cli: {
   status: string
   launcherDir: string
@@ -27,13 +27,13 @@ export function mcpLaunch(cli: {
   const dir = cli.launcherDir
   if (isWindowsPath(dir)) return windowsAppLaunch(dir)
   const onPath = cli.status === 'present' && !cli.pathHint
-  return { command: onPath ? 'genoffice' : `${dir}/genoffice`, args: ['mcp'] }
+  return { command: onPath ? 'lycero-office' : `${dir}/lycero-office`, args: ['mcp'] }
 }
 
 function windowsAppLaunch(dir: string): McpLaunch {
   return {
     command: `${dir}\\..\\..\\Lycero Office.exe`,
-    args: [`${dir}\\genoffice.cjs`, 'mcp'],
+    args: [`${dir}\\lycero-office.cjs`, 'mcp'],
     env: { ELECTRON_RUN_AS_NODE: '1' },
   }
 }
@@ -48,7 +48,7 @@ export interface LauncherLaunchOptions {
  * `mcp install`: always the absolute launcher, never the bare name. On Windows
  * the packaged app is run as Node (same entry as the app's snippet); a checkout
  * has no Lycero Office.exe beside it and runs the bundle on the system node, as the
- * bin/genoffice script does.
+ * bin/lycero-office script does.
  */
 export function mcpLaunchFromLauncher(
   launcher: string,
@@ -60,8 +60,8 @@ export function mcpLaunchFromLauncher(
   const dir = launcher.slice(0, Math.max(launcher.lastIndexOf('\\'), launcher.lastIndexOf('/')))
   const exists = opts.exists ?? (() => false)
   if (exists(`${dir}${sep}..${sep}..${sep}Lycero Office.exe`)) return windowsAppLaunch(dir)
-  const bundle = exists(`${dir}${sep}genoffice.cjs`)
-    ? `${dir}${sep}genoffice.cjs`
-    : `${dir}${sep}..${sep}dist${sep}genoffice.cjs`
+  const bundle = exists(`${dir}${sep}lycero-office.cjs`)
+    ? `${dir}${sep}lycero-office.cjs`
+    : `${dir}${sep}..${sep}dist${sep}lycero-office.cjs`
   return { command: 'node', args: [bundle, 'mcp'] }
 }

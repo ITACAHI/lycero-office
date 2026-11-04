@@ -6,7 +6,7 @@
 import { Editor } from '@tiptap/core'
 import { TextSelection } from '@tiptap/pm/state'
 import { parseDocx } from '@lycero/docx-engine'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { buildDocx } from '../../../packages/docx-engine/tests/helpers/build-docx'
 import { blocksToPmDoc, pmDocToSavePlan, type PmNode } from '../src/renderer/editor/convert'
 import { editorExtensions } from '../src/renderer/editor/extensions'
@@ -29,6 +29,14 @@ const TABLE =
 const RELS =
   '<Relationship Id="rId9" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="mailto:team@example.com" TargetMode="External"/>'
 
+/** Editors created during the current test; destroyed in afterEach so ProseMirror's
+ * DOMObserver timers can't fire after the JSDOM environment is torn down. */
+const liveEditors: Editor[] = []
+
+afterEach(() => {
+  for (const editor of liveEditors.splice(0)) editor.destroy()
+})
+
 async function openDoc() {
   const source = await buildDocx({ bodyXml: TABLE, extraRels: RELS })
   const parsed = await parseDocx(source)
@@ -37,6 +45,7 @@ async function openDoc() {
     extensions: editorExtensions,
     content: blocksToPmDoc(parsed.blocks) as never,
   })
+  liveEditors.push(editor)
   return { editor, parsed }
 }
 

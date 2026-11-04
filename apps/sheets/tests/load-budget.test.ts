@@ -94,7 +94,7 @@ describe('load decisions', () => {
     expect(fitsFullLoad(counts)).toBe(false)
   })
 
-  it('style-only blanks below the data do not deny the offer (genoffice#1927)', () => {
+  it('style-only blanks below the data do not deny the offer (#1927)', () => {
     const counts = workbookCellCounts([
       {
         rowCount: 61_000,

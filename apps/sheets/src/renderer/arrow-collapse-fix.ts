@@ -33,8 +33,8 @@ import {
 import { MOVE_SELECTION_COMMAND } from './selection-wrap-fix'
 import type { UniverRuntime } from './univer-state'
 
-/** genoffice's Ctrl+Arrow data-edge jump (excel-jump-nav.ts) — same rule */
-const JUMP_MOVE_COMMAND = 'genoffice.command.move-selection-excel-jump'
+/** lycero-office's Ctrl+Arrow data-edge jump (excel-jump-nav.ts) — same rule */
+const JUMP_MOVE_COMMAND = 'lycero-office.command.move-selection-excel-jump'
 
 export interface PrimaryBlock {
   startRow: number

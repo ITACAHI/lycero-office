@@ -3,7 +3,7 @@ set -e
 
 cd /tmp
 echo "[APPIMAGE-BUILDER] Extracting base AppImage..."
-/work/GenOffice-0.10.488.AppImage --appimage-extract > /dev/null
+/work/Lycero Office-0.10.488.AppImage --appimage-extract > /dev/null
 
 echo "[APPIMAGE-BUILDER] Updating binaries and resources with Lycero Office..."
 # Copy new app.asar
@@ -18,10 +18,10 @@ EOF
 # Copy lycero-office binary
 cp /repo/apps/shell/release/linux-unpacked/lycero-office squashfs-root/lycero-office
 chmod +x squashfs-root/lycero-office
-rm -f squashfs-root/genoffice
+rm -f squashfs-root/lycero-office
 
 # Patch AppRun
-sed -i 's|BIN="$APPDIR/genoffice"|BIN="$APPDIR/lycero-office"|g' squashfs-root/AppRun
+sed -i 's|BIN="$APPDIR/lycero-office"|BIN="$APPDIR/lycero-office"|g' squashfs-root/AppRun
 
 # Update desktop entry
 cat << 'EOF' > squashfs-root/lycero-office.desktop
@@ -36,25 +36,25 @@ Comment=Lycero Office: Bộ ứng dụng văn phòng AI đa năng thế hệ m�
 MimeType=application/vnd.openxmlformats-officedocument.wordprocessingml.document;application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;application/vnd.ms-excel.sheet.macroEnabled.12;application/vnd.openxmlformats-officedocument.presentationml.presentation;application/vnd.ms-excel;text/csv;application/pdf;text/markdown;text/html;
 Categories=Office;WordProcessor;Spreadsheet;Presentation;
 EOF
-rm -f squashfs-root/genoffice.desktop
+rm -f squashfs-root/lycero-office.desktop
 
 # Update icons
 for sz in 16x16 32x32 48x48 64x64 128x128 256x256 512x512 1024x1024; do
   if [ -f "/repo/apps/shell/build/icons/${sz}.png" ]; then
     mkdir -p "squashfs-root/usr/share/icons/hicolor/${sz}/apps"
     cp "/repo/apps/shell/build/icons/${sz}.png" "squashfs-root/usr/share/icons/hicolor/${sz}/apps/lycero-office.png"
-    rm -f "squashfs-root/usr/share/icons/hicolor/${sz}/apps/genoffice.png"
+    rm -f "squashfs-root/usr/share/icons/hicolor/${sz}/apps/lycero-office.png"
   fi
 done
 
 cd squashfs-root
 ln -sf usr/share/icons/hicolor/1024x1024/apps/lycero-office.png lycero-office.png
 ln -sf usr/share/icons/hicolor/1024x1024/apps/lycero-office.png .DirIcon
-rm -f genoffice.png
+rm -f lycero-office.png
 cd /tmp
 
 echo "[APPIMAGE-BUILDER] Extracting runtime header (188392 bytes)..."
-dd if=/work/GenOffice-0.10.488.AppImage of=/tmp/runtime bs=1 count=188392 2>/dev/null
+dd if=/work/Lycero Office-0.10.488.AppImage of=/tmp/runtime bs=1 count=188392 2>/dev/null
 
 echo "[APPIMAGE-BUILDER] Installing squashfs-tools..."
 apt-get update -qq && apt-get install -y -qq squashfs-tools > /dev/null

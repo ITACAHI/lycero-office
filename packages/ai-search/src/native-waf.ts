@@ -13,7 +13,7 @@ export function nativeWafHosts(env: NodeJS.ProcessEnv = process.env): Set<string
   } catch {
     hosts.add('lycero.com')
   }
-  for (const host of (env.GENOFFICE_NATIVE_WAF_HOSTS ?? '').split(',')) {
+  for (const host of (env.LYCERO_NATIVE_WAF_HOSTS ?? '').split(',')) {
     const trimmed = host.trim().toLowerCase()
     if (trimmed) hosts.add(trimmed)
   }

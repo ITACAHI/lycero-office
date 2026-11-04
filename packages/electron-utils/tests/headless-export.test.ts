@@ -140,7 +140,7 @@ describe('formatHeadlessEnvelope', () => {
 })
 
 describe('headlessExitCode', () => {
-  it('maps outcomes to the genoffice exit-code convention', () => {
+  it('maps outcomes to the lycero-office exit-code convention', () => {
     expect(headlessExitCode({ ok: true, input: '/a', outPath: '/b' })).toBe(0)
     expect(headlessExitCode({ ok: false, code: HEADLESS_EXIT.badArgs, message: 'x' })).toBe(1)
     expect(headlessExitCode({ ok: false, code: HEADLESS_EXIT.inputError, message: 'x' })).toBe(2)

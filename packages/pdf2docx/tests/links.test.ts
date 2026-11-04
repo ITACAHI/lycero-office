@@ -4,7 +4,7 @@
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
 /**
- * PDF link annotations → docx hyperlinks (genoffice#1096): URI actions become
+ * PDF link annotations → docx hyperlinks (#1096): URI actions become
  * external relationships, in-document GoTo destinations become anchors on a
  * per-page bookmark.
  */

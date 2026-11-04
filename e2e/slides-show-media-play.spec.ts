@@ -46,7 +46,7 @@ async function clickSequenceVideoDeck(): Promise<string> {
       mediaKind: 'video',
     },
   ])
-  const dir = await mkdtemp(join(tmpdir(), 'genoffice-media-show-'))
+  const dir = await mkdtemp(join(tmpdir(), 'lycero-media-show-'))
   const file = join(dir, 'click-video.pptx')
   await writeFile(file, await savePptx(opened))
   return file

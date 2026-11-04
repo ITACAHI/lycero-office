@@ -3,7 +3,7 @@
  * Copyright © 2026 ITAC AI Heavy Industries.
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
-import { CREATE_DOCUMENT_TOOL, RUN_GENOFFICE_TOOL, type AgentToolCall } from '@lycero/agent-core'
+import { CREATE_DOCUMENT_TOOL, RUN_LYCERO_TOOL, type AgentToolCall } from '@lycero/agent-core'
 
 /**
  * The task card of one Ask AI answer: every file the turn set out to build,
@@ -41,7 +41,7 @@ function baseName(path: string): string {
 /** Canonical command family for a tool call ('create', 'convert', 'docs apply', 'sheet apply', 'slides apply', 'slides replace'). */
 export function artifactCommand(call: AgentToolCall): string {
   if (call.name === CREATE_DOCUMENT_TOOL) return 'create'
-  if (call.name !== RUN_GENOFFICE_TOOL || !Array.isArray(call.input.args)) return call.name
+  if (call.name !== RUN_LYCERO_TOOL || !Array.isArray(call.input.args)) return call.name
   const args = (call.input.args as unknown[]).filter((a): a is string => typeof a === 'string')
   const first = args[0] ?? ''
   if (first === 'docs' || first === 'sheet' || first === 'slides') {
@@ -56,14 +56,14 @@ function normalizeTargetStem(nameOrPath: string): string {
     .replace(/(?:[-_](?:v\d{1,3}|\d{1,2}|final|updated|moi)|\s+\(\d+\))(\.[^.]+)$/i, '$1')
 }
 
-/** the --out value (or in-place apply/replace target) of a run_genoffice call, or the title of a create_document call */
+/** the --out value (or in-place apply/replace target) of a run_lycero call, or the title of a create_document call */
 export function artifactTarget(call: AgentToolCall): string | null {
   if (call.name === CREATE_DOCUMENT_TOOL) {
     const title = typeof call.input.title === 'string' ? call.input.title.trim() : ''
     const format = call.input.format === 'md' ? 'md' : 'docx'
     return `${title || 'Untitled'}.${format}`
   }
-  if (call.name !== RUN_GENOFFICE_TOOL || !Array.isArray(call.input.args)) return null
+  if (call.name !== RUN_LYCERO_TOOL || !Array.isArray(call.input.args)) return null
   const args = (call.input.args as unknown[]).filter((a): a is string => typeof a === 'string')
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!
@@ -103,7 +103,7 @@ export function artifactTarget(call: AgentToolCall): string | null {
 export function artifactFromCall(call: AgentToolCall, outDir?: string | null): Artifact | null {
   const target = artifactTarget(call)
   if (!target) return null
-  if (outDir && call.name === RUN_GENOFFICE_TOOL && !isInside(outDir, target)) return null
+  if (outDir && call.name === RUN_LYCERO_TOOL && !isInside(outDir, target)) return null
   callMetaById.set(call.id, { command: artifactCommand(call), target })
   return { callId: call.id, name: baseName(target), status: 'building' }
 }

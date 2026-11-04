@@ -41,7 +41,7 @@ function applyMarkdownTheme(theme: MarkdownTheme): void {
 }
 
 function applyDocumentTheme(theme: DocTheme): void {
-  // data-doc-theme drives the preview paper (genoffice#1811); absent means 'follow' the UI theme
+  // data-doc-theme drives the preview paper (#1811); absent means 'follow' the UI theme
   if (theme === 'follow') document.documentElement.removeAttribute('data-doc-theme')
   else document.documentElement.setAttribute('data-doc-theme', theme)
 }

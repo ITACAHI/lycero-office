@@ -264,7 +264,7 @@ describe('hangul-space advance', () => {
     const face = /font-family: 'Lycero Office Hangul Space';([^}]*)\}/.exec(
       read('../src/renderer/fonts/fonts.css'),
     )
-    // GenOfficeCheLatinKR advances every glyph 0.5em (tools/build-kr-che-latin-font.py)
+    // LyceroCheLatinKR advances every glyph 0.5em (tools/build-kr-che-latin-font.py)
     expect(face?.[1]).toContain('GenOfficeCheLatinKR.woff2')
     expect(face?.[1]).toContain('unicode-range: U+0020;')
   })

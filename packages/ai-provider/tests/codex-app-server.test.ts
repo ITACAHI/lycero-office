@@ -61,7 +61,7 @@ const tools: AgentToolDef[] = [
 
 describe('Codex app-server bridge', () => {
   it('automatically selects the newest complete desktop-managed Codex install', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'genoffice-codex-discovery-'))
+    const root = await mkdtemp(join(tmpdir(), 'lycero-codex-discovery-'))
     try {
       const older = join(root, 'old-release')
       const newer = join(root, 'new-release')
@@ -85,7 +85,7 @@ describe('Codex app-server bridge', () => {
   })
 
   it('migrates a stale saved hash path to the current managed install', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'genoffice-codex-migration-'))
+    const root = await mkdtemp(join(tmpdir(), 'lycero-codex-migration-'))
     try {
       const current = join(root, 'current-release')
       await mkdir(current)
@@ -110,22 +110,22 @@ describe('Codex app-server bridge', () => {
 
   it('confines Codex tool reads to the temp dir through a permission profile', () => {
     const config = { apiKey: '', model: 'gpt-5.6-terra' }
-    const params = codexThreadStartParams(config, '/tmp/genoffice-codex-x', 'profile')
+    const params = codexThreadStartParams(config, '/tmp/lycero-codex-x', 'profile')
     expect(params).not.toHaveProperty('sandbox')
     expect(params.approvalPolicy).toBe('never')
     expect(params.config).toEqual({
-      default_permissions: 'genoffice',
+      default_permissions: 'lycero-office',
       permissions: {
-        genoffice: {
-          filesystem: { ':minimal': 'read', '/tmp/genoffice-codex-x': 'read' },
+        'lycero-office': {
+          filesystem: { ':minimal': 'read', '/tmp/lycero-codex-x': 'read' },
         },
       },
     })
-    expect(codexThreadStartParams(config, '/tmp/genoffice-codex-x', 'read-only')).toMatchObject({
+    expect(codexThreadStartParams(config, '/tmp/lycero-codex-x', 'read-only')).toMatchObject({
       sandbox: 'read-only',
     })
-    expect(activePermissionProfileId({ activePermissionProfile: { id: 'genoffice' } })).toBe(
-      'genoffice',
+    expect(activePermissionProfileId({ activePermissionProfile: { id: 'lycero-office' } })).toBe(
+      'lycero-office',
     )
     expect(activePermissionProfileId({ activePermissionProfile: null })).toBeUndefined()
   })
@@ -253,7 +253,7 @@ describe('Codex app-server bridge', () => {
     ).resolves.toBe('done')
   })
 
-  it('interrupts the server turn when the abort lands before the turn id is known (genoffice#1110)', async () => {
+  it('interrupts the server turn when the abort lands before the turn id is known (#1110)', async () => {
     const calls: { method: string; params: unknown }[] = []
     let releaseStart: (() => void) | undefined
     const transport: CodexTurnTransport = {

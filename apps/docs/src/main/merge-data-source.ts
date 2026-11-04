@@ -17,7 +17,7 @@ import { readSheetRows } from '@lycero/xlsx-gateway/gateway/xlsx-gateway'
  * The parsing itself belongs to xlsx-gateway (the CSV reader Sheets opens a
  * .csv with, the workbook reader), and the record shape to the docx engine —
  * so a list that opens correctly in Sheets opens correctly here.
- * genoffice#2097.
+ * #2097.
  */
 
 /** A data source the mail merge reads: the field names and the records. */

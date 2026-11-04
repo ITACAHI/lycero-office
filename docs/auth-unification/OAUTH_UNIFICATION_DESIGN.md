@@ -131,7 +131,7 @@
 | `LyceroAuth` | `type` | `{apiKey, keyId?, accessToken?}` |
 | `LyceroUserInfo` | `type` | `{email?, plan?, fullName?}` |
 | `GskLoginProgress` | `type` | `{phase, url?, expiresInSec?, error?}` |
-| **genoffice* aliases** | | `genofficeApiKey`, `startGenofficeLogin`, `loadGenofficeAuth`, etc. |
+| **lycero-office* aliases** | | `lyceroApiKey`, `startLyceroLogin`, `loadLyceroAuth`, etc. |
 | **Storage** | | `~/.lycero-office/auth.json` (primary); also reads `~/.lycero/auth.json` (lines 133-140) and `userData/lycero/session.json` |
 
 ### System B also exports (via `gsk.ts`, `lycero-gateway.ts`, `search-tools.ts`, `media-tools.ts`)
@@ -157,7 +157,7 @@
 | Proxy fallback fetch channel | **No** | Yes (`proxyFallbackFetch`, dual-channel) |
 | Session cookie + GSX API key creation (`/api/api_tokens/create`) | **No** | Yes |
 | GSX API key revocation on logout | **No** | Yes |
-| `genoffice*` backward-compat aliases | **No** | Yes (8 aliases) |
+| `lycero-office*` backward-compat aliases | **No** | Yes (8 aliases) |
 | Reads `~/.lycero/auth.json` | **No** | Yes (lines 133-140 in `readAuthFile`) |
 | Reads `~/.lycero-office/auth.json` | **No** | Yes (primary storage) |
 | Reads `userData/lycero/session.json` | **No** | Yes (for `isLyceroProUser`) |
@@ -227,7 +227,7 @@ All login flows (device code, email, deep link) converge here. After saving the 
 2. **`packages/ai-search/src/lycero-auth.ts`** — Strip out the redundant device-code login. Change `readAuthFile()` to read only from `~/.lycero-office/auth.json` and `~/.lycero/auth.json` (as a fallback for legacy). Remove the GSX-specific login flow (`runDeviceLogin` → session → `POST /api/api_tokens/create`).
 3. **`packages/ai-search/src/lycero-gateway.ts`** — No change needed; it already reads `lyceroApiKey()` which reads from the unified store.
 4. **`apps/shell/src/main/index.ts`** — Remove the `@lycero/ai-search` `startLyceroLogin` import; route everything through the bridge's IPC handlers.
-5. **Keep `genoffice*` aliases** in `lycero-auth-alias.ts` — backward compat.
+5. **Keep `lycero-office*` aliases** in `lycero-auth-alias.ts` — backward compat.
 
 #### Code footprint:
 
@@ -256,7 +256,7 @@ All login flows (device code, email, deep link) converge here. After saving the 
 
 #### Compatibility impact:
 
-- `genoffice*` aliases: **keep** (Option A doesn't touch them)
+- `lycero-office*` aliases: **keep** (Option A doesn't touch them)
 - System B's proxy fallback: **keep** (it improves reliability even when using Hub token)
 
 #### Risk rating: **LOW**. The GSX mint is additive; failure is non-breaking.
@@ -301,7 +301,7 @@ If the Hub endpoints (`/auth/me`, `/quota/check`, `/ai/models`) only accept the 
 
 #### Compatibility impact:
 
-- `genoffice*` aliases: **keep**
+- `lycero-office*` aliases: **keep**
 - Proxy fallback: **keep**
 
 #### Risk rating: **HIGH** (if Hub rejects GSX API key as Bearer). Blocked on backend confirmation.
@@ -357,7 +357,7 @@ LyceroAuthService
 
 #### Compatibility impact:
 
-- `genoffice*` aliases: **keep**
+- `lycero-office*` aliases: **keep**
 - Proxy fallback: **keep**
 
 #### Risk rating: **MEDIUM**. Adds a new abstraction layer (the service). Ponytail concern: is the extra orchestration layer worth it, given that Options A and C are functionally equivalent?
@@ -396,7 +396,7 @@ Option B is blocked on an unconfirmed backend assumption: that Hub endpoints acc
 **Phase 3: Simplify System B's auth module**
 
 7. In `packages/ai-search/src/lycero-auth.ts`: remove the GSX-specific device-code login flow (the `runDeviceLogin` function and the `startLyceroLogin` implementation). Keep `readAuthFile()`, `saveAuth()`, `clearAuth()`, `isLyceroProUser()`, `getLyceroUserInfo()`, `proRequiredErrorMessage()`, and all test hooks. Keep `startLyceroLogin` as a re-export that calls the bridge via IPC, OR keep it as a stub that reads from the store and warns that the login flow should go through the bridge.
-8. **Keep all `genoffice*` aliases** — they cost nothing and prevent breakages in legacy code paths.
+8. **Keep all `lycero-office*` aliases** — they cost nothing and prevent breakages in legacy code paths.
 
 **Phase 4: Storage path canonicalization**
 
@@ -462,7 +462,7 @@ Option B is blocked on an unconfirmed backend assumption: that Hub endpoints acc
 | `packages/ai-auth/src/lycero-auth.ts` | Hub OAuth, token refresh, `authedFetch`, Hub quota/models | A (canonical) |
 | `packages/ai-auth/src/index.ts` | Renderer-safe barrel: types, constants, work bundles | A |
 | `packages/ai-search/src/lycero-auth.ts` | GSX OAuth, API key mint, proxy fallback | B (to be simplified) |
-| `packages/ai-search/src/lycero-auth-alias.ts` | Canonical name re-exports + `genoffice*` compat | B |
+| `packages/ai-search/src/lycero-auth-alias.ts` | Canonical name re-exports + `lycero-office*` compat | B |
 | `packages/ai-search/src/lycero-gateway.ts` | Gateway HTTP calls (search, image, transcribe) — reads `lyceroApiKey()` | B |
 | `packages/ai-search/src/gsk.ts` | CLI tools, `gskApiKey()`, `hasGskAuth()`, `gskChildEnv` | B |
 | `packages/ai-search/src/search-tools.ts` | `webSearchTool`, `imageSearchTool` (uses `hasGskAuth()`) | B |

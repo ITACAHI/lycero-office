@@ -92,7 +92,7 @@ export interface RawFormAnnotation {
   options?: { exportValue?: unknown; displayValue?: unknown }[]
   contents?: string
   contentsObj?: { str?: string }
-  genOfficeFormField?: string
+  lyceroFormField?: string
   actions?: unknown
 }
 
@@ -277,7 +277,7 @@ export async function buildFormCatalog(doc: PDFDocumentProxy): Promise<FormCatal
 }
 
 function visualSignatureFieldName(annotation: RawFormAnnotation): string | null {
-  if (annotation.genOfficeFormField) return annotation.genOfficeFormField
+  if (annotation.lyceroFormField) return annotation.lyceroFormField
   const contents = annotation.contentsObj?.str ?? annotation.contents
   return contents?.startsWith(VISUAL_SIGNATURE_CONTENT_PREFIX)
     ? contents.slice(VISUAL_SIGNATURE_CONTENT_PREFIX.length)

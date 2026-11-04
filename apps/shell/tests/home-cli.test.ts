@@ -152,7 +152,7 @@ describe('runHomeCli', () => {
     const workDir = join(root, 'work', 'kb-ask')
     expect(await readFile(join(workDir, 'report.md'), 'utf8')).toBe('# Hi')
     expect(runs[0]!.options?.cwd).toBe(workDir)
-    const roots = runs[0]!.options?.env?.GENOFFICE_ALLOWED_ROOTS?.split(delimiter) ?? []
+    const roots = runs[0]!.options?.env?.LYCERO_ALLOWED_ROOTS?.split(delimiter) ?? []
     expect(roots).toEqual([
       resolve(workDir),
       resolve(join(root, 'Documents')),
@@ -238,7 +238,7 @@ describe('runHomeCli', () => {
       args: ['convert', att, '--out', join(root, 'Documents', 'brief.docx')],
       sources: [att, join(root, 'gone', 'x.docx'), 'relative.docx', 42 as unknown as string],
     })
-    const roots = runs[0]!.options?.env?.GENOFFICE_ALLOWED_ROOTS?.split(delimiter) ?? []
+    const roots = runs[0]!.options?.env?.LYCERO_ALLOWED_ROOTS?.split(delimiter) ?? []
     expect(roots).toContain(resolve(join(root, 'Downloads')))
     expect(roots).not.toContain(resolve(join(root, 'gone')))
     expect(validateSources([att, join(root, 'Downloads')])).toEqual([att])

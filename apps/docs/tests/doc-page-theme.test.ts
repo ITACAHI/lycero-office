@@ -4,7 +4,7 @@
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
 /**
- * The document page theme (genoffice#1811): docThemeIsDark resolves the
+ * The document page theme (#1811): docThemeIsDark resolves the
  * `<html data-doc-theme>` pin first — explicit light/dark from the shell
  * setting — and otherwise falls back to the UI theme exactly as before the
  * setting existed ('follow').

@@ -52,13 +52,13 @@ export const createCommand: CommandDef = {
       name: 'ops',
       value: 'file',
       description:
-        'pptx: JSON array of ops (or {"ops":[...]}) applied one by one to a blank one-slide deck (later ops can target slides added earlier); "-" reads stdin. See `genoffice guide slides`.',
+        'pptx: JSON array of ops (or {"ops":[...]}) applied one by one to a blank one-slide deck (later ops can target slides added earlier); "-" reads stdin. See `lycero-office guide slides`.',
     },
     {
       name: 'spec',
       value: 'file',
       description:
-        'pptx: a deck spec (pages of px-positioned text, shapes and images on a 1280x720 canvas) built into one slide per page, or a directory of one-page spec files taken in name order; "-" reads stdin. See `genoffice guide slides spec` and `genoffice guide slides design`.',
+        'pptx: a deck spec (pages of px-positioned text, shapes and images on a 1280x720 canvas) built into one slide per page, or a directory of one-page spec files taken in name order; "-" reads stdin. See `lycero-office guide slides spec` and `lycero-office guide slides design`.',
     },
     {
       name: 'outline',
@@ -70,7 +70,7 @@ export const createCommand: CommandDef = {
       name: 'from',
       value: 'file',
       description:
-        'xlsx: a .csv, or a .json holding a 2-D array of cell values or { "sheets": [{ "name", "rows" }] }; strings starting with "=" are formulas. docx: a .md file, or a .html file holding a restricted-HTML fragment (see `genoffice guide docs`). pdf: any .md/.html/.docx/.xlsx/.pptx file, printed by the Lycero Office renderer',
+        'xlsx: a .csv, or a .json holding a 2-D array of cell values or { "sheets": [{ "name", "rows" }] }; strings starting with "=" are formulas. docx: a .md file, or a .html file holding a restricted-HTML fragment (see `lycero-office guide docs`). pdf: any .md/.html/.docx/.xlsx/.pptx file, printed by the Lycero Office renderer',
     },
     {
       name: 'header',
@@ -143,7 +143,7 @@ export const createCommand: CommandDef = {
       return {
         summary: `created ${basename(output)}`,
         outputPath: output,
-        detail: { via: 'genoffice --headless-export', summary: r.summary },
+        detail: { via: 'lycero-office --headless-export', summary: r.summary },
       }
     }
     if (type === 'docx') {
@@ -234,7 +234,7 @@ async function createPptxFromSpec(
 ): Promise<{ bytes: Uint8Array; slides: number; detail: CommandResult['detail'] }> {
   const spec = flagString(args, 'spec')!
   const next =
-    'genoffice slides audit <file> for the geometry audit; genoffice slides render <file> --out <dir> for PNGs; genoffice slides replace <file> --slide n --spec <page.json> to rebuild one page'
+    'lycero-office slides audit <file> for the geometry audit; lycero-office slides render <file> --out <dir> for PNGs; lycero-office slides replace <file> --slide n --spec <page.json> to rebuild one page'
   const outlinePath = flagString(args, 'outline')
   const dir = spec === '-' ? null : specDirectory(spec, ctx)
   if (dir) {
@@ -326,6 +326,7 @@ async function createXlsx(
       ...r,
       warning: r.warning ?? w.warning,
       formulaError: r.formulaError ?? w.formulaError,
+      dependentsWarning: r.dependentsWarning ?? w.dependentsWarning,
       readbackVerifiedValues: w.readbackVerifiedValues ?? r.readbackVerifiedValues,
     }
     for (const note of w.notes ?? []) ctx.warn(note)
@@ -333,6 +334,8 @@ async function createXlsx(
 
   if (r.warning) ctx.warn({ code: 'formulas_not_cached', message: r.warning })
   if (r.formulaError) ctx.warn({ code: 'formula_errors', message: r.formulaError })
+  if (r.dependentsWarning)
+    ctx.warn({ code: 'dependents_not_recalculated', message: r.dependentsWarning })
   return {
     sheets: tables.length,
     cells: r.cells,

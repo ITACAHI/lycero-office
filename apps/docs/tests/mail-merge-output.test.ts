@@ -19,7 +19,7 @@ import { substituteMergeFields } from '../src/renderer/mail-merge/template'
 /**
  * The merged document, end to end: a template with a merge field in it, the
  * field filled from a record, and the .docx that comes out — the values in
- * place, no «FieldName» left. genoffice#2097.
+ * place, no «FieldName» left. #2097.
  */
 
 const live: Editor[] = []

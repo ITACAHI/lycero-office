@@ -1,5 +1,6 @@
 /**
  * Lycero Office Desktop — NĐ 30/2020/NĐ-CP Acceptance Test Suite (v2.0.16)
+ * Copyright © 2026 ITAC AI Heavy Industries. All rights reserved.
  * Verifies all 8 QA requirements (1a–1h) for Vietnamese Administrative Documents.
  */
 import { describe, expect, it } from 'vitest'

@@ -133,7 +133,7 @@ export function HelpNoticesModal({ open, onClose }: HelpNoticesModalProps) {
           <section className="help-section help-section-en">
             <h3 className="help-h3">Derivative work notice</h3>
             <p>
-              Lycero Office is a derivative work of <strong>GenOffice</strong> (Copyright © 2026 Mainfunc, Inc.,
+              Lycero Office is a derivative work of <strong>Lycero Office</strong> (Copyright © 2026 Mainfunc, Inc.,
               distributed under the Apache License, Version 2.0). In compliance with Apache-2.0 §4(a)(b)(c)(d), the
               original copyright notice, a prominent notice of modification, the Apache-2.0 license text and a{' '}
               <code className="help-code">NOTICE</code> file are distributed alongside every binary build. See{' '}

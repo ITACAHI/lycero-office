@@ -1,4 +1,4 @@
-# GenOffice'i yükleme
+# Lycero Office'i yükleme
 
 Her derleme [Sürümler sayfasında](https://lycero.com/releases/latest) yayımlanır. Hepsi `main` dalından gelir; macOS ve Windows yükleyicileri imzalıdır.
 
@@ -18,32 +18,32 @@ Eski sürümler Sürümler sayfasında kalmaya devam eder.
 
 ## macOS'te
 
-`.dmg` dosyasını açın ve **GenOffice**'i Uygulamalar klasörüne sürükleyin. Intel derlemesinde ilk açılışta uygulamayı açmayı onaylamanız istenir: Uygulamalar'da uygulamaya sağ tıklayın ▸ Aç. Bu, Gatekeeper'ın imzasız görünen bir disk görüntüsüyle karşılaşmasıdır; bozuk bir indirme değildir.
+`.dmg` dosyasını açın ve **Lycero Office**'i Uygulamalar klasörüne sürükleyin. Intel derlemesinde ilk açılışta uygulamayı açmayı onaylamanız istenir: Uygulamalar'da uygulamaya sağ tıklayın ▸ Aç. Bu, Gatekeeper'ın imzasız görünen bir disk görüntüsüyle karşılaşmasıdır; bozuk bir indirme değildir.
 
 ## Windows'ta
 
-`.exe` yükleyicisini çalıştırın. GenOffice'i Başlat menüsüne ekler ve `.docx`, `.xlsx`, `.pptx`, `.pdf` ve benzeri uzantıları kaydeder; böylece bir dosyaya çift tıklamak onu açar.
+`.exe` yükleyicisini çalıştırın. Lycero Office'i Başlat menüsüne ekler ve `.docx`, `.xlsx`, `.pptx`, `.pdf` ve benzeri uzantıları kaydeder; böylece bir dosyaya çift tıklamak onu açar.
 
 ## Linux'ta
 
 **Debian / Ubuntu**
 
 ```sh
-sudo apt install ./genoffice_<version>_amd64.deb
+sudo apt install ./lycero-office_<version>_amd64.deb
 ```
 
 **Fedora / RHEL / openSUSE**
 
 ```sh
-sudo dnf install ./genoffice-<version>.x86_64.rpm     # Fedora / RHEL family
-sudo zypper install ./genoffice-<version>.x86_64.rpm  # openSUSE
+sudo dnf install ./lycero-office-<version>.x86_64.rpm     # Fedora / RHEL family
+sudo zypper install ./lycero-office-<version>.x86_64.rpm  # openSUSE
 ```
 
 **AppImage** — bulunduğu yerden, yükleme adımı olmadan çalışır:
 
 ```sh
-chmod +x GenOffice-<version>.AppImage
-./GenOffice-<version>.AppImage
+chmod +x Lycero Office-<version>.AppImage
+./Lycero Office-<version>.AppImage
 ```
 
 FUSE 2 çalışma zamanına ihtiyaç duyar. Onu yüklemek istemiyorsanız `--appimage-extract-and-run` ile çalıştırın; korumalı alan, çıkarılan dizinden çalışır.
@@ -64,4 +64,4 @@ FUSE 2 çalışma zamanına ihtiyaç duyar. Onu yüklemek istemiyorsanız `--app
 
 ## Komut satırı da birlikte gelir
 
-Her kurulum, pencerenin konuştuğu motorlarla aynı motorlarla konuşan bir `genoffice` komutuyla gelir; böylece ikisi bir dosya hakkında asla anlaşmazlığa düşmez. macOS ve Windows'ta uygulama paketinin içindedir; `genoffice install-cli` onu `PATH` değişkeninize ekler. Neler yapabildiği için **Komut satırı ve aracılar** bölümüne bakın.
+Her kurulum, pencerenin konuştuğu motorlarla aynı motorlarla konuşan bir `lycero-office` komutuyla gelir; böylece ikisi bir dosya hakkında asla anlaşmazlığa düşmez. macOS ve Windows'ta uygulama paketinin içindedir; `lycero-office install-cli` onu `PATH` değişkeninize ekler. Neler yapabildiği için **Komut satırı ve aracılar** bölümüne bakın.

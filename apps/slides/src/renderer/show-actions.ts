@@ -3,6 +3,7 @@
  * Copyright © 2026 ITAC AI Heavy Industries.
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
+import { mergeSlideUpdate } from '../shared/slide-update'
 /**
  * Slide-show tab actions extracted from App.tsx: starting shows,
  * presenter view, custom shows, rehearsal timings, and hiding slides.
@@ -169,7 +170,7 @@ export async function setSlidesHidden(
   if (!sel.length) return
   const r = await window.slidesApi.setSlidesHidden({ slideIndexes: sel, hidden })
   if (!r) return
-  ctx.setSlides(r)
+  ctx.setSlides((current) => mergeSlideUpdate(current, r))
   ctx.setDirty(true)
   if (sel.length === 1) {
     const page = sel[0]! + 1

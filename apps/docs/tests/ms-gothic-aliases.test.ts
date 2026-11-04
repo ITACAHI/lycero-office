@@ -4,7 +4,7 @@
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
 /**
- * Contract of the MS Gothic family aliases in fonts.css: advances match Word's
+ * Contract of the MS Gothic family aliases in fonts.generated.css: advances match Word's
  * msgothic.ttc (Word probe 2026-09-03) — MS Gothic Latin is a 0.5em monospace,
  * MS PGothic / MS UI Gothic kana are proportional and their brackets half-width.
  */
@@ -15,7 +15,7 @@ import { describe, expect, it } from 'vitest'
 import { advanceEm, readWoff2 } from './helpers/woff2-metrics'
 
 const FONTS = join(__dirname, '../src/renderer/fonts')
-const css = readFileSync(join(FONTS, 'fonts.css'), 'utf8')
+const css = readFileSync(join(FONTS, 'fonts.generated.css'), 'utf8')
 
 interface Face {
   src: string

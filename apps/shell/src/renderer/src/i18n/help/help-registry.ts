@@ -295,7 +295,7 @@ export const HELP_TOPICS: HelpTopicMeta[] = [
     id: 'cli',
     group: 'manage',
     order: 3,
-    keywords: ['命令行', 'cli', 'genoffice', 'convert', 'render', '命令行工具', '终端'],
+    keywords: ['命令行', 'cli', 'lycero-office', 'convert', 'render', '命令行工具', '终端'],
   },
   {
     id: 'mcp',

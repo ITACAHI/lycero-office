@@ -46,7 +46,7 @@ test.describe('docs measurement unit preference', () => {
   let docPath: string
 
   test.beforeEach(async () => {
-    dir = realpathSync(mkdtempSync(join(tmpdir(), 'genoffice-e2e-units-')))
+    dir = realpathSync(mkdtempSync(join(tmpdir(), 'lycero-e2e-units-')))
     docPath = join(dir, 'units.docx')
     writeFileSync(docPath, await minimalDocx())
   })

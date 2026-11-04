@@ -11,7 +11,12 @@ import {
   type RangeBounds,
 } from '@lycero/xlsx-gateway/domain/cell-address'
 import { InMemoryWorkbookAdapter } from '@lycero/xlsx-gateway/domain/in-memory-workbook'
-import type { ChangePlan, WorkbookSnapshot } from '@lycero/xlsx-gateway/domain/workbook.types'
+import type {
+  ChangePlan,
+  CellState,
+  WorkbookSnapshot,
+  WorksheetState,
+} from '@lycero/xlsx-gateway/domain/workbook.types'
 import type {
   CellFormatPatch,
   FillPatch,
@@ -54,7 +59,7 @@ import { computedValues } from './xlsx'
 
 const OP_REJECTED: ErrorHints = {
   reason: 'op_rejected',
-  suggestion: 'fix the op against `genoffice guide sheets`, then resend the whole batch',
+  suggestion: 'fix the op against `lycero-office guide sheets`, then resend the whole batch',
 }
 /** Pins a rejection to one op so a non-atomic `sheet apply` can drop that op and rerun the rest. */
 function pinned(
@@ -71,8 +76,8 @@ function pinned(
 function unknownOpSuggestion(op: string): string {
   const guess = didYouMean(op, SUPPORTED_DSL_OPS)
   return guess
-    ? `did you mean "${guess}"? (\`genoffice guide sheets\` lists every op), then resend the whole batch`
-    : 'run `genoffice guide sheets` for the op list, then resend the whole batch'
+    ? `did you mean "${guess}"? (\`lycero-office guide sheets\` lists every op), then resend the whole batch`
+    : 'run `lycero-office guide sheets` for the op list, then resend the whole batch'
 }
 const TWO_BATCHES: ErrorHints = {
   reason: 'op_rejected',
@@ -217,6 +222,59 @@ export async function runWorkbookDsl(
   const fallback = defaultSheet ?? active ?? snapshot.sheets[0]?.name
   const convertWarnings: string[] = []
   const frozen = new Map<string, unknown>()
+  // A chart over formula results: the editable model keeps formulas valueless
+  // (the file's cached <v> is dropped), so the numeric-column check refuses a
+  // Total column — the most common thing to chart. Fill the sidecar's computed
+  // values into the rehearsal snapshot for each add_chart dataRange up front:
+  // value only, the formula stays, no cell change results from it, and a cell
+  // an earlier op rewrites takes that op's state (formula and null value) and
+  // is still rejected, the same batch-order hazard convert_to_values guards.
+  if (opts.sourcePath !== undefined) {
+    const filled = new Set<string>()
+    for (const raw of rawOps) {
+      const op = raw as { op?: unknown; sheet?: unknown; sheetId?: unknown; dataRange?: unknown }
+      if (op.op !== 'add_chart' || typeof op.dataRange !== 'string') continue
+      const wanted =
+        typeof op.sheet === 'string'
+          ? op.sheet
+          : typeof op.sheetId === 'string'
+            ? op.sheetId
+            : fallback
+      if (wanted === undefined) continue
+      const name = idByName.has(wanted) ? wanted : (imported.sheetNamesById[wanted] ?? undefined)
+      const sheetState =
+        name === undefined ? undefined : snapshot.sheets.find((s) => s.name === name)
+      if (sheetState === undefined) continue
+      let bounds: RangeBounds
+      try {
+        bounds = parseRange(op.dataRange)
+      } catch {
+        continue // an invalid range is the rehearsal's rejection to raise
+      }
+      if (filled.has(`${name}!${op.dataRange}`)) continue
+      const pending = rangeAddresses(bounds).filter((address) => {
+        const cell = sheetState.cells[address]
+        return cell?.formula !== undefined && (cell.value ?? null) === null
+      })
+      filled.add(`${name}!${op.dataRange}`)
+      if (pending.length === 0) continue
+      const values = await computedValues(opts.sourcePath, name!, bounds)
+      const cells = { ...sheetState.cells } as Record<string, CellState>
+      let filledAny = false
+      for (const address of pending) {
+        const { row, column } = parseAddress(address)
+        const computed = values.get(`${row}|${column}`)
+        if (computed && !computed.isError && computed.value !== null) {
+          cells[address] = { ...cells[address]!, value: computed.value }
+          filledAny = true
+        }
+      }
+      if (filledAny) {
+        const sheets = snapshot.sheets as WorksheetState[]
+        sheets[sheets.indexOf(sheetState)] = { ...sheetState, cells }
+      }
+    }
+  }
   const adapter = new InMemoryWorkbookAdapter(snapshot)
   const before = adapter.getSnapshot()
   // one plan per op, applied before the next is planned: sort_range / find_replace
@@ -284,9 +342,9 @@ export async function runWorkbookDsl(
       try {
         plan = adapter.plan({
           dslVersion: 1,
-          transactionId: `genoffice-${Date.now()}-${position}`,
+          transactionId: `lycero-office-${Date.now()}-${position}`,
           baseRevision: adapter.getSnapshot().revision,
-          summary: 'genoffice sheet apply',
+          summary: 'lycero-office sheet apply',
           operations: [op],
         })
       } catch (err) {

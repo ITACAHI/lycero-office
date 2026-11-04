@@ -82,9 +82,9 @@ describe('classifySkillsForContext & CloudCapabilitiesManager', () => {
   it('bundles ONLY the 51 basic/tool skills locally and zero of the 155 advanced cloud skills (FX-30, FX-43)', () => {
     const recDir = resolve(__dirname, '../../../skills/recommended')
     expect(existsSync(recDir)).toBe(true)
-    const entries = readdirSync(recDir)
+    const entries = readdirSync(recDir).filter((name) => name !== 'locales')
     expect(entries.length).toBe(51)
-    expect(BASIC_BUNDLED_SKILL_SLUGS.size).toBe(52) // 51 recommended + genoffice
+    expect(BASIC_BUNDLED_SKILL_SLUGS.size).toBe(51)
     expect(ADVANCED_CLOUD_SKILL_SLUGS.size).toBe(155)
     for (const slug of entries) {
       expect(isBasicBundledSkill(slug)).toBe(true)

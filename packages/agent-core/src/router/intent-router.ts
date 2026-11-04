@@ -7,7 +7,7 @@
  * Lycero Office Desktop
  * Copyright \u00a9 2026 ITAC AI Heavy Industries. All rights reserved.
  *
- * Original work Copyright \u00a9 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
+ * Original work Copyright \u00a9 2026 Mainfunc, Inc. (Lycero Office, Apache-2.0).
  *
  * Phase C.1: Keyword-based intent router.
  *

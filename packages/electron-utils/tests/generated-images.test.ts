@@ -38,7 +38,7 @@ describe('generated image store', () => {
     expect(readGeneratedImage(pathToFileURL(stray).toString())).toBeNull()
     expect(
       readGeneratedImage(
-        pathToFileURL(join(GENERATED_IMAGE_DIR, '..', 'genoffice-ai-images', 'x.png')).toString(),
+        pathToFileURL(join(GENERATED_IMAGE_DIR, '..', 'lycero-ai-images', 'x.png')).toString(),
       ),
     ).toBeNull()
     expect(readGeneratedImage('https://example.com/a.png')).toBeNull()

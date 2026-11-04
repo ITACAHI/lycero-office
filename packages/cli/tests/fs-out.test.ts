@@ -13,7 +13,7 @@ import { EXIT } from '../src/result'
 
 describe('resolveOutput', () => {
   it('refuses an empty --out rather than falling back onto the input file', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'genoffice-out-'))
+    const dir = mkdtempSync(join(tmpdir(), 'lycero-out-'))
     const input = join(dir, 'deck.pptx')
     writeFileSync(input, 'source')
     const ctx = { cwd: dir, env: { ...process.env, LYCERO_ALLOWED_ROOTS: '' } }

@@ -3,7 +3,7 @@
  * Copyright © 2026 ITAC AI Heavy Industries.
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
-// Bring-your-own image host for Markdown pastes/drops (genoffice#388): the
+// Bring-your-own image host for Markdown pastes/drops (#388): the
 // maintainer-accepted shape is "configure your own storage, keep the local
 // assets/ copy as the fallback". Three adapters cover the hosts the issue
 // names — S3-compatible (Cloudflare R2 / Aliyun OSS / Tencent COS / MinIO),

@@ -6,7 +6,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { genofficeUserDataDir, guiOpenDocuments } from '../src/gui'
+import { lyceroUserDataDir, guiOpenDocuments } from '../src/gui'
 import { run, tempDir } from './helpers'
 
 function writeRegistry(dir: string, pid: number, paths: string[]): void {
@@ -35,8 +35,8 @@ async function workbook(dir: string): Promise<string> {
 
 describe('GUI-open documents', () => {
   it('locates the shell userData directory and honours the override', () => {
-    expect(genofficeUserDataDir({ LYCERO_USER_DATA: '/u' })).toBe('/u')
-    expect(genofficeUserDataDir({}).endsWith('Lycero Office')).toBe(true)
+    expect(lyceroUserDataDir({ LYCERO_USER_DATA: '/u' })).toBe('/u')
+    expect(lyceroUserDataDir({}).endsWith('Lycero Office')).toBe(true)
   })
 
   it('ignores a missing, malformed or crash-leftover registry', () => {
@@ -66,7 +66,7 @@ describe('GUI-open documents', () => {
       XDG_CONFIG_HOME: appRoot,
     }
     delete env.LYCERO_USER_DATA
-    const packagedDir = genofficeUserDataDir(env)
+    const packagedDir = lyceroUserDataDir(env)
     // The in-process CLI must resolve userData from this env, never the real home directory.
     expect(packagedDir.startsWith(appRoot)).toBe(true)
     writeRegistry(packagedDir, process.pid, [join(dir, 'packaged.xlsx')])

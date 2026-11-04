@@ -11,7 +11,7 @@ import { scanFiles } from '../src/main/file-index/scan'
 
 let dir: string
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'genoffice-scan-'))
+  dir = mkdtempSync(join(tmpdir(), 'lycero-scan-'))
 })
 afterEach(() => rmSync(dir, { recursive: true, force: true }))
 

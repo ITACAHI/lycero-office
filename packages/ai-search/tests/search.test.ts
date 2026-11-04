@@ -557,7 +557,6 @@ describe('search-tools', () => {
     expect(searchOptionsFromSettings(base)).toEqual({ useGsk: true })
     expect(searchOptionsFromSettings({ ...base, lycToolsEnabled: false })).toEqual({
       useGsk: false,
-      useLycero: false,
     })
     const serper = {
       ...base,

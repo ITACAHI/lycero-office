@@ -36,7 +36,7 @@ const scratches: string[] = []
 const actualCopyFile = copyFileMock.getMockImplementation()!
 
 async function scratchDir(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), 'genoffice-promote-test-'))
+  const dir = await mkdtemp(join(tmpdir(), 'lycero-promote-test-'))
   scratches.push(dir)
   return dir
 }

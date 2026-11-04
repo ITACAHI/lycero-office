@@ -51,12 +51,14 @@ interface Props {
   dirty: boolean
   onSave: () => void
   onSaveAs: () => void
+  /** Ask the model for a name, then open Save As with it prefilled */
+  onNameWithAi: () => void
   onFind: () => void
   autoSave: boolean
   onToggleAutoSave: (on: boolean) => void
   imageEnabled: boolean
   onInsertImage: () => void
-  /** open the image host configuration (genoffice#388) */
+  /** open the image host configuration (#388) */
   onImageHost: () => void
   frontmatterOpen: boolean
   onToggleFrontmatter: () => void
@@ -271,6 +273,7 @@ export function Ribbon({
   dirty,
   onSave,
   onSaveAs,
+  onNameWithAi,
   onFind,
   autoSave,
   onToggleAutoSave,
@@ -416,6 +419,17 @@ export function Ribbon({
         </button>
         <button
           type="button"
+          className="qa-btn qa-name-with-ai"
+          data-tip={t('aiNameFile')}
+          aria-label={t('aiNameFile')}
+          disabled={off}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={onNameWithAi}
+        >
+          {t('aiNameFile')}
+        </button>
+        <button
+          type="button"
           className="qa-btn"
           data-tip={t('undo')}
           aria-label={t('undo')}
@@ -442,7 +456,7 @@ export function Ribbon({
         </button>
         <button
           type="button"
-          className="qa-btn"
+          className="qa-btn qa-find"
           data-tip={t('findTip')}
           aria-label={t('findTip')}
           disabled={findOff}

@@ -188,7 +188,7 @@ describe('Lycero Office Gothic KR (real source metrics, unmodified)', () => {
     for (const { nameId, value } of names) {
       expect(value, `name ID ${nameId}`).not.toMatch(/nanum/i)
     }
-    expect(names).toContainEqual({ nameId: 1, value: 'Lycero Office Gothic KR' })
+    expect(names).toContainEqual({ nameId: 1, value: 'GenOffice Gothic KR' })
     expect(names).toContainEqual({ nameId: 6, value: 'GenOfficeGothicKR-Regular' })
   })
 })

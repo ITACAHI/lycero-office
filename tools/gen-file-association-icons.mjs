@@ -90,7 +90,7 @@ async function renderPng(browser, svgDataUrl, canvasSize, contentSize) {
 }
 
 const browser = await chromium.launch({ channel: 'chrome', headless: true })
-const tmp = mkdtempSync(join(tmpdir(), 'genoffice-file-icons-'))
+const tmp = mkdtempSync(join(tmpdir(), 'lycero-file-icons-'))
 
 try {
   for (const [type, svgName] of Object.entries(TYPES)) {

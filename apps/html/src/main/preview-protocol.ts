@@ -3,7 +3,11 @@
  * Copyright © 2026 ITAC AI Heavy Industries.
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
-import { DOCX_MEDIA_SCHEME_PRIVILEGE, RENDERER_SCHEME_PRIVILEGE } from '@lycero/electron-utils'
+import {
+  DOCX_MEDIA_SCHEME_PRIVILEGE,
+  SLIDE_MEDIA_SCHEME_PRIVILEGE,
+  RENDERER_SCHEME_PRIVILEGE,
+} from '@lycero/electron-utils'
 import { protocol } from 'electron'
 import { ASSET_SCHEME, PREVIEW_SCHEME, buildPreviewDocument } from './preview-document'
 
@@ -16,6 +20,7 @@ export function registerPrivilegedSchemes(): void {
   protocol.registerSchemesAsPrivileged([
     RENDERER_SCHEME_PRIVILEGE,
     DOCX_MEDIA_SCHEME_PRIVILEGE,
+    SLIDE_MEDIA_SCHEME_PRIVILEGE,
     {
       scheme: PREVIEW_SCHEME,
       privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true },

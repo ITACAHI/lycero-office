@@ -53,9 +53,9 @@ import {
 import {
   webSearchTool,
   imageSearchTool,
-  ensureGenofficeLogin,
+  ensureLyceroLogin,
   noteGskCallFailure,
-  setGenofficeLoginOpener,
+  setLyceroLoginOpener,
   gskApiKey,
   generateImageTool,
   analyzeMediaTool,
@@ -84,7 +84,7 @@ const AI_SETTINGS_PATH = () => join(app.getPath('userData'), 'ai-settings.json')
  * user put next to the deck they are editing, and nothing else.
  */
 function slidesMediaRoots(wcId: number): string[] {
-  return documentMediaRoots(sessions.get(wcId)?.path, join(app.getPath('temp'), 'genoffice-pasted'))
+  return documentMediaRoots(sessions.get(wcId)?.path, join(app.getPath('temp'), 'lycero-pasted'))
 }
 
 function readJson<T>(path: string, fallback: T): T {
@@ -150,11 +150,11 @@ export function registerAiIpc(): void {
     },
   )
 
-  // a 401 on the gsk key opens the device-code login once (genoffice-auth recovery)
-  setGenofficeLoginOpener((url) => void shell.openExternal(url))
+  // a 401 on the gsk key opens the device-code login once (lycero-auth recovery)
+  setLyceroLoginOpener((url) => void shell.openExternal(url))
 
   ipcMain.handle('ai:gsk-login', () => {
-    ensureGenofficeLogin((url) => void shell.openExternal(url))
+    ensureLyceroLogin((url) => void shell.openExternal(url))
   })
 
   ipcMain.handle('ai:set-settings', (_event, settings: AiSettings) => {

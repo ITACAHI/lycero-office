@@ -19,7 +19,7 @@ export const selectionCommand: CommandDef = {
     if (!endpoint) {
       throw new CliError(EXIT.app, 'Lycero Office is not running', undefined, {
         reason: 'app_unavailable',
-        suggestion: `run \`genoffice open ${path}\` and ask the user to select something`,
+        suggestion: `run \`lycero-office open ${path}\` and ask the user to select something`,
       })
     }
     const result = await controlRequest(endpoint, { cmd: 'selection', path })

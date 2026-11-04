@@ -4,35 +4,23 @@
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
 import { test, expect } from '@playwright/test'
-import { launchShell, closeAndSaveVideo } from './helpers'
+import { launchShell, closeAndSaveVideo, freeMcpPort } from './helpers'
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parseDocx } from '@lycero/docx-engine'
 import { openPptx } from '@lycero/pptx-engine'
 import JSZip from 'jszip'
-import http, { createServer } from 'node:http'
+import http from 'node:http'
 
 /**
  * MCP headless generation against the real built app.
  *
- * The headless tools delegate to the bundled `genoffice` CLI, which the app
+ * The headless tools delegate to the bundled `lycero-office` CLI, which the app
  * spawns on its own Node runtime (ELECTRON_RUN_AS_NODE) — this is the only test
  * that exercises that spawn path end to end: the app has to locate and run the
  * CLI, and the produced files are reparsed with the real engines.
  */
-
-async function freePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = createServer()
-    server.on('error', reject)
-    server.listen(0, '127.0.0.1', () => {
-      const address = server.address()
-      const port = typeof address === 'object' && address ? address.port : 0
-      server.close(() => resolve(port))
-    })
-  })
-}
 
 function postMcp(
   port: number,
@@ -64,9 +52,9 @@ function postMcp(
 test.describe('MCP headless generation', () => {
   test('spawns the bundled CLI to create docx/pptx/xlsx', async () => {
     test.setTimeout(120_000)
-    const port = await freePort()
-    const outDir = await mkdtemp(join(tmpdir(), 'genoffice-mcp-headless-'))
-    const userDataDir = await mkdtemp(join(tmpdir(), 'genoffice-mcp-headless-userdata-'))
+    const port = await freeMcpPort()
+    const outDir = await mkdtemp(join(tmpdir(), 'lycero-mcp-headless-'))
+    const userDataDir = await mkdtemp(join(tmpdir(), 'lycero-mcp-headless-userdata-'))
     // background generation must be ON to expose the create_* tools
     await writeFile(
       join(userDataDir, 'app-settings.json'),

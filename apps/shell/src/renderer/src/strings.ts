@@ -198,6 +198,9 @@ export const strings = {
     setAutoUpdateCheck: '自动检查更新',
     setAutoUpdateCheckDesc:
       '关闭后，启动时和后台都不再检查新版本；仍可在“帮助 › 检查更新”中手动检查。',
+    setSilentInstall: '静默安装更新',
+    setSilentInstallDesc:
+      '开启后，后台检查到新版本会静默下载，并在你退出应用时安装，使用过程中不会打扰或重启。关闭则弹出更新提示，由你决定何时更新。',
     updateChannel: '更新通道',
     channelStable: '稳定版',
     channelBeta: 'Beta 版',
@@ -237,6 +240,9 @@ export const strings = {
     aiFontSizeXLarge: '特大',
     aiFontSizeCustom: '自定义',
     setAiSpellcheck: 'AI 对话拼写检查',
+    setLegacyImportPrompt: '打开旧格式前先提示',
+    setLegacyImportPromptDesc:
+      '打开 .doc、.odt、.hwp、.ods、.odp 等旧格式文件时，先说明哪些内容会转换过来。关闭后直接进入另存为。',
     setDefaultApp: '设为 Office 文档默认程序',
     setDefaultAppDesc: '双击 .docx、.xlsx、.pptx 文件时用 Lycero Office 打开。',
     setDefaultAppIs: 'Lycero Office 已是默认程序。',
@@ -293,6 +299,12 @@ export const strings = {
     intgSkillVersion: 'skill {v}',
     intgStateMissing: 'skill 未安装',
     intgStateInstalled: '已安装 skill {v} · 下次对话即可使用',
+    intgLegacyTitle: '旧版 skill 副本',
+    intgLegacyDesc:
+      'Lycero Office 以前会把副本写进每个工具自己的目录。现在还有 {n} 份留在那里:工具仍在读取它们,所以永远拿不到当前版本。',
+    intgLegacyClean: '删除旧副本',
+    intgLegacyCleaned: '已删除 {n} 份旧副本,{k} 份被手动改过的保留未动。',
+    intgLegacyFailed: '删除旧副本失败:{msg}',
     intgOtherToggle: '没有列出我的助手',
     intgOtherDesc: '以下三种方式任选一种即可。装的是同一份 skill，不需要重复操作。',
     intgOtherFolderTitle: '任何能读取 SKILL.md 目录的助手',
@@ -304,35 +316,33 @@ export const strings = {
     intgCopy: '复制',
     intgStep2Title: '试一试',
     intgStep2Desc: '在助手里新开一个对话，用平常说话的方式提需求，例如：',
-    intgStep2DescBefore: '装好后，在助手里新开一个对话，用平常说话的方式提需求，例如：',
     intgExample1: '把 ~/Downloads/report.md 转成 Word 文档',
     intgExample2: '做一份 6 页的幻灯片，介绍我们第三季度的业绩',
     intgExample3: '把 budget.xlsx 转成 PDF，并在 Lycero Office 里打开',
-    intgStep2Note: '助手会自己调用 genoffice 命令行，你不需要输入任何命令。',
+    intgStep2Note: '助手会自己调用 Lycero Office（命令行或 MCP），你不需要输入任何命令。',
     intgCliPartTitle: 'CLI · 命令行 + skill',
     intgCliPartDesc:
-      '适合能运行终端命令的助手（Claude Code、Codex、Cursor 等）。安装 skill 后，助手会自己调用 genoffice 命令行创建、转换、读取和编辑文件，你不需要输入任何命令。',
+      '适合能运行终端命令的助手（Claude Code、Codex、Cursor 等）。安装 skill 后，助手会自己调用 lycero-office 命令行创建、转换、读取和编辑文件，你不需要输入任何命令。',
     intgMcpPartTitle: 'MCP',
     intgMcpPartDesc:
       'MCP 是 AI 助手调用外部工具的通用协议。助手不能运行命令（如 Claude Desktop），或你想让它直接操作 Lycero Office 窗口时用这条路。下面两种接法任选一种。',
     intgMcpStdioTitle: '由助手启动（推荐）',
     intgMcpStdioDesc:
-      '助手自己拉起 genoffice mcp，不需要在这里开任何开关，Lycero Office 也不用开着。功能与 CLI 完全相同。',
+      '助手自己拉起 lycero-office mcp，不需要在这里开任何开关，Lycero Office 也不用开着。功能与 CLI 完全相同。',
     intgMcpHttpTitle: '本地 HTTP 服务',
     intgMcpHttpDesc:
       '在 Lycero Office 内运行，助手通过网址连接，可以看着它在 Word 编辑器里逐步生成。需要 Lycero Office 保持打开；目前只支持 Word。',
     intgMcpHttpAdvanced: '高级：其他地址与日志',
-    intgMcpTryNote: '助手会通过 MCP 调用 Lycero Office，你不需要输入任何命令。',
     intgMcpClaudeTitle: 'Claude Code',
     intgMcpClaudeDesc: '在终端运行一次：',
     intgMcpOtherTitle: 'Cursor、Claude Desktop 或其他支持 MCP 的助手',
     intgMcpOtherDesc:
       '把这段加进它的 MCP 服务器配置（一个 JSON 文件，或设置里的「添加 MCP 服务器」）：',
     intgMcpNote: 'skill 和 MCP 可以同时存在，助手会自己选用；两者做的事完全一样。',
-    intgCliTitle: '高级：命令行 genoffice',
-    intgCliReady: 'genoffice {v} · 已可在终端直接使用（{path}）',
+    intgCliTitle: '高级：命令行 lycero-office',
+    intgCliReady: 'lycero-office {v} · 已可在终端直接使用（{path}）',
     intgCliNotOnPath:
-      'genoffice {v} · 尚未加入终端 PATH。助手仍能通过 ~/.lycero-office/launcher 找到它，skill 不受影响。若想自己在终端输入 genoffice，运行一次：',
+      'lycero-office {v} · 尚未加入终端 PATH。助手仍能通过 ~/.lycero-office/launcher 找到它，skill 不受影响。若想自己在终端输入 lycero-office，运行一次：',
     intgCliLauncher: '启动器目录',
     intgStateOutdated: '已安装 {v}，可更新到 {next}',
     intgStateModified: '已安装 {v}（已被修改）',
@@ -365,6 +375,8 @@ export const strings = {
     setAiProvider: '模型服务商',
     setAiModelId: '模型',
     setAiModelSearch: '搜索模型…',
+    setAiThinking: '思考强度',
+    setAiThinkingDefault: '跟随模型默认',
     setAiApiKey: 'API Key',
     setAiKeyHint: '密钥仅保存在本机。',
     setAiBaseUrl: 'Base URL',
@@ -464,6 +476,7 @@ export const strings = {
     intgSkillsRead: '详情',
     intgSkillsMine: '我的技能',
     intgSkillsRecommended: '推荐',
+    intgSkillsCatAll: '全部',
     intgSkillsCatOffice: '办公',
     intgSkillsCatBusiness: '商务',
     intgSkillsCatData: '数据',
@@ -593,7 +606,7 @@ export const strings = {
     helpAboutSubtitle: '专业办公套件',
     helpAboutIdentity: '产品标识',
     helpAboutLicenseTitle: '开源许可证',
-    helpAboutLicenseBody: 'Lycero Office 构建于 GenOffice（Apache-2.0），版权归属 Mainfunc, Inc. 所有。',
+    helpAboutLicenseBody: 'Lycero Office 构建于 Lycero Office（Apache-2.0），版权归属 Mainfunc, Inc. 所有。',
     helpNotices: '第三方声明',
     helpNoticesTitle: '第三方开源组件',
     helpNoticesIntro: 'Lycero Office 使用以下开源组件：',
@@ -789,6 +802,9 @@ export const strings = {
     setAutoUpdateCheck: 'Check for updates automatically',
     setAutoUpdateCheckDesc:
       'When off, Lycero Office no longer checks for new versions at launch or in the background. You can still check from Help › Check for Updates.',
+    setSilentInstall: 'Install updates silently',
+    setSilentInstallDesc:
+      'When on, a new version found by the background check is downloaded quietly and installed when you quit Lycero Office; nothing interrupts you while you work. When off, an update prompt lets you decide when to update.',
     updateChannel: 'Update Channel',
     channelStable: 'Stable',
     channelBeta: 'Beta',
@@ -830,6 +846,9 @@ export const strings = {
     aiFontSizeXLarge: 'Extra large',
     aiFontSizeCustom: 'Custom',
     setAiSpellcheck: 'Spell check in AI chat',
+    setLegacyImportPrompt: 'Ask before converting legacy files',
+    setLegacyImportPromptDesc:
+      'Explain what carries over before opening .doc, .odt, .hwp, .ods or .odp files. When off, Save As opens right away.',
     setDefaultApp: 'Default app for Office documents',
     setDefaultAppDesc: 'Open .docx, .xlsx and .pptx files in Lycero Office when double-clicked.',
     setDefaultAppIs: 'Lycero Office is already the default.',
@@ -892,6 +911,12 @@ export const strings = {
     intgSkillVersion: 'skill {v}',
     intgStateMissing: 'Skill not installed',
     intgStateInstalled: 'Skill {v} installed · ready in your next chat',
+    intgLegacyTitle: 'Older skill copies',
+    intgLegacyDesc:
+      'Lycero Office used to write a copy into the folder of each tool. {n} of them are still there: the tool keeps reading them, so they never get the current skill.',
+    intgLegacyClean: 'Remove old copies',
+    intgLegacyCleaned: 'Removed {n} old copies, {k} edited by hand left in place.',
+    intgLegacyFailed: 'Could not remove the old copies: {msg}',
     intgOtherToggle: 'My assistant is not listed',
     intgOtherDesc:
       'Pick any one of these three ways. They all install the same skill, so there is no need to do more than one.',
@@ -904,13 +929,11 @@ export const strings = {
     intgCopy: 'Copy',
     intgStep2Title: 'Try it',
     intgStep2Desc: 'Open a new chat in your assistant and ask in plain words, for example:',
-    intgStep2DescBefore:
-      'Once installed, open a new chat in your assistant and ask in plain words, for example:',
     intgExample1: 'Turn ~/Downloads/report.md into a Word document',
     intgExample2: 'Make a 6-slide deck about our Q3 results',
     intgExample3: 'Convert budget.xlsx to PDF and open it in Lycero Office',
     intgStep2Note:
-      'The assistant runs the lycero-office command line itself; you never have to type it.',
+      'The assistant calls Lycero Office itself, through the command line or MCP; you never have to type a command.',
     intgCliPartTitle: 'CLI · command line + skill',
     intgCliPartDesc:
       'For assistants that can run terminal commands (Claude Code, Codex, Cursor and others). Once the skill is installed, the assistant calls the lycero-office command line itself to create, convert, read and edit files; you never type a command.',
@@ -924,7 +947,6 @@ export const strings = {
     intgMcpHttpDesc:
       'Runs inside Lycero Office; the assistant connects to a URL and you can watch it build the document step by step in the Word editor. Lycero Office must stay open; Word documents only for now.',
     intgMcpHttpAdvanced: 'Advanced: other endpoints and log',
-    intgMcpTryNote: 'The assistant calls Lycero Office through MCP; you never type a command.',
     intgMcpClaudeTitle: 'Claude Code',
     intgMcpClaudeDesc: 'Run this once in a terminal:',
     intgMcpOtherTitle: 'Cursor, Claude Desktop or any other MCP-capable assistant',
@@ -968,6 +990,8 @@ export const strings = {
     setAiProvider: 'Provider',
     setAiModelId: 'Model',
     setAiModelSearch: 'Search models…',
+    setAiThinking: 'Thinking effort',
+    setAiThinkingDefault: 'Model default',
     setAiApiKey: 'API Key',
     setAiKeyHint: 'Stored only on this device.',
     setAiBaseUrl: 'Base URL',
@@ -1070,6 +1094,7 @@ export const strings = {
     intgSkillsRead: 'Details',
     intgSkillsMine: 'My skills',
     intgSkillsRecommended: 'Recommended',
+    intgSkillsCatAll: 'All',
     intgSkillsCatOffice: 'Office',
     intgSkillsCatBusiness: 'Business',
     intgSkillsCatData: 'Data',
@@ -1202,7 +1227,7 @@ export const strings = {
     helpAboutSubtitle: 'Professional Office Suite',
     helpAboutIdentity: 'Product Identity',
     helpAboutLicenseTitle: 'Open Source License',
-    helpAboutLicenseBody: 'Lycero Office is built on GenOffice (Apache-2.0), copyright Mainfunc, Inc.',
+    helpAboutLicenseBody: 'Lycero Office is built on Lycero Office (Apache-2.0), copyright Mainfunc, Inc.',
     helpNotices: 'Third-party notices',
     helpNoticesTitle: 'Third-party open source components',
     helpNoticesIntro: 'Lycero Office uses the following open source components:',
@@ -1398,6 +1423,9 @@ export const strings = {
     setAutoUpdateCheck: 'Tự động kiểm tra cập nhật',
     setAutoUpdateCheckDesc:
       'Khi tắt, Lycero Office không còn kiểm tra phiên bản mới khi khởi động hoặc chạy nền. Bạn vẫn có thể kiểm tra trong Trợ giúp › Kiểm tra bản cập nhật.',
+    setSilentInstall: 'Cài đặt cập nhật âm thầm',
+    setSilentInstallDesc:
+      'Khi bật, phiên bản mới được phát hiện ở chế độ nền sẽ tự tải âm thầm và cài khi bạn thoát Lycero Office; không làm gián đoạn khi bạn đang làm việc. Khi tắt, một lời nhắc cập nhật sẽ hiện để bạn tự quyết định.',
     updateChannel: 'Kênh cập nhật',
     channelStable: 'Ổn định',
     channelBeta: 'Beta',
@@ -1439,6 +1467,9 @@ export const strings = {
     aiFontSizeXLarge: 'Rất lớn',
     aiFontSizeCustom: 'Tùy chỉnh',
     setAiSpellcheck: 'Kiểm tra chính tả trong trò chuyện AI',
+    setLegacyImportPrompt: 'Hỏi trước khi chuyển đổi tệp cũ',
+    setLegacyImportPromptDesc:
+      'Giải thích nội dung được giữ lại trước khi mở tệp .doc, .odt, .hwp, .ods hoặc .odp. Khi tắt, hộp thoại Lưu dưới dạng mở ngay.',
     setDefaultApp: 'Ứng dụng mặc định cho tài liệu Office',
     setDefaultAppDesc: 'Mở các tệp .docx, .xlsx và .pptx bằng Lycero Office khi bấm đúp.',
     setDefaultAppIs: 'Lycero Office đã là ứng dụng mặc định.',
@@ -1501,6 +1532,12 @@ export const strings = {
     intgSkillVersion: 'kỹ năng {v}',
     intgStateMissing: 'Chưa cài đặt kỹ năng',
     intgStateInstalled: 'Đã cài đặt kỹ năng {v} · sẵn sàng cho cuộc trò chuyện tiếp theo của bạn',
+    intgLegacyTitle: 'Bản sao skill cũ',
+    intgLegacyDesc:
+      'Trước đây Lycero Office ghi một bản sao vào thư mục riêng của từng công cụ. Còn {n} bản vẫn nằm đó: công cụ vẫn đọc chúng, nên chúng không bao giờ có bản skill hiện hành.',
+    intgLegacyClean: 'Xóa bản sao cũ',
+    intgLegacyCleaned: 'Đã xóa {n} bản sao cũ, giữ lại {k} bản đã sửa tay.',
+    intgLegacyFailed: 'Không xóa được bản sao cũ: {msg}',
     intgOtherToggle: 'Trợ lý của tôi không có trong danh sách',
     intgOtherDesc:
       'Chọn bất kỳ cách nào trong ba cách này. Tất cả đều cài đặt cùng một kỹ năng, vì vậy không cần làm nhiều hơn một cách.',
@@ -1514,12 +1551,11 @@ export const strings = {
     intgStep2Title: 'Dùng thử',
     intgStep2Desc:
       'Mở một cuộc trò chuyện mới trong trợ lý của bạn và hỏi bằng ngôn ngữ tự nhiên, ví dụ:',
-    intgStep2DescBefore:
-      'Sau khi cài đặt, hãy mở một cuộc trò chuyện mới trong trợ lý của bạn và hỏi bằng ngôn ngữ tự nhiên, ví dụ:',
     intgExample1: 'Chuyển đổi ~/Downloads/report.md thành tài liệu Word',
     intgExample2: 'Tạo bài thuyết trình 6 trang trình bày về kết quả quý 3 của chúng tôi',
     intgExample3: 'Chuyển đổi budget.xlsx sang PDF và mở trong Lycero Office',
-    intgStep2Note: 'Trợ lý tự chạy dòng lệnh lycero-office; bạn không bao giờ phải nhập lệnh.',
+    intgStep2Note:
+      'Trợ lý tự gọi Lycero Office qua dòng lệnh hoặc MCP; bạn không bao giờ phải nhập lệnh.',
     intgCliPartTitle: 'CLI · dòng lệnh + kỹ năng',
     intgCliPartDesc:
       'Dành cho các trợ lý có thể chạy lệnh terminal (Claude Code, Codex, Cursor và các trợ lý khác). Khi kỹ năng đã được cài đặt, trợ lý sẽ tự gọi dòng lệnh lycero-office để tạo, chuyển đổi, đọc và chỉnh sửa tệp; bạn không cần nhập lệnh.',
@@ -1533,7 +1569,6 @@ export const strings = {
     intgMcpHttpDesc:
       'Chạy bên trong Lycero Office; trợ lý kết nối với một URL và bạn có thể theo dõi nó tạo tài liệu từng bước trong trình chỉnh sửa Word. Lycero Office phải luôn mở; hiện tại chỉ hỗ trợ tài liệu Word.',
     intgMcpHttpAdvanced: 'Nâng cao: các điểm cuối khác và nhật ký',
-    intgMcpTryNote: 'Trợ lý gọi Lycero Office thông qua MCP; bạn không bao giờ phải nhập lệnh.',
     intgMcpClaudeTitle: 'Claude Code',
     intgMcpClaudeDesc: 'Chạy lệnh này một lần trong terminal:',
     intgMcpOtherTitle: 'Cursor, Claude Desktop hoặc bất kỳ trợ lý hỗ trợ MCP nào khác',
@@ -1579,6 +1614,8 @@ export const strings = {
     setAiProvider: 'Nhà cung cấp',
     setAiModelId: 'Mô hình',
     setAiModelSearch: 'Tìm mô hình…',
+    setAiThinking: 'Mức suy luận',
+    setAiThinkingDefault: 'Mặc định của mô hình',
     setAiApiKey: 'Khóa API',
     setAiKeyHint: 'Chỉ được lưu trữ trên thiết bị này.',
     setAiBaseUrl: 'URL cơ sở',
@@ -1682,6 +1719,7 @@ export const strings = {
     intgSkillsRead: 'Chi tiết',
     intgSkillsMine: 'Kỹ năng của tôi',
     intgSkillsRecommended: 'Đề xuất',
+    intgSkillsCatAll: 'Tất cả',
     intgSkillsCatOffice: 'Văn phòng',
     intgSkillsCatBusiness: 'Kinh doanh',
     intgSkillsCatData: 'Dữ liệu',
@@ -1814,7 +1852,7 @@ export const strings = {
     helpAboutSubtitle: 'Bộ ứng dụng văn phòng chuyên nghiệp',
     helpAboutIdentity: 'Nhận dạng sản phẩm',
     helpAboutLicenseTitle: 'Giấy phép nguồn mở',
-    helpAboutLicenseBody: 'Lycero Office được xây dựng trên GenOffice (Apache-2.0), bản quyền Mainfunc, Inc.',
+    helpAboutLicenseBody: 'Lycero Office được xây dựng trên Lycero Office (Apache-2.0), bản quyền Mainfunc, Inc.',
     helpNotices: 'Thông báo của bên thứ ba',
     helpNoticesTitle: 'Thành phần nguồn mở của bên thứ ba',
     helpNoticesIntro: 'Lycero Office sử dụng các thành phần nguồn mở sau:',
@@ -2011,6 +2049,9 @@ export const strings = {
     setAutoUpdateCheck: 'Güncellemeleri otomatik denetle',
     setAutoUpdateCheckDesc:
       'Kapalıyken Lycero Office açılışta veya arka planda yeni sürümleri denetlemez. Yardım › Güncellemeleri Denetle üzerinden yine de denetleyebilirsiniz.',
+    setSilentInstall: 'Güncellemeleri sessizce yükle',
+    setSilentInstallDesc:
+      'Açıkken arka plan denetiminin bulduğu yeni sürüm sessizce indirilir ve Lycero Office’ten çıkarken yüklenir; çalışırken hiçbir şey sizi kesmez. Kapalıyken bir güncelleme bildirimi ne zaman güncelleyeceğinize karar vermenizi sağlar.',
     updateChannel: 'Güncelleme Kanalı',
     channelStable: 'Kararlı',
     channelBeta: 'Beta',
@@ -2052,6 +2093,9 @@ export const strings = {
     aiFontSizeXLarge: 'Çok büyük',
     aiFontSizeCustom: 'Özel',
     setAiSpellcheck: 'AI sohbetinde yazım denetimi',
+    setLegacyImportPrompt: 'Eski dosyaları dönüştürmeden önce sor',
+    setLegacyImportPromptDesc:
+      '.doc, .odt, .hwp, .ods veya .odp dosyalarını açmadan önce nelerin aktarılacağını açıklar. Kapalıyken doğrudan Farklı Kaydet açılır.',
     setDefaultApp: 'Office belgeleri için varsayılan uygulama',
     setDefaultAppDesc: '.docx, .xlsx ve .pptx dosyalarını çift tıklandığında Lycero Office ile açar.',
     setDefaultAppIs: 'Lycero Office zaten varsayılan.',
@@ -2114,6 +2158,12 @@ export const strings = {
     intgSkillVersion: 'beceri {v}',
     intgStateMissing: 'Beceri yüklü değil',
     intgStateInstalled: 'Beceri {v} yüklü · bir sonraki sohbetinizde hazır',
+    intgLegacyTitle: 'Eski skill kopyaları',
+    intgLegacyDesc:
+      'Lycero Office eskiden her aracın kendi klasörüne bir kopya yazıyordu. Hâlâ orada {n} tane var: araç bunları okumaya devam ediyor, bu yüzden hiçbir zaman güncel skilli göremiyor.',
+    intgLegacyClean: 'Eski kopyaları kaldır',
+    intgLegacyCleaned: '{n} eski kopya kaldırıldı, elle düzenlenen {k} tanesi yerinde bırakıldı.',
+    intgLegacyFailed: 'Eski kopyalar kaldırılamadı: {msg}',
     intgOtherToggle: 'Asistanım listede yok',
     intgOtherDesc:
       'Bu üç yoldan herhangi birini seçin. Hepsi aynı beceriyi yükler, bu yüzden birden fazlasını yapmanıza gerek yok.',
@@ -2126,27 +2176,24 @@ export const strings = {
     intgCopy: 'Kopyala',
     intgStep2Title: 'Deneyin',
     intgStep2Desc: 'Asistanınızda yeni bir sohbet açın ve düz sözcüklerle isteyin, örneğin:',
-    intgStep2DescBefore:
-      'Yükledikten sonra asistanınızda yeni bir sohbet açın ve düz sözcüklerle isteyin, örneğin:',
     intgExample1: '~/Downloads/report.md dosyasını Word belgesine dönüştür',
     intgExample2: '3. çeyrek sonuçlarımız hakkında 6 slaytlık bir sunu hazırla',
     intgExample3: 'budget.xlsx dosyasını PDF’e dönüştür ve Lycero Office’te aç',
     intgStep2Note:
-      'genoffice komut satırını asistan kendisi çalıştırır; sizin yazmanız hiç gerekmez.',
+      'Asistan Lycero Office’i komut satırı veya MCP üzerinden kendisi çağırır; sizin yazmanız hiç gerekmez.',
     intgCliPartTitle: 'CLI · komut satırı + beceri',
     intgCliPartDesc:
-      'Terminal komutları çalıştırabilen asistanlar için (Claude Code, Codex, Cursor ve diğerleri). Beceri yüklendikten sonra asistan, dosya oluşturmak, dönüştürmek, okumak ve düzenlemek için genoffice komut satırını kendisi çağırır; siz hiç komut yazmazsınız.',
+      'Terminal komutları çalıştırabilen asistanlar için (Claude Code, Codex, Cursor ve diğerleri). Beceri yüklendikten sonra asistan, dosya oluşturmak, dönüştürmek, okumak ve düzenlemek için lycero-office komut satırını kendisi çağırır; siz hiç komut yazmazsınız.',
     intgMcpPartTitle: 'MCP',
     intgMcpPartDesc:
       'MCP, AI asistanlarının harici araçları çağırmak için kullandığı ortak protokoldür. Asistanınız komut çalıştıramıyorsa (örneğin Claude Desktop) ya da Lycero Office penceresini doğrudan yönetmesini istiyorsanız kullanın. Aşağıdaki iki yoldan birini seçin.',
     intgMcpStdioTitle: 'Asistan tarafından başlatılır (önerilen)',
     intgMcpStdioDesc:
-      'Asistan genoffice mcp’yi kendisi başlatır: burada açılacak bir şey yoktur ve Lycero Office’in açık olması gerekmez. CLI ile aynı özellikler.',
+      'Asistan lycero-office mcp’yi kendisi başlatır: burada açılacak bir şey yoktur ve Lycero Office’in açık olması gerekmez. CLI ile aynı özellikler.',
     intgMcpHttpTitle: 'Yerel HTTP sunucusu',
     intgMcpHttpDesc:
       'Lycero Office içinde çalışır; asistan bir URL’ye bağlanır ve belgeyi Word düzenleyicisinde adım adım oluşturmasını izleyebilirsiniz. Lycero Office açık kalmalıdır; şimdilik yalnızca Word belgeleri.',
     intgMcpHttpAdvanced: 'Gelişmiş: diğer uç noktalar ve günlük',
-    intgMcpTryNote: 'Asistan Lycero Office’i MCP üzerinden çağırır; siz hiç komut yazmazsınız.',
     intgMcpClaudeTitle: 'Claude Code',
     intgMcpClaudeDesc: 'Bunu bir terminalde bir kez çalıştırın:',
     intgMcpOtherTitle: 'Cursor, Claude Desktop veya MCP destekli başka bir asistan',
@@ -2154,10 +2201,10 @@ export const strings = {
       'Bunu MCP sunucu ayarlarına ekleyin (bir JSON dosyası ya da ayarlarındaki "MCP sunucusu ekle"):',
     intgMcpNote:
       'Beceri ve MCP yan yana kurulabilir; asistan birini seçer. İkisi de tamamen aynı şeyleri yapar.',
-    intgCliTitle: 'Gelişmiş: genoffice komut satırı',
-    intgCliReady: 'genoffice {v} · terminalinizde hazır ({path})',
+    intgCliTitle: 'Gelişmiş: lycero-office komut satırı',
+    intgCliReady: 'lycero-office {v} · terminalinizde hazır ({path})',
     intgCliNotOnPath:
-      'genoffice {v} · terminalinizin PATH’inde değil. Asistanlar onu yine de ~/.lycero-office/launcher üzerinden bulur, bu yüzden beceri çalışır. genoffice’i kendiniz yazmak için bunu bir kez çalıştırın:',
+      'lycero-office {v} · terminalinizin PATH’inde değil. Asistanlar onu yine de ~/.lycero-office/launcher üzerinden bulur, bu yüzden beceri çalışır. lycero-office’i kendiniz yazmak için bunu bir kez çalıştırın:',
     intgCliLauncher: 'Başlatıcı klasörü',
     intgStateOutdated: '{v} yüklü, {next} sürümüne güncelleme mevcut',
     intgStateModified: '{v} yüklü (değiştirilmiş)',
@@ -2192,6 +2239,8 @@ export const strings = {
     setAiProvider: 'Sağlayıcı',
     setAiModelId: 'Model',
     setAiModelSearch: 'Model ara…',
+    setAiThinking: 'Düşünma çabası',
+    setAiThinkingDefault: 'Model varsayılanı',
     setAiApiKey: 'API Anahtarı',
     setAiKeyHint: 'Yalnızca bu cihazda saklanır.',
     setAiBaseUrl: 'Temel URL',
@@ -2297,6 +2346,7 @@ export const strings = {
     intgSkillsRead: 'Ayrıntılar',
     intgSkillsMine: 'Becerilerim',
     intgSkillsRecommended: 'Önerilen',
+    intgSkillsCatAll: 'Tümü',
     intgSkillsCatOffice: 'Ofis',
     intgSkillsCatBusiness: 'İş',
     intgSkillsCatData: 'Veri',
@@ -2430,7 +2480,7 @@ export const strings = {
     helpAboutSubtitle: 'Professional Office Suite',
     helpAboutIdentity: 'Product Identity',
     helpAboutLicenseTitle: 'Open Source License',
-    helpAboutLicenseBody: 'Lycero Office is built on GenOffice (Apache-2.0), copyright Mainfunc, Inc.',
+    helpAboutLicenseBody: 'Lycero Office is built on Lycero Office (Apache-2.0), copyright Mainfunc, Inc.',
     helpNotices: 'Third-party notices',
     helpNoticesTitle: 'Third-party open source components',
     helpNoticesIntro: 'Lycero Office uses the following open source components:',
@@ -2637,6 +2687,9 @@ export const strings = {
     setAutoUpdateCheck: 'アップデートを自動で確認',
     setAutoUpdateCheckDesc:
       'オフにすると、起動時やバックグラウンドで新しいバージョンを確認しなくなります。「ヘルプ › 更新を確認」から手動で確認できます。',
+    setSilentInstall: 'アップデートをサイレントインストール',
+    setSilentInstallDesc:
+      'オンにすると、バックグラウンドで見つかった新バージョンをサイレントにダウンロードし、Lycero Office の終了時にインストールします。作業中に中断や再起動はありません。オフの場合は更新の案内が表示され、更新のタイミングを自分で決められます。',
     updateChannel: '更新チャネル',
     channelStable: '安定版',
     channelBeta: 'ベータ版',
@@ -2678,6 +2731,9 @@ export const strings = {
     aiFontSizeXLarge: '特大',
     aiFontSizeCustom: 'カスタム',
     setAiSpellcheck: 'AI チャットのスペルチェック',
+    setLegacyImportPrompt: '旧形式ファイルの変換前に確認する',
+    setLegacyImportPromptDesc:
+      '.doc、.odt、.hwp、.ods、.odp を開く前に、引き継がれる内容を説明します。オフにすると直接「名前を付けて保存」が開きます。',
     setDefaultApp: 'Office 文書の既定のアプリ',
     setDefaultAppDesc:
       '.docx、.xlsx、.pptx ファイルをダブルクリックしたとき Lycero Office で開きます。',
@@ -2741,6 +2797,13 @@ export const strings = {
     intgSkillVersion: 'スキル {v}',
     intgStateMissing: 'スキル未インストール',
     intgStateInstalled: 'スキル {v} をインストール済み · 次のチャットから使えます',
+    intgLegacyTitle: '古い skill のコピー',
+    intgLegacyDesc:
+      'Lycero Office はかつて各ツールのフォルダーごとにコピーを書き込んでいました。まだ {n} 個残っています:ツールはそれらを読み続けるため、現在の skill に更新されません。',
+    intgLegacyClean: '古いコピーを削除',
+    intgLegacyCleaned:
+      '古いコピーを {n} 個削除しました。手動で編集した {k} 個はそのまま残しました。',
+    intgLegacyFailed: '古いコピーを削除できませんでした: {msg}',
     intgOtherToggle: '使っているアシスタントが一覧にない',
     intgOtherDesc:
       '次の 3 つの方法からどれか 1 つを選んでください。どれも同じスキルをインストールするので、複数行う必要はありません。',
@@ -2753,28 +2816,24 @@ export const strings = {
     intgCopy: 'コピー',
     intgStep2Title: '試してみる',
     intgStep2Desc: 'アシスタントで新しいチャットを開き、普通の言葉で頼んでください。例：',
-    intgStep2DescBefore:
-      'インストール後、アシスタントで新しいチャットを開き、普通の言葉で頼んでください。例：',
     intgExample1: '~/Downloads/report.md を Word 文書にして',
     intgExample2: '第 3 四半期の業績について 6 枚のスライドを作って',
     intgExample3: 'budget.xlsx を PDF に変換して Lycero Office で開いて',
     intgStep2Note:
-      'genoffice コマンドラインはアシスタントが自分で実行します。あなたが入力する必要はありません。',
+      'アシスタントがコマンドラインまたは MCP 経由で Lycero Office を自分で呼び出します。あなたが入力する必要はありません。',
     intgCliPartTitle: 'CLI · コマンドライン + skill',
     intgCliPartDesc:
-      'ターミナルコマンドを実行できるアシスタント（Claude Code、Codex、Cursor など）向け。skill をインストールすると、アシスタントが自分で genoffice コマンドラインを呼び出してファイルを作成・変換・読み取り・編集します。コマンドを入力する必要はありません。',
+      'ターミナルコマンドを実行できるアシスタント（Claude Code、Codex、Cursor など）向け。skill をインストールすると、アシスタントが自分で lycero-office コマンドラインを呼び出してファイルを作成・変換・読み取り・編集します。コマンドを入力する必要はありません。',
     intgMcpPartTitle: 'MCP',
     intgMcpPartDesc:
       'MCP は AI アシスタントが外部ツールを呼び出すための共通プロトコルです。アシスタントがコマンドを実行できない場合（Claude Desktop など）や、Lycero Office のウィンドウを直接操作させたい場合に使います。下の 2 つの方法からどちらか 1 つを選んでください。',
     intgMcpStdioTitle: 'アシスタントが起動する（推奨）',
     intgMcpStdioDesc:
-      'アシスタントが genoffice mcp を自分で起動します。ここで何かをオンにする必要はなく、Lycero Office を開いておく必要もありません。機能は CLI と同じです。',
+      'アシスタントが lycero-office mcp を自分で起動します。ここで何かをオンにする必要はなく、Lycero Office を開いておく必要もありません。機能は CLI と同じです。',
     intgMcpHttpTitle: 'ローカル HTTP サーバー',
     intgMcpHttpDesc:
       'Lycero Office 内で動作し、アシスタントは URL で接続します。Word エディター上で文書が段階的に生成される様子を見られます。Lycero Office を開いたままにする必要があり、現時点では Word のみ対応です。',
     intgMcpHttpAdvanced: '詳細：その他のエンドポイントとログ',
-    intgMcpTryNote:
-      'アシスタントが MCP 経由で Lycero Office を呼び出します。コマンドを入力する必要はありません。',
     intgMcpClaudeTitle: 'Claude Code',
     intgMcpClaudeDesc: 'ターミナルで一度だけ実行します：',
     intgMcpOtherTitle: 'Cursor、Claude Desktop、その他 MCP 対応のアシスタント',
@@ -2782,10 +2841,10 @@ export const strings = {
       'これを MCP サーバー設定（JSON ファイル、または設定の「MCP サーバーを追加」）に追加します：',
     intgMcpNote:
       'スキルと MCP は併用できます。アシスタントがどちらかを選びます。両者の機能はまったく同じです。',
-    intgCliTitle: '上級：コマンドライン genoffice',
-    intgCliReady: 'genoffice {v} · ターミナルで使えます（{path}）',
+    intgCliTitle: '上級：コマンドライン lycero-office',
+    intgCliReady: 'lycero-office {v} · ターミナルで使えます（{path}）',
     intgCliNotOnPath:
-      'genoffice {v} · ターミナルの PATH にありません。アシスタントは ~/.lycero-office/launcher 経由で見つけられるため、スキルは動作します。自分で genoffice を入力したい場合は一度だけ次を実行：',
+      'lycero-office {v} · ターミナルの PATH にありません。アシスタントは ~/.lycero-office/launcher 経由で見つけられるため、スキルは動作します。自分で lycero-office を入力したい場合は一度だけ次を実行：',
     intgCliLauncher: 'ランチャーフォルダー',
     intgStateOutdated: 'インストール済み {v}、{next} に更新できます',
     intgStateModified: 'インストール済み {v}（変更されています）',
@@ -2820,6 +2879,8 @@ export const strings = {
     setAiProvider: 'プロバイダー',
     setAiModelId: 'モデル',
     setAiModelSearch: 'モデルを検索…',
+    setAiThinking: '思考の強さ',
+    setAiThinkingDefault: 'モデルのデフォルト',
     setAiApiKey: 'APIキー',
     setAiKeyHint: 'キーはこの端末にのみ保存されます。',
     setAiBaseUrl: 'Base URL',
@@ -2924,6 +2985,7 @@ export const strings = {
     intgSkillsRead: '詳細',
     intgSkillsMine: 'マイスキル',
     intgSkillsRecommended: 'おすすめ',
+    intgSkillsCatAll: 'すべて',
     intgSkillsCatOffice: 'オフィス',
     intgSkillsCatBusiness: 'ビジネス',
     intgSkillsCatData: 'データ',
@@ -3055,7 +3117,7 @@ export const strings = {
     helpAboutSubtitle: 'プロフェッショナルオフィススイート',
     helpAboutIdentity: '製品情報',
     helpAboutLicenseTitle: 'オープンソースライセンス',
-    helpAboutLicenseBody: 'Lycero Office は GenOffice (Apache-2.0) をベースにしています。Copyright Mainfunc, Inc.',
+    helpAboutLicenseBody: 'Lycero Office は Lycero Office (Apache-2.0) をベースにしています。Copyright Mainfunc, Inc.',
     helpNotices: 'サードパーティ的通知',
     helpNoticesTitle: 'サードパーティのオープンソースコンポーネント',
     helpNoticesIntro: 'Lycero Office は以下のオープンソースコンポーネントを使用しています：',
@@ -3258,6 +3320,9 @@ export const strings = {
     setAutoUpdateCheck: '자동으로 업데이트 확인',
     setAutoUpdateCheckDesc:
       '끄면 실행 시나 백그라운드에서 새 버전을 확인하지 않습니다. 도움말 › 업데이트 확인에서 직접 확인할 수 있습니다.',
+    setSilentInstall: '업데이트 자동 설치',
+    setSilentInstallDesc:
+      '켜면 백그라운드 검사에서 발견된 새 버전을 조용히 다운로드하고 Lycero Office를 종료할 때 설치합니다. 작업 중에는 방해하거나 다시 시작하지 않습니다. 끄면 업데이트 알림이 표시되어 직접 시점을 정할 수 있습니다.',
     updateChannel: '업데이트 채널',
     channelStable: '안정 버전',
     channelBeta: '베타 버전',
@@ -3298,6 +3363,9 @@ export const strings = {
     aiFontSizeXLarge: '더 크게',
     aiFontSizeCustom: '사용자 지정',
     setAiSpellcheck: 'AI 채팅 맞춤법 검사',
+    setLegacyImportPrompt: '이전 형식 파일 변환 전 확인',
+    setLegacyImportPromptDesc:
+      '.doc, .odt, .hwp, .ods, .odp 파일을 열기 전에 어떤 내용이 유지되는지 안내합니다. 끄면 바로 다른 이름으로 저장이 열립니다.',
     setDefaultApp: 'Office 문서 기본 앱',
     setDefaultAppDesc: '.docx, .xlsx, .pptx 파일을 두 번 클릭하면 Lycero Office로 엽니다.',
     setDefaultAppIs: 'Lycero Office가 이미 기본 앱입니다.',
@@ -3359,6 +3427,12 @@ export const strings = {
     intgSkillVersion: '스킬 {v}',
     intgStateMissing: '스킬 미설치',
     intgStateInstalled: '스킬 {v} 설치됨 · 다음 대화부터 사용 가능',
+    intgLegacyTitle: '오래된 skill 사본',
+    intgLegacyDesc:
+      'Lycero Office는 예전에 각 도구 폴더마다 사본을 썼습니다. 아직 {n}개가 남아 있습니다: 도구가 계속 읽기 때문에 현재 skill로 갱신되지 않습니다.',
+    intgLegacyClean: '오래된 사본 삭제',
+    intgLegacyCleaned: '오래된 사본 {n}개를 삭제했고, 직접 수정한 {k}개는 그대로 두었습니다.',
+    intgLegacyFailed: '오래된 사본을 삭제하지 못했습니다: {msg}',
     intgOtherToggle: '내 어시스턴트가 목록에 없음',
     intgOtherDesc:
       '다음 세 가지 방법 중 하나만 선택하세요. 모두 같은 스킬을 설치하므로 여러 번 할 필요가 없습니다.',
@@ -3371,27 +3445,24 @@ export const strings = {
     intgCopy: '복사',
     intgStep2Title: '사용해 보기',
     intgStep2Desc: '어시스턴트에서 새 대화를 열고 평소 말투로 요청하세요. 예:',
-    intgStep2DescBefore: '설치 후 어시스턴트에서 새 대화를 열고 평소 말투로 요청하세요. 예:',
     intgExample1: '~/Downloads/report.md를 Word 문서로 만들어 줘',
     intgExample2: '3분기 실적을 소개하는 6장짜리 슬라이드를 만들어 줘',
     intgExample3: 'budget.xlsx를 PDF로 변환해서 Lycero Office에서 열어 줘',
     intgStep2Note:
-      'genoffice 명령줄은 어시스턴트가 직접 실행하므로 여러분이 입력할 필요가 없습니다.',
+      '어시스턴트가 명령줄 또는 MCP를 통해 Lycero Office를 직접 호출하므로 여러분이 입력할 필요가 없습니다.',
     intgCliPartTitle: 'CLI · 명령줄 + skill',
     intgCliPartDesc:
-      '터미널 명령을 실행할 수 있는 어시스턴트(Claude Code, Codex, Cursor 등)용입니다. skill을 설치하면 어시스턴트가 스스로 genoffice 명령줄을 호출해 파일을 만들고 변환하고 읽고 편집합니다. 명령을 직접 입력할 필요가 없습니다.',
+      '터미널 명령을 실행할 수 있는 어시스턴트(Claude Code, Codex, Cursor 등)용입니다. skill을 설치하면 어시스턴트가 스스로 lycero-office 명령줄을 호출해 파일을 만들고 변환하고 읽고 편집합니다. 명령을 직접 입력할 필요가 없습니다.',
     intgMcpPartTitle: 'MCP',
     intgMcpPartDesc:
       'MCP는 AI 어시스턴트가 외부 도구를 호출하는 공통 프로토콜입니다. 어시스턴트가 명령을 실행할 수 없거나(예: Claude Desktop) Lycero Office 창을 직접 조작하게 하려면 이 방식을 사용하세요. 아래 두 방법 중 하나를 선택하면 됩니다.',
     intgMcpStdioTitle: '어시스턴트가 실행(권장)',
     intgMcpStdioDesc:
-      '어시스턴트가 genoffice mcp를 직접 실행합니다. 여기서 켤 것이 없고 Lycero Office가 열려 있을 필요도 없습니다. 기능은 CLI와 같습니다.',
+      '어시스턴트가 lycero-office mcp를 직접 실행합니다. 여기서 켤 것이 없고 Lycero Office가 열려 있을 필요도 없습니다. 기능은 CLI와 같습니다.',
     intgMcpHttpTitle: '로컬 HTTP 서버',
     intgMcpHttpDesc:
       'Lycero Office 안에서 실행되며 어시스턴트가 URL로 연결합니다. Word 편집기에서 문서가 단계별로 만들어지는 과정을 볼 수 있습니다. Lycero Office를 열어 두어야 하며 현재는 Word만 지원합니다.',
     intgMcpHttpAdvanced: '고급: 기타 주소와 로그',
-    intgMcpTryNote:
-      '어시스턴트가 MCP를 통해 Lycero Office를 호출합니다. 명령을 직접 입력할 필요가 없습니다.',
     intgMcpClaudeTitle: 'Claude Code',
     intgMcpClaudeDesc: '터미널에서 한 번만 실행하세요:',
     intgMcpOtherTitle: 'Cursor, Claude Desktop 또는 MCP를 지원하는 다른 어시스턴트',
@@ -3399,10 +3470,10 @@ export const strings = {
       '이 내용을 해당 어시스턴트의 MCP 서버 설정(JSON 파일 또는 설정의 "MCP 서버 추가")에 추가하세요:',
     intgMcpNote:
       '스킬과 MCP는 함께 설정할 수 있으며 어시스턴트가 하나를 선택합니다. 두 방식이 하는 일은 완전히 같습니다.',
-    intgCliTitle: '고급: 명령줄 genoffice',
-    intgCliReady: 'genoffice {v} · 터미널에서 바로 사용 가능({path})',
+    intgCliTitle: '고급: 명령줄 lycero-office',
+    intgCliReady: 'lycero-office {v} · 터미널에서 바로 사용 가능({path})',
     intgCliNotOnPath:
-      'genoffice {v} · 터미널 PATH에 없습니다. 어시스턴트는 ~/.lycero-office/launcher로 찾을 수 있어 스킬은 정상 작동합니다. 직접 genoffice를 입력하려면 한 번만 실행:',
+      'lycero-office {v} · 터미널 PATH에 없습니다. 어시스턴트는 ~/.lycero-office/launcher로 찾을 수 있어 스킬은 정상 작동합니다. 직접 lycero-office를 입력하려면 한 번만 실행:',
     intgCliLauncher: '런처 폴더',
     intgStateOutdated: '설치됨 {v}, {next}(으)로 업데이트 가능',
     intgStateModified: '설치됨 {v} (수정됨)',
@@ -3435,6 +3506,8 @@ export const strings = {
     setAiProvider: '제공업체',
     setAiModelId: '모델',
     setAiModelSearch: '모델 검색…',
+    setAiThinking: '사고 강도',
+    setAiThinkingDefault: '모델 기본값',
     setAiApiKey: 'API 키',
     setAiKeyHint: '키는 이 기기에만 저장됩니다.',
     setAiBaseUrl: 'Base URL',
@@ -3539,6 +3612,7 @@ export const strings = {
     intgSkillsRead: '상세',
     intgSkillsMine: '내 스킬',
     intgSkillsRecommended: '추천',
+    intgSkillsCatAll: '전체',
     intgSkillsCatOffice: '사무',
     intgSkillsCatBusiness: '비즈니스',
     intgSkillsCatData: '데이터',
@@ -3670,7 +3744,7 @@ export const strings = {
     helpAboutSubtitle: '전문 오피스 스위트',
     helpAboutIdentity: '제품 정체성',
     helpAboutLicenseTitle: '오픈 소스 라이선스',
-    helpAboutLicenseBody: 'Lycero Office는 GenOffice (Apache-2.0), copyright Mainfunc, Inc.를 기반으로 합니다.',
+    helpAboutLicenseBody: 'Lycero Office는 Lycero Office (Apache-2.0), copyright Mainfunc, Inc.를 기반으로 합니다.',
     helpNotices: '제3자 고지',
     helpNoticesTitle: '제3자 오픈 소스 구성 요소',
     helpNoticesIntro: 'Lycero Office는 다음 오픈 소스 구성 요소를 사용합니다:',
@@ -3880,6 +3954,9 @@ export const strings = {
     setAutoUpdateCheck: 'Rechercher automatiquement les mises à jour',
     setAutoUpdateCheckDesc:
       'Désactivé, Lycero Office ne recherche plus de nouvelle version au démarrage ni en arrière-plan. Vous pouvez toujours vérifier via Aide › Rechercher des mises à jour.',
+    setSilentInstall: 'Installer les mises à jour silencieusement',
+    setSilentInstallDesc:
+      'Si activé, une nouvelle version détectée en arrière-plan est téléchargée silencieusement et installée à la fermeture de Lycero Office ; rien ne vous interrompt pendant le travail. Sinon, une invite de mise à jour vous laisse choisir le moment.',
     updateChannel: 'Canal de mise à jour',
     channelStable: 'Stable',
     channelBeta: 'Bêta',
@@ -3921,6 +3998,9 @@ export const strings = {
     aiFontSizeXLarge: 'Très grande',
     aiFontSizeCustom: 'Personnalisé',
     setAiSpellcheck: 'Correction orthographique dans le chat IA',
+    setLegacyImportPrompt: 'Demander avant de convertir les anciens fichiers',
+    setLegacyImportPromptDesc:
+      'Explique ce qui est conservé avant d’ouvrir un fichier .doc, .odt, .hwp, .ods ou .odp. Désactivé, Enregistrer sous s’ouvre directement.',
     setDefaultApp: 'Application par défaut pour les documents Office',
     setDefaultAppDesc: 'Ouvrir les fichiers .docx, .xlsx et .pptx dans Lycero Office par double-clic.',
     setDefaultAppIs: 'Lycero Office est déjà l’application par défaut.',
@@ -3984,6 +4064,13 @@ export const strings = {
     intgSkillVersion: 'skill {v}',
     intgStateMissing: 'Skill non installé',
     intgStateInstalled: 'Skill {v} installé · prêt pour votre prochaine discussion',
+    intgLegacyTitle: 'Anciennes copies du skill',
+    intgLegacyDesc:
+      "Lycero Office écrivait autrefois une copie dans le dossier de chaque outil. Il en reste {n} : l'outil continue de les lire, donc elles ne reçoivent jamais le skill actuel.",
+    intgLegacyClean: 'Supprimer les anciennes copies',
+    intgLegacyCleaned:
+      '{n} anciennes copies supprimées, {k} modifiées à la main laissées en place.',
+    intgLegacyFailed: 'Impossible de supprimer les anciennes copies : {msg}',
     intgOtherToggle: "Mon assistant n'est pas dans la liste",
     intgOtherDesc:
       "Choisissez une seule de ces trois méthodes. Elles installent toutes le même skill : inutile d'en faire plusieurs.",
@@ -3997,27 +4084,24 @@ export const strings = {
     intgStep2Title: 'Essayez',
     intgStep2Desc:
       'Ouvrez une nouvelle discussion dans votre assistant et demandez simplement, par exemple :',
-    intgStep2DescBefore:
-      'Une fois installé, ouvrez une nouvelle discussion dans votre assistant et demandez simplement, par exemple :',
     intgExample1: 'Transforme ~/Downloads/report.md en document Word',
     intgExample2: 'Prépare une présentation de 6 diapositives sur nos résultats du T3',
     intgExample3: 'Convertis budget.xlsx en PDF et ouvre-le dans Lycero Office',
     intgStep2Note:
-      "L'assistant lance lui-même la ligne de commande genoffice ; vous n'avez jamais à la saisir.",
+      "L'assistant appelle lui-même Lycero Office, par la ligne de commande ou MCP ; vous n'avez jamais à saisir de commande.",
     intgCliPartTitle: 'CLI · ligne de commande + skill',
     intgCliPartDesc:
-      'Pour les assistants capables de lancer des commandes dans le terminal (Claude Code, Codex, Cursor, etc.). Une fois le skill installé, l’assistant appelle lui-même la ligne de commande genoffice pour créer, convertir, lire et modifier les fichiers ; vous ne tapez jamais de commande.',
+      'Pour les assistants capables de lancer des commandes dans le terminal (Claude Code, Codex, Cursor, etc.). Une fois le skill installé, l’assistant appelle lui-même la ligne de commande lycero-office pour créer, convertir, lire et modifier les fichiers ; vous ne tapez jamais de commande.',
     intgMcpPartTitle: 'MCP',
     intgMcpPartDesc:
       'MCP est le protocole commun que les assistants IA utilisent pour appeler des outils externes. Utilisez-le si votre assistant ne peut pas lancer de commandes (Claude Desktop, par exemple) ou si vous voulez qu’il pilote directement la fenêtre Lycero Office. Choisissez l’une des deux méthodes ci-dessous.',
     intgMcpStdioTitle: 'Lancé par l’assistant (recommandé)',
     intgMcpStdioDesc:
-      'L’assistant lance lui-même genoffice mcp : rien à activer ici, et Lycero Office n’a pas besoin d’être ouvert. Mêmes fonctions que la CLI.',
+      'L’assistant lance lui-même lycero-office mcp : rien à activer ici, et Lycero Office n’a pas besoin d’être ouvert. Mêmes fonctions que la CLI.',
     intgMcpHttpTitle: 'Serveur HTTP local',
     intgMcpHttpDesc:
       'Tourne dans Lycero Office ; l’assistant se connecte à une URL et vous voyez le document se construire pas à pas dans l’éditeur Word. Lycero Office doit rester ouvert ; documents Word uniquement pour l’instant.',
     intgMcpHttpAdvanced: 'Avancé : autres adresses et journal',
-    intgMcpTryNote: 'L’assistant appelle Lycero Office via MCP ; vous ne tapez jamais de commande.',
     intgMcpClaudeTitle: 'Claude Code',
     intgMcpClaudeDesc: 'Exécutez ceci une fois dans un terminal :',
     intgMcpOtherTitle: 'Cursor, Claude Desktop ou tout autre assistant compatible MCP',
@@ -4025,10 +4109,10 @@ export const strings = {
       'Ajoutez ceci à sa configuration de serveurs MCP (un fichier JSON, ou « Ajouter un serveur MCP » dans ses réglages) :',
     intgMcpNote:
       "Le skill et MCP peuvent coexister ; l'assistant choisit l'un des deux. Ils font exactement la même chose.",
-    intgCliTitle: 'Avancé : ligne de commande genoffice',
-    intgCliReady: 'genoffice {v} · prêt dans votre terminal ({path})',
+    intgCliTitle: 'Avancé : ligne de commande lycero-office',
+    intgCliReady: 'lycero-office {v} · prêt dans votre terminal ({path})',
     intgCliNotOnPath:
-      'genoffice {v} · absent du PATH de votre terminal. Les assistants le trouvent quand même via ~/.lycero-office/launcher, le skill fonctionne donc. Pour taper genoffice vous-même, exécutez ceci une fois :',
+      'lycero-office {v} · absent du PATH de votre terminal. Les assistants le trouvent quand même via ~/.lycero-office/launcher, le skill fonctionne donc. Pour taper lycero-office vous-même, exécutez ceci une fois :',
     intgCliLauncher: 'Dossier du lanceur',
     intgStateOutdated: 'Installé {v}, mise à jour {next} disponible',
     intgStateModified: 'Installé {v} (modifié)',
@@ -4063,6 +4147,8 @@ export const strings = {
     setAiProvider: 'Fournisseur',
     setAiModelId: 'Modèle',
     setAiModelSearch: 'Rechercher un modèle…',
+    setAiThinking: 'Niveau de raisonnement',
+    setAiThinkingDefault: 'Défaut du modèle',
     setAiApiKey: 'Clé API',
     setAiKeyHint: 'Stockée uniquement sur cet appareil.',
     setAiBaseUrl: 'Base URL',
@@ -4171,6 +4257,7 @@ export const strings = {
     intgSkillsRead: 'Détails',
     intgSkillsMine: 'Mes compétences',
     intgSkillsRecommended: 'Recommandées',
+    intgSkillsCatAll: 'Tous',
     intgSkillsCatOffice: 'Bureau',
     intgSkillsCatBusiness: 'Entreprise',
     intgSkillsCatData: 'Données',
@@ -4304,7 +4391,7 @@ export const strings = {
     helpAboutSubtitle: 'Suite bureautique professionnelle',
     helpAboutIdentity: 'Identité du produit',
     helpAboutLicenseTitle: 'Licence open source',
-    helpAboutLicenseBody: 'Lycero Office est basé sur GenOffice (Apache-2.0), copyright Mainfunc, Inc.',
+    helpAboutLicenseBody: 'Lycero Office est basé sur Lycero Office (Apache-2.0), copyright Mainfunc, Inc.',
     helpNotices: 'Avis tiers',
     helpNoticesTitle: 'Composants open source tiers',
     helpNoticesIntro: 'Lycero Office utilise les composants open source suivants :',
@@ -4516,6 +4603,9 @@ export const strings = {
     setAutoUpdateCheck: 'Automatisch nach Updates suchen',
     setAutoUpdateCheckDesc:
       'Wenn aus, sucht Lycero Office weder beim Start noch im Hintergrund nach neuen Versionen. Über Hilfe › Nach Updates suchen können Sie weiterhin selbst prüfen.',
+    setSilentInstall: 'Updates still installieren',
+    setSilentInstallDesc:
+      'Wenn aktiviert, wird eine im Hintergrund gefundene neue Version still heruntergeladen und beim Beenden von Lycero Office installiert; nichts unterbricht Sie bei der Arbeit. Sonst lässt Sie eine Update-Meldung den Zeitpunkt selbst wählen.',
     updateChannel: 'Update-Kanal',
     channelStable: 'Stabil',
     channelBeta: 'Beta',
@@ -4557,6 +4647,9 @@ export const strings = {
     aiFontSizeXLarge: 'Sehr groß',
     aiFontSizeCustom: 'Benutzerdefiniert',
     setAiSpellcheck: 'Rechtschreibprüfung im KI-Chat',
+    setLegacyImportPrompt: 'Vor dem Konvertieren alter Dateien nachfragen',
+    setLegacyImportPromptDesc:
+      'Erklärt vor dem Öffnen von .doc-, .odt-, .hwp-, .ods- oder .odp-Dateien, was übernommen wird. Ausgeschaltet öffnet sich direkt „Speichern unter“.',
     setDefaultApp: 'Standard-App für Office-Dokumente',
     setDefaultAppDesc: '.docx-, .xlsx- und .pptx-Dateien per Doppelklick in Lycero Office öffnen.',
     setDefaultAppIs: 'Lycero Office ist bereits die Standard-App.',
@@ -4619,6 +4712,12 @@ export const strings = {
     intgSkillVersion: 'Skill {v}',
     intgStateMissing: 'Skill nicht installiert',
     intgStateInstalled: 'Skill {v} installiert · ab dem nächsten Chat bereit',
+    intgLegacyTitle: 'Alte Skill-Kopien',
+    intgLegacyDesc:
+      'Lycero Office schrieb früher eine Kopie in den Ordner jedes Werkzeugs. {n} davon liegen noch dort: Das Werkzeug liest sie weiter, sie bekommen also nie den aktuellen Skill.',
+    intgLegacyClean: 'Alte Kopien entfernen',
+    intgLegacyCleaned: '{n} alte Kopien entfernt, {k} von Hand bearbeitete stehen gelassen.',
+    intgLegacyFailed: 'Alte Kopien konnten nicht entfernt werden: {msg}',
     intgOtherToggle: 'Mein Assistent ist nicht aufgeführt',
     intgOtherDesc:
       'Wählen Sie genau einen dieser drei Wege. Alle installieren denselben Skill, mehr als einer ist nicht nötig.',
@@ -4634,27 +4733,24 @@ export const strings = {
     intgStep2Title: 'Ausprobieren',
     intgStep2Desc:
       'Öffnen Sie einen neuen Chat in Ihrem Assistenten und fragen Sie in normalen Worten, zum Beispiel:',
-    intgStep2DescBefore:
-      'Öffnen Sie nach der Installation einen neuen Chat in Ihrem Assistenten und fragen Sie in normalen Worten, zum Beispiel:',
     intgExample1: 'Mach aus ~/Downloads/report.md ein Word-Dokument',
     intgExample2: 'Erstelle eine Präsentation mit 6 Folien zu unseren Q3-Ergebnissen',
     intgExample3: 'Wandle budget.xlsx in PDF um und öffne es in Lycero Office',
     intgStep2Note:
-      'Der Assistent ruft die genoffice-Befehlszeile selbst auf; Sie müssen sie nie eintippen.',
+      'Der Assistent ruft Lycero Office selbst auf – über die Befehlszeile oder MCP; Sie müssen nie einen Befehl eintippen.',
     intgCliPartTitle: 'CLI · Kommandozeile + Skill',
     intgCliPartDesc:
-      'Für Assistenten, die Terminalbefehle ausführen können (Claude Code, Codex, Cursor u. a.). Nach der Installation des Skills ruft der Assistent die genoffice-Kommandozeile selbst auf, um Dateien zu erstellen, zu konvertieren, zu lesen und zu bearbeiten; Sie tippen nie einen Befehl.',
+      'Für Assistenten, die Terminalbefehle ausführen können (Claude Code, Codex, Cursor u. a.). Nach der Installation des Skills ruft der Assistent die lycero-office-Kommandozeile selbst auf, um Dateien zu erstellen, zu konvertieren, zu lesen und zu bearbeiten; Sie tippen nie einen Befehl.',
     intgMcpPartTitle: 'MCP',
     intgMcpPartDesc:
       'MCP ist das gemeinsame Protokoll, über das KI-Assistenten externe Werkzeuge aufrufen. Nutzen Sie es, wenn der Assistent keine Befehle ausführen kann (z. B. Claude Desktop) oder wenn er das Lycero Office-Fenster direkt steuern soll. Wählen Sie einen der beiden Wege unten.',
     intgMcpStdioTitle: 'Vom Assistenten gestartet (empfohlen)',
     intgMcpStdioDesc:
-      'Der Assistent startet genoffice mcp selbst: hier ist nichts einzuschalten, und Lycero Office muss nicht geöffnet sein. Gleicher Funktionsumfang wie die CLI.',
+      'Der Assistent startet lycero-office mcp selbst: hier ist nichts einzuschalten, und Lycero Office muss nicht geöffnet sein. Gleicher Funktionsumfang wie die CLI.',
     intgMcpHttpTitle: 'Lokaler HTTP-Server',
     intgMcpHttpDesc:
       'Läuft in Lycero Office; der Assistent verbindet sich über eine URL, und Sie sehen im Word-Editor zu, wie das Dokument Schritt für Schritt entsteht. Lycero Office muss geöffnet bleiben; derzeit nur Word-Dokumente.',
     intgMcpHttpAdvanced: 'Erweitert: weitere Adressen und Protokoll',
-    intgMcpTryNote: 'Der Assistent ruft Lycero Office über MCP auf; Sie tippen nie einen Befehl.',
     intgMcpClaudeTitle: 'Claude Code',
     intgMcpClaudeDesc: 'Einmal im Terminal ausführen:',
     intgMcpOtherTitle: 'Cursor, Claude Desktop oder ein anderer MCP-fähiger Assistent',
@@ -4662,10 +4758,10 @@ export const strings = {
       'Fügen Sie dies in seine MCP-Server-Konfiguration ein (eine JSON-Datei oder „MCP-Server hinzufügen“ in den Einstellungen):',
     intgMcpNote:
       'Skill und MCP können nebeneinander eingerichtet sein; der Assistent wählt eines. Beide tun genau dasselbe.',
-    intgCliTitle: 'Erweitert: Befehlszeile genoffice',
-    intgCliReady: 'genoffice {v} · im Terminal verfügbar ({path})',
+    intgCliTitle: 'Erweitert: Befehlszeile lycero-office',
+    intgCliReady: 'lycero-office {v} · im Terminal verfügbar ({path})',
     intgCliNotOnPath:
-      'genoffice {v} · nicht im PATH Ihres Terminals. Assistenten finden es trotzdem über ~/.lycero-office/launcher, der Skill funktioniert also. Um genoffice selbst einzugeben, führen Sie dies einmal aus:',
+      'lycero-office {v} · nicht im PATH Ihres Terminals. Assistenten finden es trotzdem über ~/.lycero-office/launcher, der Skill funktioniert also. Um lycero-office selbst einzugeben, führen Sie dies einmal aus:',
     intgCliLauncher: 'Launcher-Ordner',
     intgStateOutdated: 'Installiert {v}, Update auf {next} verfügbar',
     intgStateModified: 'Installiert {v} (geändert)',
@@ -4700,6 +4796,8 @@ export const strings = {
     setAiProvider: 'Anbieter',
     setAiModelId: 'Modell',
     setAiModelSearch: 'Modelle suchen…',
+    setAiThinking: 'Denkanstrengung',
+    setAiThinkingDefault: 'Modellstandard',
     setAiApiKey: 'API-Schlüssel',
     setAiKeyHint: 'Wird nur auf diesem Gerät gespeichert.',
     setAiBaseUrl: 'Base URL',
@@ -4805,6 +4903,7 @@ export const strings = {
     intgSkillsRead: 'Details',
     intgSkillsMine: 'Meine Skills',
     intgSkillsRecommended: 'Empfohlen',
+    intgSkillsCatAll: 'Alle',
     intgSkillsCatOffice: 'Büro',
     intgSkillsCatBusiness: 'Business',
     intgSkillsCatData: 'Daten',
@@ -4937,7 +5036,7 @@ export const strings = {
     helpAboutSubtitle: 'Professionelle Office-Suite',
     helpAboutIdentity: 'Produktidentität',
     helpAboutLicenseTitle: 'Open-Source-Lizenz',
-    helpAboutLicenseBody: 'Lycero Office basiert auf GenOffice (Apache-2.0), Copyright Mainfunc, Inc.',
+    helpAboutLicenseBody: 'Lycero Office basiert auf Lycero Office (Apache-2.0), Copyright Mainfunc, Inc.',
     helpNotices: 'Drittanbieter-Hinweise',
     helpNoticesTitle: 'Drittanbieter-Open-Source-Komponenten',
     helpNoticesIntro: 'Lycero Office verwendet die folgenden Open-Source-Komponenten:',
@@ -5147,6 +5246,9 @@ export const strings = {
     setAutoUpdateCheck: 'Buscar actualizaciones automáticamente',
     setAutoUpdateCheckDesc:
       'Si está desactivado, Lycero Office deja de buscar nuevas versiones al iniciar y en segundo plano. Puede seguir comprobándolo en Ayuda › Buscar actualizaciones.',
+    setSilentInstall: 'Instalar actualizaciones en silencio',
+    setSilentInstallDesc:
+      'Si está activado, una nueva versión detectada en segundo plano se descarga en silencio y se instala al salir de Lycero Office; nada te interrumpe mientras trabajas. Si está desactivado, un aviso de actualización te deja decidir cuándo actualizar.',
     updateChannel: 'Canal de actualización',
     channelStable: 'Estable',
     channelBeta: 'Beta',
@@ -5188,6 +5290,9 @@ export const strings = {
     aiFontSizeXLarge: 'Muy grande',
     aiFontSizeCustom: 'Personalizado',
     setAiSpellcheck: 'Corrección ortográfica en el chat de IA',
+    setLegacyImportPrompt: 'Preguntar antes de convertir archivos antiguos',
+    setLegacyImportPromptDesc:
+      'Explica qué se conserva antes de abrir archivos .doc, .odt, .hwp, .ods u .odp. Desactivado, se abre directamente Guardar como.',
     setDefaultApp: 'App predeterminada para documentos de Office',
     setDefaultAppDesc: 'Abrir archivos .docx, .xlsx y .pptx en Lycero Office al hacer doble clic.',
     setDefaultAppIs: 'Lycero Office ya es la app predeterminada.',
@@ -5252,6 +5357,13 @@ export const strings = {
     intgSkillVersion: 'skill {v}',
     intgStateMissing: 'Skill no instalado',
     intgStateInstalled: 'Skill {v} instalado · listo en tu próximo chat',
+    intgLegacyTitle: 'Copias antiguas de la skill',
+    intgLegacyDesc:
+      'Lycero Office escribía antes una copia en la carpeta de cada herramienta. Quedan {n}: la herramienta sigue leyéndolas, así que nunca reciben la skill actual.',
+    intgLegacyClean: 'Quitar las copias antiguas',
+    intgLegacyCleaned:
+      'Se quitaron {n} copias antiguas; {k} editadas a mano se dejaron en su sitio.',
+    intgLegacyFailed: 'No se pudieron quitar las copias antiguas: {msg}',
     intgOtherToggle: 'Mi asistente no aparece',
     intgOtherDesc:
       'Elige solo una de estas tres formas. Todas instalan el mismo skill, así que no hace falta hacer más de una.',
@@ -5264,27 +5376,24 @@ export const strings = {
     intgCopy: 'Copiar',
     intgStep2Title: 'Pruébalo',
     intgStep2Desc: 'Abre un chat nuevo en tu asistente y pídelo con tus palabras, por ejemplo:',
-    intgStep2DescBefore:
-      'Una vez instalado, abre un chat nuevo en tu asistente y pídelo con tus palabras, por ejemplo:',
     intgExample1: 'Convierte ~/Downloads/report.md en un documento de Word',
     intgExample2: 'Haz una presentación de 6 diapositivas sobre nuestros resultados del T3',
     intgExample3: 'Convierte budget.xlsx a PDF y ábrelo en Lycero Office',
     intgStep2Note:
-      'El asistente ejecuta la línea de comandos genoffice por sí mismo; nunca tienes que escribirla.',
+      'El asistente llama a Lycero Office por sí mismo, mediante la línea de comandos o MCP; nunca tienes que escribir un comando.',
     intgCliPartTitle: 'CLI · línea de comandos + skill',
     intgCliPartDesc:
-      'Para asistentes que pueden ejecutar comandos de terminal (Claude Code, Codex, Cursor y otros). Con el skill instalado, el asistente llama por sí mismo a la línea de comandos genoffice para crear, convertir, leer y editar archivos; nunca escribes un comando.',
+      'Para asistentes que pueden ejecutar comandos de terminal (Claude Code, Codex, Cursor y otros). Con el skill instalado, el asistente llama por sí mismo a la línea de comandos lycero-office para crear, convertir, leer y editar archivos; nunca escribes un comando.',
     intgMcpPartTitle: 'MCP',
     intgMcpPartDesc:
       'MCP es el protocolo común con el que los asistentes de IA llaman a herramientas externas. Úsalo cuando tu asistente no pueda ejecutar comandos (Claude Desktop, por ejemplo) o cuando quieras que controle directamente la ventana de Lycero Office. Elige una de las dos formas de abajo.',
     intgMcpStdioTitle: 'Iniciado por el asistente (recomendado)',
     intgMcpStdioDesc:
-      'El asistente lanza genoffice mcp por sí mismo: nada que activar aquí, y Lycero Office no necesita estar abierto. Mismas funciones que la CLI.',
+      'El asistente lanza lycero-office mcp por sí mismo: nada que activar aquí, y Lycero Office no necesita estar abierto. Mismas funciones que la CLI.',
     intgMcpHttpTitle: 'Servidor HTTP local',
     intgMcpHttpDesc:
       'Se ejecuta dentro de Lycero Office; el asistente se conecta a una URL y puedes ver cómo construye el documento paso a paso en el editor de Word. Lycero Office debe permanecer abierto; por ahora solo documentos Word.',
     intgMcpHttpAdvanced: 'Avanzado: otras direcciones y registro',
-    intgMcpTryNote: 'El asistente llama a Lycero Office a través de MCP; nunca escribes un comando.',
     intgMcpClaudeTitle: 'Claude Code',
     intgMcpClaudeDesc: 'Ejecuta esto una vez en una terminal:',
     intgMcpOtherTitle: 'Cursor, Claude Desktop o cualquier otro asistente compatible con MCP',
@@ -5292,10 +5401,10 @@ export const strings = {
       'Añade esto a su configuración de servidores MCP (un archivo JSON, o «Añadir servidor MCP» en sus ajustes):',
     intgMcpNote:
       'El skill y MCP pueden convivir; el asistente elige uno. Ambos hacen exactamente lo mismo.',
-    intgCliTitle: 'Avanzado: línea de comandos genoffice',
-    intgCliReady: 'genoffice {v} · listo en tu terminal ({path})',
+    intgCliTitle: 'Avanzado: línea de comandos lycero-office',
+    intgCliReady: 'lycero-office {v} · listo en tu terminal ({path})',
     intgCliNotOnPath:
-      'genoffice {v} · no está en el PATH de tu terminal. Los asistentes lo encuentran igualmente mediante ~/.lycero-office/launcher, así que el skill funciona. Para escribir genoffice tú mismo, ejecuta esto una vez:',
+      'lycero-office {v} · no está en el PATH de tu terminal. Los asistentes lo encuentran igualmente mediante ~/.lycero-office/launcher, así que el skill funciona. Para escribir lycero-office tú mismo, ejecuta esto una vez:',
     intgCliLauncher: 'Carpeta del lanzador',
     intgStateOutdated: 'Instalado {v}, actualización a {next} disponible',
     intgStateModified: 'Instalado {v} (modificado)',
@@ -5329,6 +5438,8 @@ export const strings = {
     setAiProvider: 'Proveedor',
     setAiModelId: 'Modelo',
     setAiModelSearch: 'Buscar modelos…',
+    setAiThinking: 'Esfuerzo de razonamiento',
+    setAiThinkingDefault: 'Predeterminado del modelo',
     setAiApiKey: 'Clave de API',
     setAiKeyHint: 'Se guarda solo en este dispositivo.',
     setAiBaseUrl: 'Base URL',
@@ -5434,6 +5545,7 @@ export const strings = {
     intgSkillsRead: 'Detalles',
     intgSkillsMine: 'Mis habilidades',
     intgSkillsRecommended: 'Recomendadas',
+    intgSkillsCatAll: 'Todos',
     intgSkillsCatOffice: 'Oficina',
     intgSkillsCatBusiness: 'Negocios',
     intgSkillsCatData: 'Datos',
@@ -5568,7 +5680,7 @@ export const strings = {
     helpAboutSubtitle: 'Suite de oficina profesional',
     helpAboutIdentity: 'Identidad del producto',
     helpAboutLicenseTitle: 'Licencia de código abierto',
-    helpAboutLicenseBody: 'Lycero Office está basado en GenOffice (Apache-2.0), copyright Mainfunc, Inc.',
+    helpAboutLicenseBody: 'Lycero Office está basado en Lycero Office (Apache-2.0), copyright Mainfunc, Inc.',
     helpNotices: 'Avisos de terceros',
     helpNoticesTitle: 'Componentes de código abierto de terceros',
     helpNoticesIntro: 'Lycero Office utiliza los siguientes componentes de código abierto:',
@@ -5770,6 +5882,9 @@ export const strings = {
     setAutoUpdateCheck: 'ตรวจหาอัปเดตโดยอัตโนมัติ',
     setAutoUpdateCheckDesc:
       'เมื่อปิด Lycero Office จะไม่ตรวจหาเวอร์ชันใหม่ตอนเปิดโปรแกรมหรือในเบื้องหลัง คุณยังตรวจเองได้จาก วิธีใช้ › ตรวจหาการอัปเดต',
+    setSilentInstall: 'ติดตั้งอัปเดตแบบเงียบ',
+    setSilentInstallDesc:
+      'เมื่อเปิด เวอร์ชันใหม่ที่ตรวจพบเบื้องหลังจะถูกดาวน์โหลดแบบเงียบและติดตั้งเมื่อคุณออกจาก Lycero Office โดยไม่รบกวนระหว่างทำงาน เมื่อปิด จะมีข้อความแจ้งอัปเดตให้คุณตัดสินใจเอง',
     updateChannel: 'ช่องทางอัปเดต',
     channelStable: 'เสถียร',
     channelBeta: 'เบต้า',
@@ -5810,6 +5925,9 @@ export const strings = {
     aiFontSizeXLarge: 'ใหญ่มาก',
     aiFontSizeCustom: 'กำหนดเอง',
     setAiSpellcheck: 'ตรวจการสะกดในแชท AI',
+    setLegacyImportPrompt: 'ถามก่อนแปลงไฟล์รูปแบบเก่า',
+    setLegacyImportPromptDesc:
+      'อธิบายว่าเนื้อหาใดจะถูกแปลงมาก่อนเปิดไฟล์ .doc, .odt, .hwp, .ods หรือ .odp เมื่อปิด จะเปิดบันทึกเป็นทันที',
     setDefaultApp: 'แอปเริ่มต้นสำหรับเอกสาร Office',
     setDefaultAppDesc: 'เปิดไฟล์ .docx, .xlsx และ .pptx ด้วย Lycero Office เมื่อดับเบิลคลิก',
     setDefaultAppIs: 'Lycero Office เป็นแอปเริ่มต้นอยู่แล้ว',
@@ -5870,6 +5988,12 @@ export const strings = {
     intgSkillVersion: 'สกิล {v}',
     intgStateMissing: 'ยังไม่ติดตั้งสกิล',
     intgStateInstalled: 'ติดตั้งสกิล {v} แล้ว · พร้อมใช้ในแชตถัดไป',
+    intgLegacyTitle: 'สำเนา skill เก่า',
+    intgLegacyDesc:
+      'เมื่อก่อน Lycero Office เขียนสำเนาไว้ในโฟลเดอร์ของแต่ละเครื่องมือ ตอนนี้ยังเหลือ {n} ชุด: เครื่องมือยังอ่านไฟล์เหล่านั้น จึงไม่เคยได้ skill ปัจจุบัน',
+    intgLegacyClean: 'ลบสำเนาเก่า',
+    intgLegacyCleaned: 'ลบสำเนาเก่าแล้ว {n} ชุด เก็บไว้ {k} ชุดที่แก้ไขด้วยมือ',
+    intgLegacyFailed: 'ลบสำเนาเก่าไม่สำเร็จ: {msg}',
     intgOtherToggle: 'ไม่พบผู้ช่วยของฉันในรายการ',
     intgOtherDesc:
       'เลือกเพียงวิธีใดวิธีหนึ่งจากสามวิธีนี้ ทุกวิธีติดตั้งสกิลเดียวกัน จึงไม่ต้องทำมากกว่าหนึ่งวิธี',
@@ -5882,25 +6006,23 @@ export const strings = {
     intgCopy: 'คัดลอก',
     intgStep2Title: 'ลองใช้ดู',
     intgStep2Desc: 'เปิดแชตใหม่ในผู้ช่วยแล้วสั่งด้วยภาษาธรรมดา เช่น:',
-    intgStep2DescBefore: 'เมื่อติดตั้งแล้ว เปิดแชตใหม่ในผู้ช่วยแล้วสั่งด้วยภาษาธรรมดา เช่น:',
     intgExample1: 'แปลง ~/Downloads/report.md เป็นเอกสาร Word',
     intgExample2: 'ทำสไลด์ 6 หน้าเกี่ยวกับผลประกอบการไตรมาส 3 ของเรา',
     intgExample3: 'แปลง budget.xlsx เป็น PDF แล้วเปิดใน Lycero Office',
-    intgStep2Note: 'ผู้ช่วยจะเรียกใช้บรรทัดคำสั่ง genoffice เอง คุณไม่ต้องพิมพ์คำสั่งใด ๆ',
+    intgStep2Note: 'ผู้ช่วยจะเรียก Lycero Office เองผ่านบรรทัดคำสั่งหรือ MCP คุณไม่ต้องพิมพ์คำสั่งใด ๆ',
     intgCliPartTitle: 'CLI · บรรทัดคำสั่ง + skill',
     intgCliPartDesc:
-      'สำหรับผู้ช่วยที่รันคำสั่งเทอร์มินัลได้ (Claude Code, Codex, Cursor และอื่น ๆ) เมื่อติดตั้ง skill แล้ว ผู้ช่วยจะเรียกบรรทัดคำสั่ง genoffice เองเพื่อสร้าง แปลง อ่าน และแก้ไขไฟล์ คุณไม่ต้องพิมพ์คำสั่งใด ๆ',
+      'สำหรับผู้ช่วยที่รันคำสั่งเทอร์มินัลได้ (Claude Code, Codex, Cursor และอื่น ๆ) เมื่อติดตั้ง skill แล้ว ผู้ช่วยจะเรียกบรรทัดคำสั่ง lycero-office เองเพื่อสร้าง แปลง อ่าน และแก้ไขไฟล์ คุณไม่ต้องพิมพ์คำสั่งใด ๆ',
     intgMcpPartTitle: 'MCP',
     intgMcpPartDesc:
       'MCP คือโปรโตคอลกลางที่ผู้ช่วย AI ใช้เรียกเครื่องมือภายนอก ใช้เมื่อผู้ช่วยรันคำสั่งไม่ได้ (เช่น Claude Desktop) หรือเมื่อต้องการให้มันควบคุมหน้าต่าง Lycero Office โดยตรง เลือกวิธีใดวิธีหนึ่งจากสองวิธีด้านล่าง',
     intgMcpStdioTitle: 'ให้ผู้ช่วยเป็นผู้เริ่ม (แนะนำ)',
     intgMcpStdioDesc:
-      'ผู้ช่วยจะเรียก genoffice mcp ขึ้นมาเอง ไม่ต้องเปิดสวิตช์ใดที่นี่ และไม่ต้องเปิด Lycero Office ไว้ ความสามารถเหมือน CLI ทุกประการ',
+      'ผู้ช่วยจะเรียก lycero-office mcp ขึ้นมาเอง ไม่ต้องเปิดสวิตช์ใดที่นี่ และไม่ต้องเปิด Lycero Office ไว้ ความสามารถเหมือน CLI ทุกประการ',
     intgMcpHttpTitle: 'เซิร์ฟเวอร์ HTTP ในเครื่อง',
     intgMcpHttpDesc:
       'ทำงานอยู่ใน Lycero Office ผู้ช่วยเชื่อมต่อผ่าน URL และคุณจะเห็นเอกสารค่อย ๆ ถูกสร้างขึ้นในตัวแก้ไข Word ต้องเปิด Lycero Office ไว้ตลอด ปัจจุบันรองรับเฉพาะ Word',
     intgMcpHttpAdvanced: 'ขั้นสูง: ที่อยู่อื่นและบันทึก',
-    intgMcpTryNote: 'ผู้ช่วยจะเรียก Lycero Office ผ่าน MCP คุณไม่ต้องพิมพ์คำสั่งใด ๆ',
     intgMcpClaudeTitle: 'Claude Code',
     intgMcpClaudeDesc: 'รันคำสั่งนี้ครั้งเดียวในเทอร์มินัล:',
     intgMcpOtherTitle: 'Cursor, Claude Desktop หรือผู้ช่วยอื่นที่รองรับ MCP',
@@ -5908,10 +6030,10 @@ export const strings = {
       'เพิ่มส่วนนี้ลงในการตั้งค่าเซิร์ฟเวอร์ MCP ของผู้ช่วย (ไฟล์ JSON หรือ "เพิ่มเซิร์ฟเวอร์ MCP" ในการตั้งค่า):',
     intgMcpNote:
       'สกิลและ MCP ตั้งค่าไว้พร้อมกันได้ ผู้ช่วยจะเลือกใช้เอง ทั้งสองทำงานเหมือนกันทุกอย่าง',
-    intgCliTitle: 'ขั้นสูง: บรรทัดคำสั่ง genoffice',
-    intgCliReady: 'genoffice {v} · พร้อมใช้ในเทอร์มินัล ({path})',
+    intgCliTitle: 'ขั้นสูง: บรรทัดคำสั่ง lycero-office',
+    intgCliReady: 'lycero-office {v} · พร้อมใช้ในเทอร์มินัล ({path})',
     intgCliNotOnPath:
-      'genoffice {v} · ยังไม่อยู่ใน PATH ของเทอร์มินัล ผู้ช่วยยังหาเจอผ่าน ~/.lycero-office/launcher สกิลจึงใช้งานได้ตามปกติ หากต้องการพิมพ์ genoffice เอง ให้รันคำสั่งนี้ครั้งเดียว:',
+      'lycero-office {v} · ยังไม่อยู่ใน PATH ของเทอร์มินัล ผู้ช่วยยังหาเจอผ่าน ~/.lycero-office/launcher สกิลจึงใช้งานได้ตามปกติ หากต้องการพิมพ์ lycero-office เอง ให้รันคำสั่งนี้ครั้งเดียว:',
     intgCliLauncher: 'โฟลเดอร์ตัวเรียกใช้',
     intgStateOutdated: 'ติดตั้งแล้ว {v} อัปเดตเป็น {next} ได้',
     intgStateModified: 'ติดตั้งแล้ว {v} (ถูกแก้ไข)',
@@ -5944,6 +6066,8 @@ export const strings = {
     setAiProvider: 'ผู้ให้บริการ',
     setAiModelId: 'โมเดล',
     setAiModelSearch: 'ค้นหาโมเดล…',
+    setAiThinking: 'ระดับการคิด',
+    setAiThinkingDefault: 'ค่าเริ่มต้นของโมเดล',
     setAiApiKey: 'คีย์ API',
     setAiKeyHint: 'จัดเก็บไว้ในเครื่องนี้เท่านั้น',
     setAiBaseUrl: 'Base URL',
@@ -6047,6 +6171,7 @@ export const strings = {
     intgSkillsRead: 'รายละเอียด',
     intgSkillsMine: 'สกิลของฉัน',
     intgSkillsRecommended: 'แนะนำ',
+    intgSkillsCatAll: 'ทั้งหมด',
     intgSkillsCatOffice: 'สำนักงาน',
     intgSkillsCatBusiness: 'ธุรกิจ',
     intgSkillsCatData: 'ข้อมูล',
@@ -6177,7 +6302,7 @@ export const strings = {
     helpAboutSubtitle: 'ชุดโปรแกรมสำนักงานระดับมืออาชีพ',
     helpAboutIdentity: 'ตัวตนของผลิตภัณฑ์',
     helpAboutLicenseTitle: 'ใบอนุญาตโอเพนซอร์ส',
-    helpAboutLicenseBody: 'Lycero Office สร้างขึ้นบน GenOffice (Apache-2.0) ลิขสิทธิ์ Mainfunc, Inc.',
+    helpAboutLicenseBody: 'Lycero Office สร้างขึ้นบน Lycero Office (Apache-2.0) ลิขสิทธิ์ Mainfunc, Inc.',
     helpNotices: 'ประกาศของบุคคลที่สาม',
     helpNoticesTitle: 'ส่วนประกอบโอเพนซอร์สของบุคคลที่สาม',
     helpNoticesIntro: 'Lycero Office ใช้ส่วนประกอบโอเพนซอร์สดังต่อไปนี้:',
@@ -6384,6 +6509,9 @@ export const strings = {
     setAutoUpdateCheck: 'Periksa pembaruan secara otomatis',
     setAutoUpdateCheckDesc:
       'Jika dimatikan, Lycero Office tidak lagi memeriksa versi baru saat dijalankan atau di latar belakang. Anda tetap bisa memeriksa dari Bantuan › Periksa Pembaruan.',
+    setSilentInstall: 'Pasang pembaruan secara senyap',
+    setSilentInstallDesc:
+      'Jika aktif, versi baru yang ditemukan di latar belakang diunduh secara senyap dan dipasang saat Anda keluar dari Lycero Office; tidak ada yang mengganggu saat bekerja. Jika nonaktif, sebuah pemberitahuan pembaruan membiarkan Anda menentukan waktunya.',
     updateChannel: 'Saluran Pembaruan',
     channelStable: 'Stabil',
     channelBeta: 'Beta',
@@ -6425,6 +6553,9 @@ export const strings = {
     aiFontSizeXLarge: 'Sangat besar',
     aiFontSizeCustom: 'Kustom',
     setAiSpellcheck: 'Pemeriksaan ejaan di obrolan AI',
+    setLegacyImportPrompt: 'Tanya sebelum mengonversi file lama',
+    setLegacyImportPromptDesc:
+      'Jelaskan apa yang ikut terbawa sebelum membuka file .doc, .odt, .hwp, .ods, atau .odp. Jika nonaktif, Simpan Sebagai langsung terbuka.',
     setDefaultApp: 'Aplikasi default untuk dokumen Office',
     setDefaultAppDesc: 'Buka file .docx, .xlsx, dan .pptx di Lycero Office saat diklik dua kali.',
     setDefaultAppIs: 'Lycero Office sudah menjadi aplikasi default.',
@@ -6487,6 +6618,12 @@ export const strings = {
     intgSkillVersion: 'skill {v}',
     intgStateMissing: 'Skill belum terpasang',
     intgStateInstalled: 'Skill {v} terpasang · siap di obrolan berikutnya',
+    intgLegacyTitle: 'Salinan skill lama',
+    intgLegacyDesc:
+      'Dulu Lycero Office menulis satu salinan ke folder tiap alat. Masih ada {n} yang tertinggal: alat itu tetap membacanya, jadi tidak pernah dapat skill yang sekarang.',
+    intgLegacyClean: 'Hapus salinan lama',
+    intgLegacyCleaned: '{n} salinan lama dihapus, {k} yang diedit manual tetap dibiarkan.',
+    intgLegacyFailed: 'Gagal menghapus salinan lama: {msg}',
     intgOtherToggle: 'Asisten saya tidak ada di daftar',
     intgOtherDesc:
       'Pilih salah satu saja dari tiga cara ini. Semuanya memasang skill yang sama, jadi tidak perlu lebih dari satu.',
@@ -6499,27 +6636,24 @@ export const strings = {
     intgCopy: 'Salin',
     intgStep2Title: 'Coba sekarang',
     intgStep2Desc: 'Buka obrolan baru di asisten Anda dan minta dengan bahasa biasa, misalnya:',
-    intgStep2DescBefore:
-      'Setelah terpasang, buka obrolan baru di asisten Anda dan minta dengan bahasa biasa, misalnya:',
     intgExample1: 'Ubah ~/Downloads/report.md menjadi dokumen Word',
     intgExample2: 'Buat presentasi 6 slide tentang hasil Q3 kami',
     intgExample3: 'Konversi budget.xlsx ke PDF dan buka di Lycero Office',
     intgStep2Note:
-      'Asisten menjalankan baris perintah genoffice sendiri; Anda tidak perlu mengetiknya.',
+      'Asisten memanggil Lycero Office sendiri, melalui baris perintah atau MCP; Anda tidak perlu mengetik perintah apa pun.',
     intgCliPartTitle: 'CLI · baris perintah + skill',
     intgCliPartDesc:
-      'Untuk asisten yang bisa menjalankan perintah terminal (Claude Code, Codex, Cursor, dan lainnya). Setelah skill terpasang, asisten memanggil baris perintah genoffice sendiri untuk membuat, mengonversi, membaca, dan mengedit file; Anda tidak pernah mengetik perintah.',
+      'Untuk asisten yang bisa menjalankan perintah terminal (Claude Code, Codex, Cursor, dan lainnya). Setelah skill terpasang, asisten memanggil baris perintah lycero-office sendiri untuk membuat, mengonversi, membaca, dan mengedit file; Anda tidak pernah mengetik perintah.',
     intgMcpPartTitle: 'MCP',
     intgMcpPartDesc:
       'MCP adalah protokol umum yang dipakai asisten AI untuk memanggil alat eksternal. Gunakan saat asisten Anda tidak bisa menjalankan perintah (misalnya Claude Desktop) atau saat Anda ingin ia mengendalikan jendela Lycero Office secara langsung. Pilih salah satu dari dua cara di bawah.',
     intgMcpStdioTitle: 'Dijalankan oleh asisten (disarankan)',
     intgMcpStdioDesc:
-      'Asisten menjalankan genoffice mcp sendiri: tidak ada yang perlu dinyalakan di sini, dan Lycero Office tidak perlu terbuka. Fitur sama dengan CLI.',
+      'Asisten menjalankan lycero-office mcp sendiri: tidak ada yang perlu dinyalakan di sini, dan Lycero Office tidak perlu terbuka. Fitur sama dengan CLI.',
     intgMcpHttpTitle: 'Server HTTP lokal',
     intgMcpHttpDesc:
       'Berjalan di dalam Lycero Office; asisten terhubung lewat URL dan Anda bisa melihat dokumen dibangun langkah demi langkah di editor Word. Lycero Office harus tetap terbuka; untuk saat ini hanya dokumen Word.',
     intgMcpHttpAdvanced: 'Lanjutan: alamat lain dan log',
-    intgMcpTryNote: 'Asisten memanggil Lycero Office melalui MCP; Anda tidak pernah mengetik perintah.',
     intgMcpClaudeTitle: 'Claude Code',
     intgMcpClaudeDesc: 'Jalankan ini sekali di terminal:',
     intgMcpOtherTitle: 'Cursor, Claude Desktop, atau asisten lain yang mendukung MCP',
@@ -6527,10 +6661,10 @@ export const strings = {
       'Tambahkan ini ke pengaturan server MCP miliknya (berkas JSON, atau "Tambah server MCP" di pengaturannya):',
     intgMcpNote:
       'Skill dan MCP bisa dipasang bersamaan; asisten akan memilih salah satu. Keduanya melakukan hal yang sama persis.',
-    intgCliTitle: 'Lanjutan: baris perintah genoffice',
-    intgCliReady: 'genoffice {v} · siap di terminal Anda ({path})',
+    intgCliTitle: 'Lanjutan: baris perintah lycero-office',
+    intgCliReady: 'lycero-office {v} · siap di terminal Anda ({path})',
     intgCliNotOnPath:
-      'genoffice {v} · belum ada di PATH terminal Anda. Asisten tetap menemukannya lewat ~/.lycero-office/launcher, jadi skill tetap berfungsi. Untuk mengetik genoffice sendiri, jalankan ini sekali:',
+      'lycero-office {v} · belum ada di PATH terminal Anda. Asisten tetap menemukannya lewat ~/.lycero-office/launcher, jadi skill tetap berfungsi. Untuk mengetik lycero-office sendiri, jalankan ini sekali:',
     intgCliLauncher: 'Folder peluncur',
     intgStateOutdated: 'Terpasang {v}, pembaruan ke {next} tersedia',
     intgStateModified: 'Terpasang {v} (dimodifikasi)',
@@ -6564,6 +6698,8 @@ export const strings = {
     setAiProvider: 'Penyedia',
     setAiModelId: 'Model',
     setAiModelSearch: 'Cari model…',
+    setAiThinking: 'Tingkat penalaran',
+    setAiThinkingDefault: 'Default model',
     setAiApiKey: 'Kunci API',
     setAiKeyHint: 'Hanya disimpan di perangkat ini.',
     setAiBaseUrl: 'Base URL',
@@ -6668,6 +6804,7 @@ export const strings = {
     intgSkillsRead: 'Detail',
     intgSkillsMine: 'Skill saya',
     intgSkillsRecommended: 'Disarankan',
+    intgSkillsCatAll: 'Semua',
     intgSkillsCatOffice: 'Perkantoran',
     intgSkillsCatBusiness: 'Bisnis',
     intgSkillsCatData: 'Data',
@@ -6800,7 +6937,7 @@ export const strings = {
     helpAboutSubtitle: 'Suite Kantor Profesional',
     helpAboutIdentity: 'Identitas Produk',
     helpAboutLicenseTitle: 'Lisensi Open Source',
-    helpAboutLicenseBody: 'Lycero Office dibangun di atas GenOffice (Apache-2.0), hak cipta Mainfunc, Inc.',
+    helpAboutLicenseBody: 'Lycero Office dibangun di atas Lycero Office (Apache-2.0), hak cipta Mainfunc, Inc.',
     helpNotices: 'Pemberitahuan pihak ketiga',
     helpNoticesTitle: 'Komponen open source pihak ketiga',
     helpNoticesIntro: 'Lycero Office menggunakan komponen open source berikut:',
@@ -7005,6 +7142,9 @@ export const strings = {
     setAutoUpdateCheck: 'Автоматически проверять обновления',
     setAutoUpdateCheckDesc:
       'Если выключено, Lycero Office не проверяет новые версии при запуске и в фоне. Проверить вручную можно через Справка › Проверить обновления.',
+    setSilentInstall: 'Устанавливать обновления автоматически',
+    setSilentInstallDesc:
+      'Если включено, новая версия, найденная фоновой проверкой, скачивается незаметно и устанавливается при выходе из Lycero Office; во время работы ничто вас не прерывает. Если выключено, появляется предложение обновиться, и вы решаете сами.',
     updateChannel: 'Канал обновлений',
     channelStable: 'Стабильный',
     channelBeta: 'Бета',
@@ -7046,6 +7186,9 @@ export const strings = {
     aiFontSizeXLarge: 'Очень крупный',
     aiFontSizeCustom: 'Другой',
     setAiSpellcheck: 'Проверка орфографии в чате ИИ',
+    setLegacyImportPrompt: 'Спрашивать перед конвертацией старых файлов',
+    setLegacyImportPromptDesc:
+      'Перед открытием файлов .doc, .odt, .hwp, .ods или .odp поясняет, что будет перенесено. Если выключено, сразу открывается «Сохранить как».',
     setDefaultApp: 'Приложение по умолчанию для документов Office',
     setDefaultAppDesc: 'Открывать файлы .docx, .xlsx и .pptx в Lycero Office по двойному щелчку.',
     setDefaultAppIs: 'Lycero Office уже является приложением по умолчанию.',
@@ -7108,6 +7251,12 @@ export const strings = {
     intgSkillVersion: 'скилл {v}',
     intgStateMissing: 'Скилл не установлен',
     intgStateInstalled: 'Скилл {v} установлен · готов к следующему чату',
+    intgLegacyTitle: 'Старые копии skill',
+    intgLegacyDesc:
+      'Раньше Lycero Office записывал копию в папку каждого инструмента. Их ещё осталось {n}: инструмент продолжает их читать, поэтому они никогда не получают текущий skill.',
+    intgLegacyClean: 'Удалить старые копии',
+    intgLegacyCleaned: 'Удалено старых копий: {n}; отредактированных вручную оставлено: {k}.',
+    intgLegacyFailed: 'Не удалось удалить старые копии: {msg}',
     intgOtherToggle: 'Моего ассистента нет в списке',
     intgOtherDesc:
       'Выберите только один из трёх способов. Все они устанавливают один и тот же скилл, повторять не нужно.',
@@ -7120,27 +7269,24 @@ export const strings = {
     intgCopy: 'Копировать',
     intgStep2Title: 'Попробуйте',
     intgStep2Desc: 'Откройте новый чат в ассистенте и попросите обычными словами, например:',
-    intgStep2DescBefore:
-      'После установки откройте новый чат в ассистенте и попросите обычными словами, например:',
     intgExample1: 'Преврати ~/Downloads/report.md в документ Word',
     intgExample2: 'Сделай презентацию из 6 слайдов о наших результатах за 3-й квартал',
     intgExample3: 'Конвертируй budget.xlsx в PDF и открой в Lycero Office',
     intgStep2Note:
-      'Ассистент сам запускает командную строку genoffice; вводить её вам не придётся.',
+      'Ассистент сам вызывает Lycero Office — через командную строку или MCP; вам не нужно вводить команды.',
     intgCliPartTitle: 'CLI · командная строка + skill',
     intgCliPartDesc:
-      'Для ассистентов, умеющих выполнять команды терминала (Claude Code, Codex, Cursor и другие). После установки skill ассистент сам вызывает командную строку genoffice, чтобы создавать, конвертировать, читать и редактировать файлы; вам не нужно вводить команды.',
+      'Для ассистентов, умеющих выполнять команды терминала (Claude Code, Codex, Cursor и другие). После установки skill ассистент сам вызывает командную строку lycero-office, чтобы создавать, конвертировать, читать и редактировать файлы; вам не нужно вводить команды.',
     intgMcpPartTitle: 'MCP',
     intgMcpPartDesc:
       'MCP — общий протокол, через который ИИ-ассистенты вызывают внешние инструменты. Используйте его, если ассистент не умеет выполнять команды (например, Claude Desktop) или если хотите, чтобы он напрямую управлял окном Lycero Office. Выберите один из двух способов ниже.',
     intgMcpStdioTitle: 'Запускает ассистент (рекомендуется)',
     intgMcpStdioDesc:
-      'Ассистент сам запускает genoffice mcp: здесь ничего включать не нужно, и Lycero Office не обязан быть открыт. Те же возможности, что у CLI.',
+      'Ассистент сам запускает lycero-office mcp: здесь ничего включать не нужно, и Lycero Office не обязан быть открыт. Те же возможности, что у CLI.',
     intgMcpHttpTitle: 'Локальный HTTP-сервер',
     intgMcpHttpDesc:
       'Работает внутри Lycero Office; ассистент подключается по URL, и вы видите, как документ шаг за шагом собирается в редакторе Word. Lycero Office должен оставаться открытым; пока только документы Word.',
     intgMcpHttpAdvanced: 'Дополнительно: другие адреса и журнал',
-    intgMcpTryNote: 'Ассистент обращается к Lycero Office через MCP; вам не нужно вводить команды.',
     intgMcpClaudeTitle: 'Claude Code',
     intgMcpClaudeDesc: 'Выполните один раз в терминале:',
     intgMcpOtherTitle: 'Cursor, Claude Desktop или другой ассистент с поддержкой MCP',
@@ -7148,10 +7294,10 @@ export const strings = {
       'Добавьте это в его настройки MCP-серверов (JSON-файл или «Добавить MCP-сервер» в настройках):',
     intgMcpNote:
       'Скилл и MCP могут быть настроены одновременно; ассистент выберет один из них. Они делают одно и то же.',
-    intgCliTitle: 'Дополнительно: командная строка genoffice',
-    intgCliReady: 'genoffice {v} · доступен в терминале ({path})',
+    intgCliTitle: 'Дополнительно: командная строка lycero-office',
+    intgCliReady: 'lycero-office {v} · доступен в терминале ({path})',
     intgCliNotOnPath:
-      'genoffice {v} · отсутствует в PATH терминала. Ассистенты всё равно находят его через ~/.lycero-office/launcher, так что скилл работает. Чтобы вводить genoffice самостоятельно, выполните один раз:',
+      'lycero-office {v} · отсутствует в PATH терминала. Ассистенты всё равно находят его через ~/.lycero-office/launcher, так что скилл работает. Чтобы вводить lycero-office самостоятельно, выполните один раз:',
     intgCliLauncher: 'Папка лаунчера',
     intgStateOutdated: 'Установлен {v}, доступно обновление до {next}',
     intgStateModified: 'Установлен {v} (изменён)',
@@ -7185,6 +7331,8 @@ export const strings = {
     setAiProvider: 'Провайдер',
     setAiModelId: 'Модель',
     setAiModelSearch: 'Поиск моделей…',
+    setAiThinking: 'Уровень рассуждений',
+    setAiThinkingDefault: 'По умолчанию модели',
     setAiApiKey: 'API-ключ',
     setAiKeyHint: 'Хранится только на этом устройстве.',
     setAiBaseUrl: 'Базовый URL',
@@ -7290,6 +7438,7 @@ export const strings = {
     intgSkillsRead: 'Подробнее',
     intgSkillsMine: 'Мои навыки',
     intgSkillsRecommended: 'Рекомендуемые',
+    intgSkillsCatAll: 'Все',
     intgSkillsCatOffice: 'Офис',
     intgSkillsCatBusiness: 'Бизнес',
     intgSkillsCatData: 'Данные',
@@ -7423,7 +7572,7 @@ export const strings = {
     helpAboutSubtitle: 'Профессиональный офисный пакет',
     helpAboutIdentity: 'Идентификация продукта',
     helpAboutLicenseTitle: 'Лицензия с открытым исходным кодом',
-    helpAboutLicenseBody: 'Lycero Office создан на базе GenOffice (Apache-2.0), авторское право Mainfunc, Inc.',
+    helpAboutLicenseBody: 'Lycero Office создан на базе Lycero Office (Apache-2.0), авторское право Mainfunc, Inc.',
     helpNotices: 'Уведомления третьих лиц',
     helpNoticesTitle: 'Сторонние компоненты с открытым исходным кодом',
     helpNoticesIntro: 'Lycero Office использует следующие компоненты с открытым исходным кодом:',
@@ -7626,6 +7775,9 @@ export const strings = {
     setAutoUpdateCheck: 'التحقق من التحديثات تلقائيًا',
     setAutoUpdateCheckDesc:
       'عند الإيقاف، لن يتحقق Lycero Office من الإصدارات الجديدة عند التشغيل أو في الخلفية. يمكنك التحقق يدويًا من تعليمات › التحقق من التحديثات.',
+    setSilentInstall: 'تثبيت التحديثات بصمت',
+    setSilentInstallDesc:
+      'عند التفعيل، يُحمَّل الإصدار الجديد الذي يكتشفه الفحص في الخلفية بصمت ويُثبَّت عند الخروج من Lycero Office، دون أي مقاطعة أثناء العمل. عند الإيقاف، يظهر تنبيه تحديث لتقرر أنت موعد التحديث.',
     updateChannel: 'قناة التحديث',
     channelStable: 'مستقر',
     channelBeta: 'تجريبي',
@@ -7667,6 +7819,9 @@ export const strings = {
     aiFontSizeXLarge: 'كبير جدًا',
     aiFontSizeCustom: 'مخصص',
     setAiSpellcheck: 'التدقيق الإملائي في محادثة الذكاء الاصطناعي',
+    setLegacyImportPrompt: 'السؤال قبل تحويل الملفات القديمة',
+    setLegacyImportPromptDesc:
+      'يوضح ما سيتم نقله قبل فتح ملفات .doc أو .odt أو .hwp أو .ods أو .odp. عند الإيقاف يُفتح «حفظ باسم» مباشرة.',
     setDefaultApp: 'التطبيق الافتراضي لمستندات Office',
     setDefaultAppDesc: 'فتح ملفات .docx و.xlsx و.pptx في Lycero Office عند النقر المزدوج.',
     setDefaultAppIs: 'Lycero Office هو التطبيق الافتراضي بالفعل.',
@@ -7728,6 +7883,12 @@ export const strings = {
     intgSkillVersion: 'المهارة {v}',
     intgStateMissing: 'المهارة غير مثبّتة',
     intgStateInstalled: 'المهارة {v} مثبّتة · جاهزة في محادثتك التالية',
+    intgLegacyTitle: 'نسخ skill القديمة',
+    intgLegacyDesc:
+      'كان Lycero Office يكتب نسخة في مجلد كل أداة. ما زالت هناك {n}: الأداة ما زالت تقرأها، فلا تصل إليها نسخة skill الحالية أبدًا.',
+    intgLegacyClean: 'إزالة النسخ القديمة',
+    intgLegacyCleaned: 'أُزيلت {n} نسخة قديمة، وأُبقيت {k} نسخة عدّلها المستخدم يدويًا.',
+    intgLegacyFailed: 'تعذّرت إزالة النسخ القديمة: {msg}',
     intgOtherToggle: 'مساعدي غير موجود في القائمة',
     intgOtherDesc:
       'اختر طريقة واحدة فقط من هذه الطرق الثلاث. جميعها تثبّت المهارة نفسها، فلا حاجة لأكثر من واحدة.',
@@ -7740,25 +7901,24 @@ export const strings = {
     intgCopy: 'نسخ',
     intgStep2Title: 'جرّبها',
     intgStep2Desc: 'افتح محادثة جديدة في مساعدك واطلب بكلمات عادية، مثلاً:',
-    intgStep2DescBefore: 'بعد التثبيت، افتح محادثة جديدة في مساعدك واطلب بكلمات عادية، مثلاً:',
     intgExample1: 'حوّل ~/Downloads/report.md إلى مستند Word',
     intgExample2: 'أنشئ عرضاً من 6 شرائح عن نتائج الربع الثالث',
     intgExample3: 'حوّل budget.xlsx إلى PDF وافتحه في Lycero Office',
-    intgStep2Note: 'المساعد يشغّل سطر أوامر genoffice بنفسه؛ لن تحتاج إلى كتابته أبداً.',
+    intgStep2Note:
+      'المساعد يستدعي Lycero Office بنفسه، عبر سطر الأوامر أو MCP؛ لن تحتاج إلى كتابة أي أمر.',
     intgCliPartTitle: 'CLI · سطر الأوامر + skill',
     intgCliPartDesc:
-      'للمساعدين الذين يستطيعون تنفيذ أوامر الطرفية (Claude Code وCodex وCursor وغيرها). بعد تثبيت skill، يستدعي المساعد سطر أوامر genoffice بنفسه لإنشاء الملفات وتحويلها وقراءتها وتحريرها؛ لن تكتب أي أمر.',
+      'للمساعدين الذين يستطيعون تنفيذ أوامر الطرفية (Claude Code وCodex وCursor وغيرها). بعد تثبيت skill، يستدعي المساعد سطر أوامر lycero-office بنفسه لإنشاء الملفات وتحويلها وقراءتها وتحريرها؛ لن تكتب أي أمر.',
     intgMcpPartTitle: 'MCP',
     intgMcpPartDesc:
       'MCP هو البروتوكول المشترك الذي يستخدمه مساعدو الذكاء الاصطناعي لاستدعاء أدوات خارجية. استخدمه إذا كان مساعدك لا يستطيع تنفيذ الأوامر (مثل Claude Desktop) أو إذا أردت أن يتحكم في نافذة Lycero Office مباشرة. اختر إحدى الطريقتين أدناه.',
     intgMcpStdioTitle: 'يشغّله المساعد (موصى به)',
     intgMcpStdioDesc:
-      'يشغّل المساعد genoffice mcp بنفسه: لا شيء لتفعيله هنا، ولا يلزم أن يكون Lycero Office مفتوحًا. نفس إمكانات CLI.',
+      'يشغّل المساعد lycero-office mcp بنفسه: لا شيء لتفعيله هنا، ولا يلزم أن يكون Lycero Office مفتوحًا. نفس إمكانات CLI.',
     intgMcpHttpTitle: 'خادم HTTP محلي',
     intgMcpHttpDesc:
       'يعمل داخل Lycero Office؛ يتصل المساعد عبر عنوان URL ويمكنك مشاهدة المستند يُبنى خطوة بخطوة في محرر Word. يجب أن يبقى Lycero Office مفتوحًا؛ مستندات Word فقط حاليًا.',
     intgMcpHttpAdvanced: 'متقدم: عناوين أخرى والسجل',
-    intgMcpTryNote: 'يستدعي المساعد Lycero Office عبر MCP؛ لن تكتب أي أمر.',
     intgMcpClaudeTitle: 'Claude Code',
     intgMcpClaudeDesc: 'شغّل هذا مرة واحدة في الطرفية:',
     intgMcpOtherTitle: 'Cursor أو Claude Desktop أو أي مساعد آخر يدعم MCP',
@@ -7766,10 +7926,10 @@ export const strings = {
       'أضف هذا إلى إعدادات خوادم MCP لديه (ملف JSON، أو «إضافة خادم MCP» في إعداداته):',
     intgMcpNote:
       'يمكن إعداد المهارة و MCP معاً؛ يختار المساعد أحدهما. كلاهما يقوم بالأشياء نفسها تماماً.',
-    intgCliTitle: 'متقدم: سطر أوامر genoffice',
-    intgCliReady: 'genoffice {v} · جاهز في الطرفية ({path})',
+    intgCliTitle: 'متقدم: سطر أوامر lycero-office',
+    intgCliReady: 'lycero-office {v} · جاهز في الطرفية ({path})',
     intgCliNotOnPath:
-      'genoffice {v} · غير موجود في PATH الطرفية. ما زال المساعدون يجدونه عبر ~/.lycero-office/launcher، فالمهارة تعمل. لكتابة genoffice بنفسك، شغّل هذا مرة واحدة:',
+      'lycero-office {v} · غير موجود في PATH الطرفية. ما زال المساعدون يجدونه عبر ~/.lycero-office/launcher، فالمهارة تعمل. لكتابة lycero-office بنفسك، شغّل هذا مرة واحدة:',
     intgCliLauncher: 'مجلد المشغّل',
     intgStateOutdated: 'مثبّت {v}، يتوفر تحديث إلى {next}',
     intgStateModified: 'مثبّت {v} (تم تعديله)',
@@ -7802,6 +7962,8 @@ export const strings = {
     setAiProvider: 'المزوّد',
     setAiModelId: 'النموذج',
     setAiModelSearch: 'البحث عن نموذج…',
+    setAiThinking: 'مستوى التفكير',
+    setAiThinkingDefault: 'افتراضي النموذج',
     setAiApiKey: 'مفتاح API',
     setAiKeyHint: 'يُحفظ على هذا الجهاز فقط.',
     setAiBaseUrl: 'Base URL',
@@ -7904,6 +8066,7 @@ export const strings = {
     intgSkillsRead: 'التفاصيل',
     intgSkillsMine: 'مهاراتي',
     intgSkillsRecommended: 'موصى بها',
+    intgSkillsCatAll: 'الكل',
     intgSkillsCatOffice: 'مكتب',
     intgSkillsCatBusiness: 'أعمال',
     intgSkillsCatData: 'بيانات',
@@ -8035,7 +8198,7 @@ export const strings = {
     helpAboutSubtitle: 'مجموعة مكتبية احترافية',
     helpAboutIdentity: 'هوية المنتج',
     helpAboutLicenseTitle: 'ترخيص المصدر المفتوح',
-    helpAboutLicenseBody: 'Lycero Office مبني على GenOffice (Apache-2.0)، حقوق النشر Mainfunc, Inc.',
+    helpAboutLicenseBody: 'Lycero Office مبني على Lycero Office (Apache-2.0)، حقوق النشر Mainfunc, Inc.',
     helpNotices: 'إشعارات الطرف الثالث',
     helpNoticesTitle: 'مكونات المصدر المفتوح التابعة لطرف ثالث',
     helpNoticesIntro: 'يستخدم Lycero Office مكونات المصدر المفتوح التالية:',
@@ -8236,6 +8399,9 @@ export const strings = {
     setAutoUpdateCheck: 'Verificar atualizações automaticamente',
     setAutoUpdateCheckDesc:
       'Desligado, o Lycero Office deixa de procurar novas versões ao iniciar e em segundo plano. Você ainda pode verificar em Ajuda › Procurar atualizações.',
+    setSilentInstall: 'Instalar atualizações silenciosamente',
+    setSilentInstallDesc:
+      'Quando ativado, uma nova versão encontrada em segundo plano é baixada silenciosamente e instalada ao sair do Lycero Office; nada interrompe seu trabalho. Quando desativado, um aviso de atualização deixa você decidir quando atualizar.',
     updateChannel: 'Canal de atualização',
     channelStable: 'Estável',
     channelBeta: 'Beta',
@@ -8277,6 +8443,9 @@ export const strings = {
     aiFontSizeXLarge: 'Muito grande',
     aiFontSizeCustom: 'Personalizado',
     setAiSpellcheck: 'Verificação ortográfica no chat de IA',
+    setLegacyImportPrompt: 'Perguntar antes de converter arquivos antigos',
+    setLegacyImportPromptDesc:
+      'Explica o que é preservado antes de abrir arquivos .doc, .odt, .hwp, .ods ou .odp. Desativado, Salvar como abre diretamente.',
     setDefaultApp: 'App padrão para documentos do Office',
     setDefaultAppDesc: 'Abrir arquivos .docx, .xlsx e .pptx no Lycero Office ao clicar duas vezes.',
     setDefaultAppIs: 'O Lycero Office já é o app padrão.',
@@ -8341,6 +8510,12 @@ export const strings = {
     intgSkillVersion: 'skill {v}',
     intgStateMissing: 'Skill não instalado',
     intgStateInstalled: 'Skill {v} instalado · pronto no seu próximo chat',
+    intgLegacyTitle: 'Cópias antigas do skill',
+    intgLegacyDesc:
+      'O Lycero Office antes gravava uma cópia na pasta de cada ferramenta. Ainda há {n} lá: a ferramenta continua a lê-las, por isso nunca recebem o skill atual.',
+    intgLegacyClean: 'Remover cópias antigas',
+    intgLegacyCleaned: '{n} cópias antigas removidas, {k} editadas à mão foram mantidas.',
+    intgLegacyFailed: 'Não foi possível remover as cópias antigas: {msg}',
     intgOtherToggle: 'Meu assistente não está na lista',
     intgOtherDesc:
       'Escolha apenas uma destas três formas. Todas instalam o mesmo skill, então não é preciso fazer mais de uma.',
@@ -8353,27 +8528,24 @@ export const strings = {
     intgCopy: 'Copiar',
     intgStep2Title: 'Experimente',
     intgStep2Desc: 'Abra um chat novo no seu assistente e peça com suas palavras, por exemplo:',
-    intgStep2DescBefore:
-      'Depois de instalar, abra um chat novo no seu assistente e peça com suas palavras, por exemplo:',
     intgExample1: 'Transforme ~/Downloads/report.md em um documento Word',
     intgExample2: 'Monte uma apresentação de 6 slides sobre nossos resultados do 3º trimestre',
     intgExample3: 'Converta budget.xlsx para PDF e abra no Lycero Office',
     intgStep2Note:
-      'O assistente executa a linha de comando genoffice sozinho; você nunca precisa digitá-la.',
+      'O assistente chama o Lycero Office sozinho, pela linha de comando ou MCP; você nunca precisa digitar um comando.',
     intgCliPartTitle: 'CLI · linha de comando + skill',
     intgCliPartDesc:
-      'Para assistentes que executam comandos de terminal (Claude Code, Codex, Cursor e outros). Com o skill instalado, o assistente chama a linha de comando genoffice sozinho para criar, converter, ler e editar arquivos; você nunca digita um comando.',
+      'Para assistentes que executam comandos de terminal (Claude Code, Codex, Cursor e outros). Com o skill instalado, o assistente chama a linha de comando lycero-office sozinho para criar, converter, ler e editar arquivos; você nunca digita um comando.',
     intgMcpPartTitle: 'MCP',
     intgMcpPartDesc:
       'MCP é o protocolo comum que assistentes de IA usam para chamar ferramentas externas. Use-o quando o assistente não puder executar comandos (Claude Desktop, por exemplo) ou quando quiser que ele controle a janela do Lycero Office diretamente. Escolha uma das duas formas abaixo.',
     intgMcpStdioTitle: 'Iniciado pelo assistente (recomendado)',
     intgMcpStdioDesc:
-      'O assistente inicia o genoffice mcp sozinho: nada para ligar aqui, e o Lycero Office não precisa estar aberto. Mesmos recursos da CLI.',
+      'O assistente inicia o lycero-office mcp sozinho: nada para ligar aqui, e o Lycero Office não precisa estar aberto. Mesmos recursos da CLI.',
     intgMcpHttpTitle: 'Servidor HTTP local',
     intgMcpHttpDesc:
       'Roda dentro do Lycero Office; o assistente conecta por URL e você acompanha o documento sendo montado passo a passo no editor Word. O Lycero Office precisa ficar aberto; por enquanto só documentos Word.',
     intgMcpHttpAdvanced: 'Avançado: outros endereços e log',
-    intgMcpTryNote: 'O assistente chama o Lycero Office via MCP; você nunca digita um comando.',
     intgMcpClaudeTitle: 'Claude Code',
     intgMcpClaudeDesc: 'Execute isto uma vez no terminal:',
     intgMcpOtherTitle: 'Cursor, Claude Desktop ou qualquer outro assistente compatível com MCP',
@@ -8381,10 +8553,10 @@ export const strings = {
       'Adicione isto à configuração de servidores MCP dele (um arquivo JSON, ou "Adicionar servidor MCP" nas configurações):',
     intgMcpNote:
       'O skill e o MCP podem coexistir; o assistente escolhe um deles. Ambos fazem exatamente as mesmas coisas.',
-    intgCliTitle: 'Avançado: linha de comando genoffice',
-    intgCliReady: 'genoffice {v} · pronto no seu terminal ({path})',
+    intgCliTitle: 'Avançado: linha de comando lycero-office',
+    intgCliReady: 'lycero-office {v} · pronto no seu terminal ({path})',
     intgCliNotOnPath:
-      'genoffice {v} · não está no PATH do seu terminal. Os assistentes ainda o encontram por ~/.lycero-office/launcher, então o skill funciona. Para digitar genoffice você mesmo, execute isto uma vez:',
+      'lycero-office {v} · não está no PATH do seu terminal. Os assistentes ainda o encontram por ~/.lycero-office/launcher, então o skill funciona. Para digitar lycero-office você mesmo, execute isto uma vez:',
     intgCliLauncher: 'Pasta do inicializador',
     intgStateOutdated: 'Instalado {v}, atualização para {next} disponível',
     intgStateModified: 'Instalado {v} (modificado)',
@@ -8419,6 +8591,8 @@ export const strings = {
     setAiProvider: 'Provedor',
     setAiModelId: 'Modelo',
     setAiModelSearch: 'Pesquisar modelos…',
+    setAiThinking: 'Esforço de raciocínio',
+    setAiThinkingDefault: 'Padrão do modelo',
     setAiApiKey: 'Chave de API',
     setAiKeyHint: 'Armazenada apenas neste dispositivo.',
     setAiBaseUrl: 'Base URL',
@@ -8523,6 +8697,7 @@ export const strings = {
     intgSkillsRead: 'Detalhes',
     intgSkillsMine: 'As minhas competências',
     intgSkillsRecommended: 'Recomendadas',
+    intgSkillsCatAll: 'Todos',
     intgSkillsCatOffice: 'Escritório',
     intgSkillsCatBusiness: 'Negócios',
     intgSkillsCatData: 'Dados',
@@ -8655,7 +8830,7 @@ export const strings = {
     helpAboutSubtitle: 'Suite de escritório profissional',
     helpAboutIdentity: 'Identidade do produto',
     helpAboutLicenseTitle: 'Licença de código aberto',
-    helpAboutLicenseBody: 'Lycero Office é construído sobre GenOffice (Apache-2.0), direitos autorais Mainfunc, Inc.',
+    helpAboutLicenseBody: 'Lycero Office é construído sobre Lycero Office (Apache-2.0), direitos autorais Mainfunc, Inc.',
     helpNotices: 'Avisos de terceiros',
     helpNoticesTitle: 'Componentes de código aberto de terceiros',
     helpNoticesIntro: 'Lycero Office usa os seguintes componentes de código aberto:',
@@ -8856,6 +9031,9 @@ export const strings = {
     setAutoUpdateCheck: 'Controlla automaticamente gli aggiornamenti',
     setAutoUpdateCheckDesc:
       "Se disattivato, Lycero Office non cerca più nuove versioni all'avvio o in background. Puoi comunque controllare da Aiuto › Controlla aggiornamenti.",
+    setSilentInstall: 'Installa gli aggiornamenti in silenzio',
+    setSilentInstallDesc:
+      'Se attivo, una nuova versione trovata in background viene scaricata in silenzio e installata alla chiusura di Lycero Office; nulla ti interrompe mentre lavori. Se disattivato, un avviso di aggiornamento ti lascia decidere quando aggiornare.',
     updateChannel: 'Canale di aggiornamento',
     channelStable: 'Stabile',
     channelBeta: 'Beta',
@@ -8897,6 +9075,9 @@ export const strings = {
     aiFontSizeXLarge: 'Molto grande',
     aiFontSizeCustom: 'Personalizzato',
     setAiSpellcheck: 'Controllo ortografico nella chat IA',
+    setLegacyImportPrompt: 'Chiedi prima di convertire i file legacy',
+    setLegacyImportPromptDesc:
+      'Spiega cosa viene mantenuto prima di aprire file .doc, .odt, .hwp, .ods o .odp. Se disattivato, Salva con nome si apre subito.',
     setDefaultApp: 'App predefinita per i documenti Office',
     setDefaultAppDesc: 'Apri i file .docx, .xlsx e .pptx in Lycero Office con un doppio clic.',
     setDefaultAppIs: 'Lycero Office è già l’app predefinita.',
@@ -8960,6 +9141,12 @@ export const strings = {
     intgSkillVersion: 'skill {v}',
     intgStateMissing: 'Skill non installato',
     intgStateInstalled: 'Skill {v} installato · pronto nella prossima chat',
+    intgLegacyTitle: 'Copie obsolete dello skill',
+    intgLegacyDesc:
+      'Prima Lycero Office scriveva una copia nella cartella di ogni strumento. Ne restano {n}: lo strumento continua a leggerle, quindi non ricevono mai lo skill attuale.',
+    intgLegacyClean: 'Rimuovi le copie obsolete',
+    intgLegacyCleaned: '{n} copie obsolete rimosse, {k} modificate a mano lasciate al loro posto.',
+    intgLegacyFailed: 'Impossibile rimuovere le copie obsolete: {msg}',
     intgOtherToggle: 'Il mio assistente non è in elenco',
     intgOtherDesc:
       'Scegli una sola di queste tre strade. Installano tutte lo stesso skill, quindi non serve farne più di una.',
@@ -8973,27 +9160,24 @@ export const strings = {
     intgStep2Title: 'Provalo',
     intgStep2Desc:
       'Apri una nuova chat nel tuo assistente e chiedi con parole semplici, ad esempio:',
-    intgStep2DescBefore:
-      "Dopo l'installazione, apri una nuova chat nel tuo assistente e chiedi con parole semplici, ad esempio:",
     intgExample1: 'Trasforma ~/Downloads/report.md in un documento Word',
     intgExample2: 'Prepara una presentazione di 6 slide sui nostri risultati del terzo trimestre',
     intgExample3: 'Converti budget.xlsx in PDF e aprilo in Lycero Office',
     intgStep2Note:
-      "L'assistente esegue da solo la riga di comando genoffice; non dovrai mai digitarla.",
+      "L'assistente richiama Lycero Office da solo, tramite la riga di comando o MCP; non dovrai mai digitare un comando.",
     intgCliPartTitle: 'CLI · riga di comando + skill',
     intgCliPartDesc:
-      'Per assistenti che possono eseguire comandi da terminale (Claude Code, Codex, Cursor e altri). Installato lo skill, l’assistente richiama da sé la riga di comando genoffice per creare, convertire, leggere e modificare file; non digiti mai un comando.',
+      'Per assistenti che possono eseguire comandi da terminale (Claude Code, Codex, Cursor e altri). Installato lo skill, l’assistente richiama da sé la riga di comando lycero-office per creare, convertire, leggere e modificare file; non digiti mai un comando.',
     intgMcpPartTitle: 'MCP',
     intgMcpPartDesc:
       'MCP è il protocollo comune con cui gli assistenti IA richiamano strumenti esterni. Usalo quando l’assistente non può eseguire comandi (Claude Desktop, ad esempio) o quando vuoi che controlli direttamente la finestra di Lycero Office. Scegli uno dei due modi qui sotto.',
     intgMcpStdioTitle: 'Avviato dall’assistente (consigliato)',
     intgMcpStdioDesc:
-      'L’assistente avvia genoffice mcp da sé: niente da attivare qui, e Lycero Office non deve essere aperto. Stesse funzioni della CLI.',
+      'L’assistente avvia lycero-office mcp da sé: niente da attivare qui, e Lycero Office non deve essere aperto. Stesse funzioni della CLI.',
     intgMcpHttpTitle: 'Server HTTP locale',
     intgMcpHttpDesc:
       'Gira dentro Lycero Office; l’assistente si collega a un URL e puoi vedere il documento prendere forma passo dopo passo nell’editor Word. Lycero Office deve restare aperto; per ora solo documenti Word.',
     intgMcpHttpAdvanced: 'Avanzato: altri indirizzi e registro',
-    intgMcpTryNote: 'L’assistente richiama Lycero Office tramite MCP; non digiti mai un comando.',
     intgMcpClaudeTitle: 'Claude Code',
     intgMcpClaudeDesc: 'Esegui questo una volta nel terminale:',
     intgMcpOtherTitle: 'Cursor, Claude Desktop o qualsiasi altro assistente compatibile con MCP',
@@ -9001,10 +9185,10 @@ export const strings = {
       'Aggiungi questo alla sua configurazione dei server MCP (un file JSON, oppure «Aggiungi server MCP» nelle impostazioni):',
     intgMcpNote:
       "Skill e MCP possono convivere; l'assistente ne sceglie uno. Fanno esattamente le stesse cose.",
-    intgCliTitle: 'Avanzato: riga di comando genoffice',
-    intgCliReady: 'genoffice {v} · pronto nel terminale ({path})',
+    intgCliTitle: 'Avanzato: riga di comando lycero-office',
+    intgCliReady: 'lycero-office {v} · pronto nel terminale ({path})',
     intgCliNotOnPath:
-      'genoffice {v} · non è nel PATH del terminale. Gli assistenti lo trovano comunque tramite ~/.lycero-office/launcher, quindi lo skill funziona. Per digitare genoffice tu stesso, esegui questo una volta:',
+      'lycero-office {v} · non è nel PATH del terminale. Gli assistenti lo trovano comunque tramite ~/.lycero-office/launcher, quindi lo skill funziona. Per digitare lycero-office tu stesso, esegui questo una volta:',
     intgCliLauncher: 'Cartella del launcher',
     intgStateOutdated: 'Installato {v}, aggiornamento a {next} disponibile',
     intgStateModified: 'Installato {v} (modificato)',
@@ -9038,6 +9222,8 @@ export const strings = {
     setAiProvider: 'Provider',
     setAiModelId: 'Modello',
     setAiModelSearch: 'Cerca modelli…',
+    setAiThinking: 'Sforzo di ragionamento',
+    setAiThinkingDefault: 'Predefinito del modello',
     setAiApiKey: 'Chiave API',
     setAiKeyHint: 'Salvata solo su questo dispositivo.',
     setAiBaseUrl: 'Base URL',
@@ -9142,6 +9328,7 @@ export const strings = {
     intgSkillsRead: 'Dettagli',
     intgSkillsMine: 'Le mie competenze',
     intgSkillsRecommended: 'Consigliate',
+    intgSkillsCatAll: 'Tutti',
     intgSkillsCatOffice: 'Ufficio',
     intgSkillsCatBusiness: 'Business',
     intgSkillsCatData: 'Dati',
@@ -9275,7 +9462,7 @@ export const strings = {
     helpAboutSubtitle: 'Suite da ufficio professionale',
     helpAboutIdentity: 'Identità del prodotto',
     helpAboutLicenseTitle: 'Licenza open source',
-    helpAboutLicenseBody: 'Lycero Office è basato su GenOffice (Apache-2.0), copyright Mainfunc, Inc.',
+    helpAboutLicenseBody: 'Lycero Office è basato su Lycero Office (Apache-2.0), copyright Mainfunc, Inc.',
     helpNotices: 'Avvisi di terze parti',
     helpNoticesTitle: 'Componenti open source di terze parti',
     helpNoticesIntro: 'Lycero Office utilizza i seguenti componenti open source:',
@@ -9474,6 +9661,9 @@ export const strings = {
     setAutoUpdateCheck: 'Automatycznie sprawdzaj aktualizacje',
     setAutoUpdateCheckDesc:
       'Po wyłączeniu Lycero Office nie sprawdza nowych wersji przy uruchomieniu ani w tle. Nadal możesz sprawdzić ręcznie w Pomoc › Sprawdź aktualizacje.',
+    setSilentInstall: 'Instaluj aktualizacje po cichu',
+    setSilentInstallDesc:
+      'Gdy włączone, nowa wersja znaleziona w tle jest pobierana po cichu i instalowana przy wyjściu z Lycero Office; nic nie przerywa pracy. Gdy wyłączone, monit o aktualizacji pozwala samodzielnie wybrać moment.',
     updateChannel: 'Kanał aktualizacji',
     channelStable: 'Stabilny',
     channelBeta: 'Beta',
@@ -9515,6 +9705,9 @@ export const strings = {
     aiFontSizeXLarge: 'Bardzo duży',
     aiFontSizeCustom: 'Niestandardowy',
     setAiSpellcheck: 'Sprawdzanie pisowni w czacie AI',
+    setLegacyImportPrompt: 'Pytaj przed konwersją starych plików',
+    setLegacyImportPromptDesc:
+      'Wyjaśnia, co zostanie przeniesione przed otwarciem plików .doc, .odt, .hwp, .ods lub .odp. Po wyłączeniu od razu otwiera się Zapisz jako.',
     setDefaultApp: 'Domyślna aplikacja dla dokumentów Office',
     setDefaultAppDesc: 'Otwieraj pliki .docx, .xlsx i .pptx w Lycero Office po dwukrotnym kliknięciu.',
     setDefaultAppIs: 'Lycero Office jest już aplikacją domyślną.',
@@ -9577,6 +9770,12 @@ export const strings = {
     intgSkillVersion: 'skill {v}',
     intgStateMissing: 'Skill niezainstalowany',
     intgStateInstalled: 'Skill {v} zainstalowany · gotowy w następnym czacie',
+    intgLegacyTitle: 'Stare kopie wtyczki',
+    intgLegacyDesc:
+      'Lycero Office wcześniej zapisywał kopię w folderze każdego narzędzia. Wciąż jest tam {n}: narzędzie czyta je dalej, więc nigdy nie dostają aktualnej wtyczki.',
+    intgLegacyClean: 'Usuń stare kopie',
+    intgLegacyCleaned: 'Usunięto {n} starych kopii, {k} edytowanych ręcznie zostawiono.',
+    intgLegacyFailed: 'Nie udało się usunąć starych kopii: {msg}',
     intgOtherToggle: 'Mojego asystenta nie ma na liście',
     intgOtherDesc:
       'Wybierz tylko jeden z tych trzech sposobów. Wszystkie instalują ten sam skill, więc nie trzeba robić więcej niż jednego.',
@@ -9589,26 +9788,24 @@ export const strings = {
     intgCopy: 'Kopiuj',
     intgStep2Title: 'Wypróbuj',
     intgStep2Desc: 'Otwórz nowy czat w asystencie i poproś zwykłymi słowami, na przykład:',
-    intgStep2DescBefore:
-      'Po instalacji otwórz nowy czat w asystencie i poproś zwykłymi słowami, na przykład:',
     intgExample1: 'Zamień ~/Downloads/report.md na dokument Word',
     intgExample2: 'Zrób prezentację z 6 slajdów o naszych wynikach za III kwartał',
     intgExample3: 'Przekonwertuj budget.xlsx do PDF i otwórz w Lycero Office',
-    intgStep2Note: 'Asystent sam uruchamia wiersz poleceń genoffice; nigdy nie musisz go wpisywać.',
+    intgStep2Note:
+      'Asystent sam wywołuje Lycero Office — przez wiersz poleceń lub MCP; nigdy nie musisz wpisywać polecenia.',
     intgCliPartTitle: 'CLI · wiersz poleceń + skill',
     intgCliPartDesc:
-      'Dla asystentów, które potrafią uruchamiać polecenia terminala (Claude Code, Codex, Cursor i inne). Po zainstalowaniu skilla asystent sam wywołuje wiersz poleceń genoffice, aby tworzyć, konwertować, czytać i edytować pliki; nigdy nie wpisujesz polecenia.',
+      'Dla asystentów, które potrafią uruchamiać polecenia terminala (Claude Code, Codex, Cursor i inne). Po zainstalowaniu skilla asystent sam wywołuje wiersz poleceń lycero-office, aby tworzyć, konwertować, czytać i edytować pliki; nigdy nie wpisujesz polecenia.',
     intgMcpPartTitle: 'MCP',
     intgMcpPartDesc:
       'MCP to wspólny protokół, którym asystenci AI wywołują zewnętrzne narzędzia. Użyj go, gdy asystent nie potrafi uruchamiać poleceń (np. Claude Desktop) lub gdy chcesz, aby bezpośrednio sterował oknem Lycero Office. Wybierz jeden z dwóch sposobów poniżej.',
     intgMcpStdioTitle: 'Uruchamiany przez asystenta (zalecane)',
     intgMcpStdioDesc:
-      'Asystent sam uruchamia genoffice mcp: nic tu nie trzeba włączać, a Lycero Office nie musi być otwarty. Te same funkcje co CLI.',
+      'Asystent sam uruchamia lycero-office mcp: nic tu nie trzeba włączać, a Lycero Office nie musi być otwarty. Te same funkcje co CLI.',
     intgMcpHttpTitle: 'Lokalny serwer HTTP',
     intgMcpHttpDesc:
       'Działa wewnątrz Lycero Office; asystent łączy się przez URL, a Ty widzisz, jak dokument powstaje krok po kroku w edytorze Word. Lycero Office musi pozostać otwarty; na razie tylko dokumenty Word.',
     intgMcpHttpAdvanced: 'Zaawansowane: inne adresy i dziennik',
-    intgMcpTryNote: 'Asystent wywołuje Lycero Office przez MCP; nigdy nie wpisujesz polecenia.',
     intgMcpClaudeTitle: 'Claude Code',
     intgMcpClaudeDesc: 'Uruchom to raz w terminalu:',
     intgMcpOtherTitle: 'Cursor, Claude Desktop lub inny asystent obsługujący MCP',
@@ -9616,10 +9813,10 @@ export const strings = {
       'Dodaj to do jego konfiguracji serwerów MCP (plik JSON lub „Dodaj serwer MCP” w ustawieniach):',
     intgMcpNote:
       'Skill i MCP mogą działać obok siebie; asystent wybiera jedno z nich. Oba robią dokładnie to samo.',
-    intgCliTitle: 'Zaawansowane: wiersz poleceń genoffice',
-    intgCliReady: 'genoffice {v} · gotowy w terminalu ({path})',
+    intgCliTitle: 'Zaawansowane: wiersz poleceń lycero-office',
+    intgCliReady: 'lycero-office {v} · gotowy w terminalu ({path})',
     intgCliNotOnPath:
-      'genoffice {v} · nie ma go w PATH terminala. Asystenty i tak znajdą go przez ~/.lycero-office/launcher, więc skill działa. Aby samodzielnie wpisywać genoffice, uruchom to raz:',
+      'lycero-office {v} · nie ma go w PATH terminala. Asystenty i tak znajdą go przez ~/.lycero-office/launcher, więc skill działa. Aby samodzielnie wpisywać lycero-office, uruchom to raz:',
     intgCliLauncher: 'Folder programu uruchamiającego',
     intgStateOutdated: 'Zainstalowano {v}, dostępna aktualizacja do {next}',
     intgStateModified: 'Zainstalowano {v} (zmodyfikowano)',
@@ -9652,6 +9849,8 @@ export const strings = {
     setAiProvider: 'Dostawca',
     setAiModelId: 'Model',
     setAiModelSearch: 'Szukaj modeli…',
+    setAiThinking: 'Poziom rozumowania',
+    setAiThinkingDefault: 'Domyślny modelu',
     setAiApiKey: 'Klucz API',
     setAiKeyHint: 'Przechowywany tylko na tym urządzeniu.',
     setAiBaseUrl: 'Base URL',
@@ -9757,6 +9956,7 @@ export const strings = {
     intgSkillsRead: 'Szczegóły',
     intgSkillsMine: 'Moje umiejętności',
     intgSkillsRecommended: 'Polecane',
+    intgSkillsCatAll: 'Wszystkie',
     intgSkillsCatOffice: 'Biuro',
     intgSkillsCatBusiness: 'Biznes',
     intgSkillsCatData: 'Dane',
@@ -9889,7 +10089,7 @@ export const strings = {
     helpAboutSubtitle: 'Profesjonalny pakiet biurowy',
     helpAboutIdentity: 'Tożsamość produktu',
     helpAboutLicenseTitle: 'Licencja open source',
-    helpAboutLicenseBody: 'Lycero Office jest zbudowany na bazie GenOffice (Apache-2.0), prawa autorskie Mainfunc, Inc.',
+    helpAboutLicenseBody: 'Lycero Office jest zbudowany na bazie Lycero Office (Apache-2.0), prawa autorskie Mainfunc, Inc.',
     helpNotices: 'Uwagi stron trzecich',
     helpNoticesTitle: 'Komponenty open source stron trzecich',
     helpNoticesIntro: 'Lycero Office używa następujących komponentów open source:',
@@ -10087,6 +10287,9 @@ export const strings = {
     setAutoUpdateCheck: 'Automaticky kontrolovat aktualizace',
     setAutoUpdateCheckDesc:
       'Po vypnutí Lycero Office nekontroluje nové verze při spuštění ani na pozadí. Ručně můžete zkontrolovat v Nápověda › Zkontrolovat aktualizace.',
+    setSilentInstall: 'Instalovat aktualizace tiše',
+    setSilentInstallDesc:
+      'Je-li zapnuto, nová verze nalezená na pozadí se tiše stáhne a nainstaluje při ukončení Lycero Office; při práci vás nic nepřeruší. Je-li vypnuto, výzva k aktualizaci vám nechá rozhodnout kdy.',
     updateChannel: 'Kanál aktualizací',
     channelStable: 'Stabilní',
     channelBeta: 'Beta',
@@ -10144,6 +10347,12 @@ export const strings = {
     intgSkillVersion: 'skill {v}',
     intgStateMissing: 'Skill není nainstalován',
     intgStateInstalled: 'Skill {v} nainstalován · připraven v příštím chatu',
+    intgLegacyTitle: 'Staré kopie skillu',
+    intgLegacyDesc:
+      'Lycero Office dříve zapisoval kopii do složky každého nástroje. Pořád jich tam je {n}: nástroj je stále čte, takže se k nim nikdy nedostane aktuální skill.',
+    intgLegacyClean: 'Odebrat staré kopie',
+    intgLegacyCleaned: 'Odebráno {n} starých kopií, {k} ručně upravených ponecháno.',
+    intgLegacyFailed: 'Staré kopie se nepodařilo odebrat: {msg}',
     intgOtherToggle: 'Můj asistent v seznamu není',
     intgOtherDesc:
       'Zvolte pouze jeden z těchto tří způsobů. Všechny instalují stejný skill, takže není třeba dělat více než jeden.',
@@ -10156,26 +10365,24 @@ export const strings = {
     intgCopy: 'Kopírovat',
     intgStep2Title: 'Vyzkoušejte',
     intgStep2Desc: 'Otevřete v asistentovi nový chat a požádejte běžnými slovy, například:',
-    intgStep2DescBefore:
-      'Po instalaci otevřete v asistentovi nový chat a požádejte běžnými slovy, například:',
     intgExample1: 'Převeď ~/Downloads/report.md na dokument Word',
     intgExample2: 'Udělej prezentaci o 6 snímcích o našich výsledcích za 3. čtvrtletí',
     intgExample3: 'Převeď budget.xlsx do PDF a otevři ho v Lycero Office',
-    intgStep2Note: 'Asistent spouští příkazový řádek genoffice sám; nikdy ho nemusíte psát.',
+    intgStep2Note:
+      'Asistent volá Lycero Office sám – přes příkazový řádek nebo MCP; nikdy nemusíte psát žádný příkaz.',
     intgCliPartTitle: 'CLI · příkazový řádek + skill',
     intgCliPartDesc:
-      'Pro asistenty, kteří umí spouštět příkazy terminálu (Claude Code, Codex, Cursor a další). Po instalaci skillu asistent sám volá příkazový řádek genoffice k vytváření, převodu, čtení a úpravám souborů; žádný příkaz nepíšete.',
+      'Pro asistenty, kteří umí spouštět příkazy terminálu (Claude Code, Codex, Cursor a další). Po instalaci skillu asistent sám volá příkazový řádek lycero-office k vytváření, převodu, čtení a úpravám souborů; žádný příkaz nepíšete.',
     intgMcpPartTitle: 'MCP',
     intgMcpPartDesc:
       'MCP je společný protokol, kterým AI asistenti volají externí nástroje. Použijte ho, když asistent neumí spouštět příkazy (např. Claude Desktop) nebo když chcete, aby přímo ovládal okno Lycero Office. Vyberte jeden ze dvou způsobů níže.',
     intgMcpStdioTitle: 'Spouští asistent (doporučeno)',
     intgMcpStdioDesc:
-      'Asistent spustí genoffice mcp sám: tady není co zapínat a Lycero Office nemusí být otevřený. Stejné funkce jako CLI.',
+      'Asistent spustí lycero-office mcp sám: tady není co zapínat a Lycero Office nemusí být otevřený. Stejné funkce jako CLI.',
     intgMcpHttpTitle: 'Místní HTTP server',
     intgMcpHttpDesc:
       'Běží uvnitř Lycero Office; asistent se připojí přes URL a v editoru Word sledujete, jak dokument krok za krokem vzniká. Lycero Office musí zůstat otevřený; zatím jen dokumenty Word.',
     intgMcpHttpAdvanced: 'Pokročilé: další adresy a protokol',
-    intgMcpTryNote: 'Asistent volá Lycero Office přes MCP; žádný příkaz nepíšete.',
     intgMcpClaudeTitle: 'Claude Code',
     intgMcpClaudeDesc: 'Spusťte jednou v terminálu:',
     intgMcpOtherTitle: 'Cursor, Claude Desktop nebo jiný asistent s podporou MCP',
@@ -10183,10 +10390,10 @@ export const strings = {
       'Přidejte toto do jeho nastavení MCP serverů (soubor JSON nebo „Přidat MCP server“ v nastavení):',
     intgMcpNote:
       'Skill a MCP mohou být nastaveny současně; asistent si jeden vybere. Oba dělají přesně to samé.',
-    intgCliTitle: 'Pokročilé: příkazový řádek genoffice',
-    intgCliReady: 'genoffice {v} · připraven v terminálu ({path})',
+    intgCliTitle: 'Pokročilé: příkazový řádek lycero-office',
+    intgCliReady: 'lycero-office {v} · připraven v terminálu ({path})',
     intgCliNotOnPath:
-      'genoffice {v} · není v PATH terminálu. Asistenti ho i tak najdou přes ~/.lycero-office/launcher, skill tedy funguje. Chcete-li genoffice psát sami, spusťte jednou:',
+      'lycero-office {v} · není v PATH terminálu. Asistenti ho i tak najdou přes ~/.lycero-office/launcher, skill tedy funguje. Chcete-li lycero-office psát sami, spusťte jednou:',
     intgCliLauncher: 'Složka spouštěče',
     intgStateOutdated: 'Nainstalováno {v}, k dispozici aktualizace na {next}',
     intgStateModified: 'Nainstalováno {v} (upraveno)',
@@ -10220,6 +10427,8 @@ export const strings = {
     setAiProvider: 'Poskytovatel',
     setAiModelId: 'Model',
     setAiModelSearch: 'Hledat modely…',
+    setAiThinking: 'Úroveň uvažování',
+    setAiThinkingDefault: 'Výchozí pro model',
     setAiApiKey: 'Klíč API',
     setAiKeyHint: 'Ukládá se pouze na tomto zařízení.',
     setAiBaseUrl: 'Základní URL',
@@ -10337,6 +10546,9 @@ export const strings = {
     aiFontSizeXLarge: 'Extra velké',
     aiFontSizeCustom: 'Vlastní',
     setAiSpellcheck: 'Kontrola pravopisu v chatu AI',
+    setLegacyImportPrompt: 'Ptát se před převodem starších souborů',
+    setLegacyImportPromptDesc:
+      'Před otevřením souborů .doc, .odt, .hwp, .ods nebo .odp vysvětlí, co se převede. Při vypnutí se rovnou otevře Uložit jako.',
     setDefaultApp: 'Výchozí aplikace pro dokumenty Office',
     setDefaultAppDesc: 'Otevírat soubory .docx, .xlsx a .pptx v Lycero Office poklepáním.',
     setDefaultAppIs: 'Lycero Office už je výchozí aplikací.',
@@ -10366,6 +10578,7 @@ export const strings = {
     intgSkillsRead: 'Podrobnosti',
     intgSkillsMine: 'Moje dovednosti',
     intgSkillsRecommended: 'Doporučené',
+    intgSkillsCatAll: 'Všechny',
     intgSkillsCatOffice: 'Kancelář',
     intgSkillsCatBusiness: 'Byznys',
     intgSkillsCatData: 'Data',
@@ -10500,7 +10713,7 @@ export const strings = {
     helpAboutSubtitle: 'Profesionální kancelářská sada',
     helpAboutIdentity: 'Identita produktu',
     helpAboutLicenseTitle: 'Open source licence',
-    helpAboutLicenseBody: 'Lycero Office je postaven na GenOffice (Apache-2.0), copyright Mainfunc, Inc.',
+    helpAboutLicenseBody: 'Lycero Office je postaven na Lycero Office (Apache-2.0), copyright Mainfunc, Inc.',
     helpNotices: 'Oznámení třetích stran',
     helpNoticesTitle: 'Komponenty open source třetích stran',
     helpNoticesIntro: 'Lycero Office používá následující komponenty open source:',
@@ -10698,6 +10911,9 @@ export const strings = {
     setAutoUpdateCheck: 'Automatisch controleren op updates',
     setAutoUpdateCheckDesc:
       'Uitgeschakeld controleert Lycero Office niet meer op nieuwe versies bij het starten of op de achtergrond. Je kunt nog steeds controleren via Help › Controleren op updates.',
+    setSilentInstall: 'Updates stil installeren',
+    setSilentInstallDesc:
+      'Indien aan, wordt een nieuwe versie die op de achtergrond is gevonden stil gedownload en geïnstalleerd wanneer u Lycero Office afsluit; niets onderbreekt u tijdens het werk. Indien uit, laat een updatemelding u zelf kiezen wanneer.',
     updateChannel: 'Updatekanaal',
     channelStable: 'Stabiel',
     channelBeta: 'Bèta',
@@ -10739,6 +10955,9 @@ export const strings = {
     aiFontSizeXLarge: 'Extra groot',
     aiFontSizeCustom: 'Aangepast',
     setAiSpellcheck: 'Spellingcontrole in AI-chat',
+    setLegacyImportPrompt: 'Vragen voor het converteren van oude bestanden',
+    setLegacyImportPromptDesc:
+      'Legt uit wat behouden blijft voordat een .doc-, .odt-, .hwp-, .ods- of .odp-bestand wordt geopend. Uitgeschakeld opent direct Opslaan als.',
     setDefaultApp: 'Standaardapp voor Office-documenten',
     setDefaultAppDesc: '.docx-, .xlsx- en .pptx-bestanden in Lycero Office openen bij dubbelklikken.',
     setDefaultAppIs: 'Lycero Office is al de standaardapp.',
@@ -10802,6 +11021,12 @@ export const strings = {
     intgSkillVersion: 'skill {v}',
     intgStateMissing: 'Skill niet geïnstalleerd',
     intgStateInstalled: 'Skill {v} geïnstalleerd · klaar in uw volgende chat',
+    intgLegacyTitle: 'Oude skillkopieën',
+    intgLegacyDesc:
+      'Lycero Office schreef vroeger een kopie in de map van elke tool. Er staan er nog {n}: de tool leest ze nog, dus ze krijgen nooit de huidige skill.',
+    intgLegacyClean: 'Oude kopieën verwijderen',
+    intgLegacyCleaned: '{n} oude kopieën verwijderd, {k} met de hand bewerkte laten we staan.',
+    intgLegacyFailed: 'Kon de oude kopieën niet verwijderen: {msg}',
     intgOtherToggle: 'Mijn assistent staat er niet bij',
     intgOtherDesc:
       'Kies één van deze drie manieren. Ze installeren allemaal dezelfde skill, dus meer dan één is niet nodig.',
@@ -10815,27 +11040,24 @@ export const strings = {
     intgStep2Title: 'Probeer het',
     intgStep2Desc:
       'Open een nieuwe chat in uw assistent en vraag het in gewone woorden, bijvoorbeeld:',
-    intgStep2DescBefore:
-      'Open na de installatie een nieuwe chat in uw assistent en vraag het in gewone woorden, bijvoorbeeld:',
     intgExample1: 'Maak van ~/Downloads/report.md een Word-document',
     intgExample2: 'Maak een presentatie van 6 dia’s over onze Q3-resultaten',
     intgExample3: 'Zet budget.xlsx om naar PDF en open het in Lycero Office',
     intgStep2Note:
-      'De assistent voert de genoffice-opdrachtregel zelf uit; u hoeft die nooit te typen.',
+      'De assistent roept Lycero Office zelf aan, via de opdrachtregel of MCP; u hoeft nooit een opdracht te typen.',
     intgCliPartTitle: 'CLI · opdrachtregel + skill',
     intgCliPartDesc:
-      'Voor assistenten die terminalopdrachten kunnen uitvoeren (Claude Code, Codex, Cursor en andere). Na installatie van de skill roept de assistent zelf de genoffice-opdrachtregel aan om bestanden te maken, converteren, lezen en bewerken; je typt nooit een opdracht.',
+      'Voor assistenten die terminalopdrachten kunnen uitvoeren (Claude Code, Codex, Cursor en andere). Na installatie van de skill roept de assistent zelf de lycero-opdrachtregel aan om bestanden te maken, converteren, lezen en bewerken; je typt nooit een opdracht.',
     intgMcpPartTitle: 'MCP',
     intgMcpPartDesc:
       'MCP is het gemeenschappelijke protocol waarmee AI-assistenten externe tools aanroepen. Gebruik het als je assistent geen opdrachten kan uitvoeren (bijvoorbeeld Claude Desktop) of als je wilt dat hij het Lycero Office-venster rechtstreeks bestuurt. Kies een van de twee manieren hieronder.',
     intgMcpStdioTitle: 'Gestart door de assistent (aanbevolen)',
     intgMcpStdioDesc:
-      'De assistent start genoffice mcp zelf: hier hoeft niets aan, en Lycero Office hoeft niet open te staan. Dezelfde functies als de CLI.',
+      'De assistent start lycero-office mcp zelf: hier hoeft niets aan, en Lycero Office hoeft niet open te staan. Dezelfde functies als de CLI.',
     intgMcpHttpTitle: 'Lokale HTTP-server',
     intgMcpHttpDesc:
       'Draait in Lycero Office; de assistent verbindt via een URL en je ziet het document stap voor stap ontstaan in de Word-editor. Lycero Office moet open blijven; voorlopig alleen Word-documenten.',
     intgMcpHttpAdvanced: 'Geavanceerd: andere adressen en logboek',
-    intgMcpTryNote: 'De assistent roept Lycero Office aan via MCP; je typt nooit een opdracht.',
     intgMcpClaudeTitle: 'Claude Code',
     intgMcpClaudeDesc: 'Voer dit één keer uit in een terminal:',
     intgMcpOtherTitle: 'Cursor, Claude Desktop of een andere assistent met MCP-ondersteuning',
@@ -10843,10 +11065,10 @@ export const strings = {
       'Voeg dit toe aan de MCP-serverinstellingen (een JSON-bestand, of "MCP-server toevoegen" in de instellingen):',
     intgMcpNote:
       'De skill en MCP kunnen naast elkaar bestaan; de assistent kiest er een. Ze doen precies hetzelfde.',
-    intgCliTitle: 'Geavanceerd: genoffice-opdrachtregel',
-    intgCliReady: 'genoffice {v} · klaar in uw terminal ({path})',
+    intgCliTitle: 'Geavanceerd: lycero-opdrachtregel',
+    intgCliReady: 'lycero-office {v} · klaar in uw terminal ({path})',
     intgCliNotOnPath:
-      'genoffice {v} · staat niet in het PATH van uw terminal. Assistenten vinden het toch via ~/.lycero-office/launcher, dus de skill werkt. Om zelf genoffice te typen, voert u dit één keer uit:',
+      'lycero-office {v} · staat niet in het PATH van uw terminal. Assistenten vinden het toch via ~/.lycero-office/launcher, dus de skill werkt. Om zelf lycero-office te typen, voert u dit één keer uit:',
     intgCliLauncher: 'Launcher-map',
     intgStateOutdated: 'Geïnstalleerd {v}, update naar {next} beschikbaar',
     intgStateModified: 'Geïnstalleerd {v} (gewijzigd)',
@@ -10879,6 +11101,8 @@ export const strings = {
     setAiProvider: 'Provider',
     setAiModelId: 'Model',
     setAiModelSearch: 'Modellen zoeken…',
+    setAiThinking: 'Denkinspanning',
+    setAiThinkingDefault: 'Modelstandaard',
     setAiApiKey: 'API-sleutel',
     setAiKeyHint: 'Alleen op dit apparaat opgeslagen.',
     setAiBaseUrl: 'Base URL',
@@ -10983,6 +11207,7 @@ export const strings = {
     intgSkillsRead: 'Details',
     intgSkillsMine: 'Mijn vaardigheden',
     intgSkillsRecommended: 'Aanbevolen',
+    intgSkillsCatAll: 'Alles',
     intgSkillsCatOffice: 'Kantoor',
     intgSkillsCatBusiness: 'Zakelijk',
     intgSkillsCatData: 'Data',
@@ -11115,7 +11340,7 @@ export const strings = {
     helpAboutSubtitle: 'Professionele kantoorsuite',
     helpAboutIdentity: 'Productidentiteit',
     helpAboutLicenseTitle: 'Open source-licentie',
-    helpAboutLicenseBody: 'Lycero Office is gebouwd op GenOffice (Apache-2.0), copyright Mainfunc, Inc.',
+    helpAboutLicenseBody: 'Lycero Office is gebouwd op Lycero Office (Apache-2.0), copyright Mainfunc, Inc.',
     helpNotices: 'Meldingen van derden',
     helpNoticesTitle: 'Open source-componenten van derden',
     helpNoticesIntro: 'Lycero Office gebruikt de volgende open source-componenten:',
@@ -11314,6 +11539,9 @@ export const strings = {
     setAutoUpdateCheck: 'Semak kemas kini secara automatik',
     setAutoUpdateCheckDesc:
       'Apabila dimatikan, Lycero Office tidak lagi menyemak versi baharu semasa dimulakan atau di latar belakang. Anda masih boleh menyemak melalui Bantuan › Semak Kemas Kini.',
+    setSilentInstall: 'Pasang kemas kini secara senyap',
+    setSilentInstallDesc:
+      'Apabila dihidupkan, versi baharu yang ditemui di latar belakang dimuat turun secara senyap dan dipasang apabila anda keluar dari Lycero Office; tiada gangguan semasa bekerja. Apabila dimatikan, gesaan kemas kini membiarkan anda memutuskan bila.',
     updateChannel: 'Saluran Kemas Kini',
     channelStable: 'Stabil',
     channelBeta: 'Beta',
@@ -11355,6 +11583,9 @@ export const strings = {
     aiFontSizeXLarge: 'Sangat besar',
     aiFontSizeCustom: 'Tersuai',
     setAiSpellcheck: 'Semakan ejaan dalam sembang AI',
+    setLegacyImportPrompt: 'Tanya sebelum menukar fail lama',
+    setLegacyImportPromptDesc:
+      'Terangkan apa yang dikekalkan sebelum membuka fail .doc, .odt, .hwp, .ods atau .odp. Jika dimatikan, Simpan Sebagai terus dibuka.',
     setDefaultApp: 'Apl lalai untuk dokumen Office',
     setDefaultAppDesc: 'Buka fail .docx, .xlsx dan .pptx dalam Lycero Office apabila diklik dua kali.',
     setDefaultAppIs: 'Lycero Office sudah menjadi apl lalai.',
@@ -11418,6 +11649,12 @@ export const strings = {
     intgSkillVersion: 'skill {v}',
     intgStateMissing: 'Skill belum dipasang',
     intgStateInstalled: 'Skill {v} dipasang · sedia dalam sembang seterusnya',
+    intgLegacyTitle: 'Salinan skill lama',
+    intgLegacyDesc:
+      'Lycero Office dahulu menulis salinan ke dalam folder setiap alatan. Masih ada {n} di sana: alatan itu masih membacanya, jadi ia tidak pernah menerima skill semasa.',
+    intgLegacyClean: 'Buang salinan lama',
+    intgLegacyCleaned: '{n} salinan lama dibuang, {k} yang disunting secara manual dikekalkan.',
+    intgLegacyFailed: 'Gagal membuang salinan lama: {msg}',
     intgOtherToggle: 'Pembantu saya tiada dalam senarai',
     intgOtherDesc:
       'Pilih satu sahaja daripada tiga cara ini. Semuanya memasang skill yang sama, jadi tidak perlu lebih daripada satu.',
@@ -11431,28 +11668,24 @@ export const strings = {
     intgStep2Title: 'Cuba sekarang',
     intgStep2Desc:
       'Buka sembang baharu dalam pembantu anda dan minta dengan bahasa biasa, contohnya:',
-    intgStep2DescBefore:
-      'Selepas dipasang, buka sembang baharu dalam pembantu anda dan minta dengan bahasa biasa, contohnya:',
     intgExample1: 'Tukar ~/Downloads/report.md kepada dokumen Word',
     intgExample2: 'Buat pembentangan 6 slaid tentang hasil S3 kami',
     intgExample3: 'Tukar budget.xlsx kepada PDF dan buka dalam Lycero Office',
     intgStep2Note:
-      'Pembantu menjalankan baris arahan genoffice sendiri; anda tidak perlu menaipnya.',
+      'Pembantu memanggil Lycero Office sendiri, melalui baris arahan atau MCP; anda tidak perlu menaip sebarang arahan.',
     intgCliPartTitle: 'CLI · baris arahan + skill',
     intgCliPartDesc:
-      'Untuk pembantu yang boleh menjalankan arahan terminal (Claude Code, Codex, Cursor dan lain-lain). Setelah skill dipasang, pembantu memanggil baris arahan genoffice sendiri untuk mencipta, menukar, membaca dan mengedit fail; anda tidak perlu menaip sebarang arahan.',
+      'Untuk pembantu yang boleh menjalankan arahan terminal (Claude Code, Codex, Cursor dan lain-lain). Setelah skill dipasang, pembantu memanggil baris arahan lycero-office sendiri untuk mencipta, menukar, membaca dan mengedit fail; anda tidak perlu menaip sebarang arahan.',
     intgMcpPartTitle: 'MCP',
     intgMcpPartDesc:
       'MCP ialah protokol umum yang digunakan pembantu AI untuk memanggil alat luaran. Gunakannya apabila pembantu anda tidak boleh menjalankan arahan (contohnya Claude Desktop) atau apabila anda mahu ia mengawal tetingkap Lycero Office secara langsung. Pilih salah satu daripada dua cara di bawah.',
     intgMcpStdioTitle: 'Dimulakan oleh pembantu (disyorkan)',
     intgMcpStdioDesc:
-      'Pembantu melancarkan genoffice mcp sendiri: tiada apa yang perlu dihidupkan di sini, dan Lycero Office tidak perlu dibuka. Ciri sama seperti CLI.',
+      'Pembantu melancarkan lycero-office mcp sendiri: tiada apa yang perlu dihidupkan di sini, dan Lycero Office tidak perlu dibuka. Ciri sama seperti CLI.',
     intgMcpHttpTitle: 'Pelayan HTTP tempatan',
     intgMcpHttpDesc:
       'Berjalan di dalam Lycero Office; pembantu menyambung melalui URL dan anda boleh melihat dokumen dibina langkah demi langkah dalam editor Word. Lycero Office mesti kekal dibuka; buat masa ini dokumen Word sahaja.',
     intgMcpHttpAdvanced: 'Lanjutan: alamat lain dan log',
-    intgMcpTryNote:
-      'Pembantu memanggil Lycero Office melalui MCP; anda tidak perlu menaip sebarang arahan.',
     intgMcpClaudeTitle: 'Claude Code',
     intgMcpClaudeDesc: 'Jalankan ini sekali dalam terminal:',
     intgMcpOtherTitle: 'Cursor, Claude Desktop atau pembantu lain yang menyokong MCP',
@@ -11460,10 +11693,10 @@ export const strings = {
       'Tambahkan ini pada tetapan pelayan MCP pembantu tersebut (fail JSON, atau "Tambah pelayan MCP" dalam tetapannya):',
     intgMcpNote:
       'Skill dan MCP boleh dipasang serentak; pembantu akan memilih satu. Kedua-duanya melakukan perkara yang sama.',
-    intgCliTitle: 'Lanjutan: baris arahan genoffice',
-    intgCliReady: 'genoffice {v} · sedia dalam terminal anda ({path})',
+    intgCliTitle: 'Lanjutan: baris arahan lycero-office',
+    intgCliReady: 'lycero-office {v} · sedia dalam terminal anda ({path})',
     intgCliNotOnPath:
-      'genoffice {v} · tiada dalam PATH terminal anda. Pembantu masih menemuinya melalui ~/.lycero-office/launcher, jadi skill berfungsi. Untuk menaip genoffice sendiri, jalankan ini sekali:',
+      'lycero-office {v} · tiada dalam PATH terminal anda. Pembantu masih menemuinya melalui ~/.lycero-office/launcher, jadi skill berfungsi. Untuk menaip lycero-office sendiri, jalankan ini sekali:',
     intgCliLauncher: 'Folder pelancar',
     intgStateOutdated: 'Dipasang {v}, kemas kini ke {next} tersedia',
     intgStateModified: 'Dipasang {v} (diubah suai)',
@@ -11497,6 +11730,8 @@ export const strings = {
     setAiProvider: 'Penyedia',
     setAiModelId: 'Model',
     setAiModelSearch: 'Cari model…',
+    setAiThinking: 'Tahap penaakulan',
+    setAiThinkingDefault: 'Lalai model',
     setAiApiKey: 'Kunci API',
     setAiKeyHint: 'Disimpan pada peranti ini sahaja.',
     setAiBaseUrl: 'Base URL',
@@ -11601,6 +11836,7 @@ export const strings = {
     intgSkillsRead: 'Detail',
     intgSkillsMine: 'Kemahiran saya',
     intgSkillsRecommended: 'Disyorkan',
+    intgSkillsCatAll: 'Semua',
     intgSkillsCatOffice: 'Pejabat',
     intgSkillsCatBusiness: 'Perniagaan',
     intgSkillsCatData: 'Data',
@@ -11733,7 +11969,7 @@ export const strings = {
     helpAboutSubtitle: 'Suite Pejabat Profesional',
     helpAboutIdentity: 'Identiti Produk',
     helpAboutLicenseTitle: 'Lesen Sumber Terbuka',
-    helpAboutLicenseBody: 'Lycero Office dibina di atas GenOffice (Apache-2.0), hakcipta Mainfunc, Inc.',
+    helpAboutLicenseBody: 'Lycero Office dibina di atas Lycero Office (Apache-2.0), hakcipta Mainfunc, Inc.',
     helpNotices: 'Pemberitahuan pihak ketiga',
     helpNoticesTitle: 'Komponen sumber terbuka pihak ketiga',
     helpNoticesIntro: 'Lycero Office menggunakan komponen sumber terbuka berikut:',
@@ -11929,6 +12165,9 @@ export const strings = {
     setAutoUpdateCheck: 'בדיקת עדכונים אוטומטית',
     setAutoUpdateCheckDesc:
       'כשהאפשרות כבויה, Lycero Office לא בודקת גרסאות חדשות בהפעלה או ברקע. עדיין אפשר לבדוק ידנית דרך עזרה › בדוק עדכונים.',
+    setSilentInstall: 'התקנת עדכונים בשקט',
+    setSilentInstallDesc:
+      'כשמופעל, גרסה חדשה שנמצאה ברקע מורדת בשקט ומותקנת ביציאה מ‑Lycero Office; שום דבר לא מפריע בזמן העבודה. כשכבוי, הודעת עדכון מאפשרת לכם להחליט מתי לעדכן.',
     updateChannel: 'ערוץ עדכונים',
     channelStable: 'יציב',
     channelBeta: 'בטא',
@@ -11969,6 +12208,9 @@ export const strings = {
     aiFontSizeXLarge: 'גדול מאוד',
     aiFontSizeCustom: 'מותאם אישית',
     setAiSpellcheck: 'בדיקת איות בצ׳אט ה-AI',
+    setLegacyImportPrompt: 'לשאול לפני המרת קבצים ישנים',
+    setLegacyImportPromptDesc:
+      'מסביר מה יישמר לפני פתיחת קובצי ‎.doc, ‎.odt, ‎.hwp, ‎.ods או ‎.odp. כשכבוי, „שמירה בשם” נפתח מיד.',
     setDefaultApp: 'אפליקציית ברירת המחדל למסמכי Office',
     setDefaultAppDesc: 'פתיחת קובצי .docx‏, .xlsx ו‑.pptx ב‑Lycero Office בלחיצה כפולה.',
     setDefaultAppIs: 'Lycero Office היא כבר ברירת המחדל.',
@@ -12029,6 +12271,12 @@ export const strings = {
     intgSkillVersion: 'skill {v}',
     intgStateMissing: 'ה-skill לא מותקן',
     intgStateInstalled: 'skill {v} מותקן · מוכן בשיחה הבאה',
+    intgLegacyTitle: 'עותקי skill ישנים',
+    intgLegacyDesc:
+      'Lycero Office כתב בעבר עותק בתיקייה של כל כלי. עדיין נשארו שם {n}: הכלי ממשיך לקרוא אותם, ולכן הם לעולם לא מקבלים את ה-skill הנוכחי.',
+    intgLegacyClean: 'הסר עותקים ישנים',
+    intgLegacyCleaned: 'הוסרו {n} עותקים ישנים, {k} שעורכו ידנית נותרו במקומם.',
+    intgLegacyFailed: 'לא ניתן להסיר את העותקים הישנים: {msg}',
     intgOtherToggle: 'העוזר שלי לא מופיע ברשימה',
     intgOtherDesc:
       'בחרו רק דרך אחת מבין השלוש. כולן מתקינות את אותו skill, ולכן אין צורך ביותר מאחת.',
@@ -12041,35 +12289,34 @@ export const strings = {
     intgCopy: 'העתקה',
     intgStep2Title: 'נסו',
     intgStep2Desc: 'פתחו שיחה חדשה בעוזר ובקשו במילים פשוטות, למשל:',
-    intgStep2DescBefore: 'לאחר ההתקנה, פתחו שיחה חדשה בעוזר ובקשו במילים פשוטות, למשל:',
     intgExample1: 'הפוך את ~/Downloads/report.md למסמך Word',
     intgExample2: 'הכן מצגת של 6 שקופיות על תוצאות הרבעון השלישי שלנו',
     intgExample3: 'המר את budget.xlsx ל-PDF ופתח אותו ב-Lycero Office',
-    intgStep2Note: 'העוזר מריץ בעצמו את שורת הפקודה genoffice; לעולם לא תצטרכו להקליד אותה.',
+    intgStep2Note:
+      'העוזר קורא ל-Lycero Office בעצמו, דרך שורת הפקודה או MCP; לעולם לא תצטרכו להקליד פקודה.',
     intgCliPartTitle: 'CLI · שורת פקודה + skill',
     intgCliPartDesc:
-      'לעוזרים שיכולים להריץ פקודות טרמינל (Claude Code‏, Codex‏, Cursor ואחרים). לאחר התקנת ה‑skill העוזר קורא בעצמו לשורת הפקודה genoffice כדי ליצור, להמיר, לקרוא ולערוך קבצים; אתם לא מקלידים שום פקודה.',
+      'לעוזרים שיכולים להריץ פקודות טרמינל (Claude Code‏, Codex‏, Cursor ואחרים). לאחר התקנת ה‑skill העוזר קורא בעצמו לשורת הפקודה lycero-office כדי ליצור, להמיר, לקרוא ולערוך קבצים; אתם לא מקלידים שום פקודה.',
     intgMcpPartTitle: 'MCP',
     intgMcpPartDesc:
       'MCP הוא הפרוטוקול המשותף שבו עוזרי AI קוראים לכלים חיצוניים. השתמשו בו כשהעוזר אינו יכול להריץ פקודות (למשל Claude Desktop) או כשאתם רוצים שהוא ישלוט ישירות בחלון Lycero Office. בחרו אחת משתי הדרכים למטה.',
     intgMcpStdioTitle: 'מופעל על ידי העוזר (מומלץ)',
     intgMcpStdioDesc:
-      'העוזר מפעיל את genoffice mcp בעצמו: אין מה להפעיל כאן, ו‑Lycero Office לא חייב להיות פתוח. אותן יכולות כמו ב‑CLI.',
+      'העוזר מפעיל את lycero-office mcp בעצמו: אין מה להפעיל כאן, ו‑Lycero Office לא חייב להיות פתוח. אותן יכולות כמו ב‑CLI.',
     intgMcpHttpTitle: 'שרת HTTP מקומי',
     intgMcpHttpDesc:
       'פועל בתוך Lycero Office; העוזר מתחבר דרך כתובת URL ואפשר לראות את המסמך נבנה צעד אחר צעד בעורך Word. Lycero Office חייב להישאר פתוח; בשלב זה מסמכי Word בלבד.',
     intgMcpHttpAdvanced: 'מתקדם: כתובות נוספות ויומן',
-    intgMcpTryNote: 'העוזר קורא ל‑Lycero Office דרך MCP; אתם לא מקלידים שום פקודה.',
     intgMcpClaudeTitle: 'Claude Code',
     intgMcpClaudeDesc: 'הריצו זאת פעם אחת בטרמינל:',
     intgMcpOtherTitle: 'Cursor, Claude Desktop או כל עוזר אחר התומך ב-MCP',
     intgMcpOtherDesc: 'הוסיפו זאת להגדרות שרתי ה-MCP שלו (קובץ JSON, או "הוספת שרת MCP" בהגדרות):',
     intgMcpNote:
       'הסקיל ו-MCP יכולים להיות מוגדרים יחד; העוזר יבחר אחד מהם. שניהם עושים בדיוק את אותם הדברים.',
-    intgCliTitle: 'מתקדם: שורת הפקודה genoffice',
-    intgCliReady: 'genoffice {v} · מוכן בטרמינל ({path})',
+    intgCliTitle: 'מתקדם: שורת הפקודה lycero-office',
+    intgCliReady: 'lycero-office {v} · מוכן בטרמינל ({path})',
     intgCliNotOnPath:
-      'genoffice {v} · לא נמצא ב-PATH של הטרמינל. העוזרים עדיין מוצאים אותו דרך ~/.lycero-office/launcher, ולכן ה-skill עובד. כדי להקליד genoffice בעצמכם, הריצו זאת פעם אחת:',
+      'lycero-office {v} · לא נמצא ב-PATH של הטרמינל. העוזרים עדיין מוצאים אותו דרך ~/.lycero-office/launcher, ולכן ה-skill עובד. כדי להקליד lycero-office בעצמכם, הריצו זאת פעם אחת:',
     intgCliLauncher: 'תיקיית המשגר',
     intgStateOutdated: 'מותקן {v}, זמין עדכון ל-{next}',
     intgStateModified: 'מותקן {v} (שונה)',
@@ -12102,6 +12349,8 @@ export const strings = {
     setAiProvider: 'ספק',
     setAiModelId: 'מודל',
     setAiModelSearch: 'חיפוש מודלים…',
+    setAiThinking: 'עצימות חשיבה',
+    setAiThinkingDefault: 'ברירת מחדל של המודל',
     setAiApiKey: 'מפתח API',
     setAiKeyHint: 'נשמר רק במכשיר זה.',
     setAiBaseUrl: 'Base URL',
@@ -12201,6 +12450,7 @@ export const strings = {
     intgSkillsRead: 'פרטים',
     intgSkillsMine: 'הכישורים שלי',
     intgSkillsRecommended: 'מומלצות',
+    intgSkillsCatAll: 'הכול',
     intgSkillsCatOffice: 'משרד',
     intgSkillsCatBusiness: 'עסקים',
     intgSkillsCatData: 'נתונים',
@@ -12331,7 +12581,7 @@ export const strings = {
     helpAboutSubtitle: 'חבילת משרד מקצועית',
     helpAboutIdentity: 'זהות המוצר',
     helpAboutLicenseTitle: 'רישיון קוד פתוח',
-    helpAboutLicenseBody: 'Lycero Office נבנה על גבי GenOffice (Apache-2.0), זכויות יוצרים Mainfunc, Inc.',
+    helpAboutLicenseBody: 'Lycero Office נבנה על גבי Lycero Office (Apache-2.0), זכויות יוצרים Mainfunc, Inc.',
     helpNotices: 'הודעות של צדדים שלישיים',
     helpNoticesTitle: 'רכיבי קוד פתוח של צדדים שלישיים',
     helpNoticesIntro: 'Lycero Office משתמש ברכיבי הקוד הפתוח הבאים:',
@@ -12531,6 +12781,9 @@ export const strings = {
     setAutoUpdateCheck: 'अपडेट अपने-आप जाँचें',
     setAutoUpdateCheckDesc:
       'बंद होने पर Lycero Office शुरू होते समय या बैकग्राउंड में नए संस्करण नहीं जाँचता। आप फिर भी सहायता › अपडेट जांचें से जाँच सकते हैं।',
+    setSilentInstall: 'अपडेट चुपचाप इंस्टॉल करें',
+    setSilentInstallDesc:
+      'चालू होने पर, पृष्ठभूमि जाँच में मिला नया संस्करण चुपचाप डाउनलोड होता है और Lycero Office से बाहर निकलते समय इंस्टॉल होता है; काम के दौरान कोई रुकावट नहीं। बंद होने पर, अपडेट सूचना से आप तय करते हैं कि कब अपडेट करना है।',
     updateChannel: 'अपडेट चैनल',
     channelStable: 'स्थिर',
     channelBeta: 'बीटा',
@@ -12572,6 +12825,9 @@ export const strings = {
     aiFontSizeXLarge: 'बहुत बड़ा',
     aiFontSizeCustom: 'कस्टम',
     setAiSpellcheck: 'AI चैट में वर्तनी जाँच',
+    setLegacyImportPrompt: 'पुरानी फ़ाइलें बदलने से पहले पूछें',
+    setLegacyImportPromptDesc:
+      '.doc, .odt, .hwp, .ods या .odp फ़ाइलें खोलने से पहले बताता है कि क्या-क्या बदला जाएगा। बंद होने पर सीधे “इस रूप में सहेजें” खुलता है।',
     setDefaultApp: 'Office दस्तावेज़ों के लिए डिफ़ॉल्ट ऐप',
     setDefaultAppDesc: '.docx, .xlsx और .pptx फ़ाइलें डबल-क्लिक करने पर Lycero Office में खोलें।',
     setDefaultAppIs: 'Lycero Office पहले से डिफ़ॉल्ट ऐप है।',
@@ -12633,6 +12889,12 @@ export const strings = {
     intgSkillVersion: 'skill {v}',
     intgStateMissing: 'skill इंस्टॉल नहीं है',
     intgStateInstalled: 'skill {v} इंस्टॉल हो गया · अगली चैट में तैयार',
+    intgLegacyTitle: 'पुरानी skill प्रतियाँ',
+    intgLegacyDesc:
+      'Lycero Office पहले हर टूल के अपने फ़ोल्डर में एक प्रति लिखता था। अभी भी {n} वहाँ हैं: टूल उन्हें पढ़ता रहता है, इसलिए उन्हें कभी मौजूदा skill नहीं मिलती।',
+    intgLegacyClean: 'पुरानी प्रतियाँ हटाएँ',
+    intgLegacyCleaned: '{n} पुरानी प्रतियाँ हटा दी गईं, {k} हाथ से बदली गई प्रतियाँ बनी रखी गईं।',
+    intgLegacyFailed: 'पुरानी प्रतियाँ नहीं हटाई जा सकीं: {msg}',
     intgOtherToggle: 'मेरा असिस्टेंट सूची में नहीं है',
     intgOtherDesc:
       'इन तीन तरीकों में से कोई एक ही चुनें। सभी एक ही skill इंस्टॉल करते हैं, इसलिए एक से ज़्यादा की ज़रूरत नहीं।',
@@ -12645,27 +12907,24 @@ export const strings = {
     intgCopy: 'कॉपी करें',
     intgStep2Title: 'आज़माएँ',
     intgStep2Desc: 'अपने असिस्टेंट में नई चैट खोलें और सादे शब्दों में कहें, जैसे:',
-    intgStep2DescBefore:
-      'इंस्टॉल होने के बाद अपने असिस्टेंट में नई चैट खोलें और सादे शब्दों में कहें, जैसे:',
     intgExample1: '~/Downloads/report.md को Word दस्तावेज़ बना दो',
     intgExample2: 'हमारे Q3 नतीजों पर 6 स्लाइड का प्रेज़ेंटेशन बनाओ',
     intgExample3: 'budget.xlsx को PDF में बदलो और Lycero Office में खोलो',
-    intgStep2Note: 'genoffice कमांड लाइन असिस्टेंट खुद चलाता है; आपको कभी टाइप नहीं करना पड़ता।',
+    intgStep2Note:
+      'असिस्टेंट Lycero Office को कमांड लाइन या MCP के ज़रिए खुद कॉल करता है; आपको कभी कोई कमांड टाइप नहीं करनी पड़ती।',
     intgCliPartTitle: 'CLI · कमांड लाइन + skill',
     intgCliPartDesc:
-      'उन सहायकों के लिए जो टर्मिनल कमांड चला सकते हैं (Claude Code, Codex, Cursor आदि)। skill इंस्टॉल होने के बाद सहायक फ़ाइलें बनाने, बदलने, पढ़ने और संपादित करने के लिए खुद genoffice कमांड लाइन चलाता है; आपको कोई कमांड टाइप नहीं करना पड़ता।',
+      'उन सहायकों के लिए जो टर्मिनल कमांड चला सकते हैं (Claude Code, Codex, Cursor आदि)। skill इंस्टॉल होने के बाद सहायक फ़ाइलें बनाने, बदलने, पढ़ने और संपादित करने के लिए खुद lycero-office कमांड लाइन चलाता है; आपको कोई कमांड टाइप नहीं करना पड़ता।',
     intgMcpPartTitle: 'MCP',
     intgMcpPartDesc:
       'MCP वह साझा प्रोटोकॉल है जिससे AI सहायक बाहरी टूल बुलाते हैं। इसे तब चुनें जब सहायक कमांड न चला सके (जैसे Claude Desktop) या आप चाहें कि वह Lycero Office की विंडो को सीधे चलाए। नीचे दिए दो तरीकों में से कोई एक चुनें।',
     intgMcpStdioTitle: 'सहायक द्वारा शुरू (अनुशंसित)',
     intgMcpStdioDesc:
-      'सहायक खुद genoffice mcp चलाता है: यहाँ कुछ चालू करने की ज़रूरत नहीं, और Lycero Office खुला होना भी ज़रूरी नहीं। सुविधाएँ CLI जैसी ही।',
+      'सहायक खुद lycero-office mcp चलाता है: यहाँ कुछ चालू करने की ज़रूरत नहीं, और Lycero Office खुला होना भी ज़रूरी नहीं। सुविधाएँ CLI जैसी ही।',
     intgMcpHttpTitle: 'स्थानीय HTTP सर्वर',
     intgMcpHttpDesc:
       'Lycero Office के अंदर चलता है; सहायक URL से जुड़ता है और आप Word संपादक में दस्तावेज़ को चरण-दर-चरण बनते देख सकते हैं। Lycero Office खुला रहना चाहिए; अभी केवल Word दस्तावेज़।',
     intgMcpHttpAdvanced: 'उन्नत: अन्य पते और लॉग',
-    intgMcpTryNote:
-      'सहायक MCP के ज़रिये Lycero Office को बुलाता है; आपको कोई कमांड टाइप नहीं करना पड़ता।',
     intgMcpClaudeTitle: 'Claude Code',
     intgMcpClaudeDesc: 'टर्मिनल में इसे एक बार चलाएँ:',
     intgMcpOtherTitle: 'Cursor, Claude Desktop या कोई अन्य MCP-समर्थित असिस्टेंट',
@@ -12673,10 +12932,10 @@ export const strings = {
       'इसे उसकी MCP सर्वर सेटिंग्स में जोड़ें (एक JSON फ़ाइल, या सेटिंग्स में "MCP सर्वर जोड़ें"):',
     intgMcpNote:
       'स्किल और MCP एक साथ सेट किए जा सकते हैं; असिस्टेंट एक को चुन लेता है। दोनों बिल्कुल एक जैसे काम करते हैं।',
-    intgCliTitle: 'उन्नत: genoffice कमांड लाइन',
-    intgCliReady: 'genoffice {v} · टर्मिनल में तैयार ({path})',
+    intgCliTitle: 'उन्नत: lycero-office कमांड लाइन',
+    intgCliReady: 'lycero-office {v} · टर्मिनल में तैयार ({path})',
     intgCliNotOnPath:
-      'genoffice {v} · टर्मिनल के PATH में नहीं है। असिस्टेंट इसे ~/.lycero-office/launcher से फिर भी ढूँढ लेते हैं, इसलिए skill काम करता है। खुद genoffice टाइप करने के लिए यह एक बार चलाएँ:',
+      'lycero-office {v} · टर्मिनल के PATH में नहीं है। असिस्टेंट इसे ~/.lycero-office/launcher से फिर भी ढूँढ लेते हैं, इसलिए skill काम करता है। खुद lycero-office टाइप करने के लिए यह एक बार चलाएँ:',
     intgCliLauncher: 'लॉन्चर फ़ोल्डर',
     intgStateOutdated: 'इंस्टॉल {v}, {next} पर अपडेट उपलब्ध',
     intgStateModified: 'इंस्टॉल {v} (बदला गया)',
@@ -12709,6 +12968,8 @@ export const strings = {
     setAiProvider: 'प्रदाता',
     setAiModelId: 'मॉडल',
     setAiModelSearch: 'मॉडल खोजें…',
+    setAiThinking: 'चिंतन प्रयास',
+    setAiThinkingDefault: 'मॉडल डिफ़ॉल्ट',
     setAiApiKey: 'API कुंजी',
     setAiKeyHint: 'केवल इसी डिवाइस पर संग्रहीत।',
     setAiBaseUrl: 'Base URL',
@@ -12812,6 +13073,7 @@ export const strings = {
     intgSkillsRead: 'विवरण',
     intgSkillsMine: 'मेरे कौशल',
     intgSkillsRecommended: 'अनुशंसित',
+    intgSkillsCatAll: 'सभी',
     intgSkillsCatOffice: 'ऑफ़िस',
     intgSkillsCatBusiness: 'व्यवसाय',
     intgSkillsCatData: 'डेटा',
@@ -12943,7 +13205,7 @@ export const strings = {
     helpAboutSubtitle: 'पेशेवर ऑफिस सुइट',
     helpAboutIdentity: 'उत्पाद पहचान',
     helpAboutLicenseTitle: 'ओपन सोर्स लाइसेंस',
-    helpAboutLicenseBody: 'Lycero Office GenOffice (Apache-2.0) पर निर्मित है, कॉपीराइट Mainfunc, Inc.',
+    helpAboutLicenseBody: 'Lycero Office Lycero Office (Apache-2.0) पर निर्मित है, कॉपीराइट Mainfunc, Inc.',
     helpNotices: 'तृतीय-पक्ष सूचनाएं',
     helpNoticesTitle: 'तृतीय-पक्ष ओपन सोर्स घटक',
     helpNoticesIntro: 'Lycero Office निम्नलिखित ओपन सोर्स घटकों का उपयोग करता है:',
@@ -13136,6 +13398,9 @@ export const strings = {
     setAutoUpdateCheck: '自動檢查更新',
     setAutoUpdateCheckDesc:
       '關閉後，啟動時與背景都不再檢查新版本；仍可在「說明 › 檢查更新」中手動檢查。',
+    setSilentInstall: '靜默安裝更新',
+    setSilentInstallDesc:
+      '開啟後，背景檢查到新版本會靜默下載，並在你結束應用程式時安裝，使用過程中不會打擾或重新啟動。關閉則彈出更新提示，由你決定何時更新。',
     updateChannel: '更新通道',
     channelStable: '穩定版',
     channelBeta: 'Beta 版',
@@ -13175,6 +13440,9 @@ export const strings = {
     aiFontSizeXLarge: '特大',
     aiFontSizeCustom: '自訂',
     setAiSpellcheck: 'AI 對話拼字檢查',
+    setLegacyImportPrompt: '開啟舊格式前先提示',
+    setLegacyImportPromptDesc:
+      '開啟 .doc、.odt、.hwp、.ods、.odp 等舊格式檔案時，先說明哪些內容會轉換過來。關閉後直接進入另存新檔。',
     setDefaultApp: '設為 Office 文件預設程式',
     setDefaultAppDesc: '雙擊 .docx、.xlsx、.pptx 檔案時用 Lycero Office 開啟。',
     setDefaultAppIs: 'Lycero Office 已是預設程式。',
@@ -13232,6 +13500,12 @@ export const strings = {
     intgSkillVersion: 'skill {v}',
     intgStateMissing: 'skill 未安裝',
     intgStateInstalled: '已安裝 skill {v} · 下次對話即可使用',
+    intgLegacyTitle: '舊版 skill 副本',
+    intgLegacyDesc:
+      'Lycero Office 以前會把副本寫進每個工具自己的目錄。現在還有 {n} 份留在那裡:工具仍在讀取它們,所以永遠拿不到目前版本。',
+    intgLegacyClean: '刪除舊副本',
+    intgLegacyCleaned: '已刪除 {n} 份舊副本,{k} 份被手動改過的保留不動。',
+    intgLegacyFailed: '刪除舊副本失敗:{msg}',
     intgOtherToggle: '沒有列出我的助理',
     intgOtherDesc: '以下三種方式任選一種即可。安裝的是同一份 skill，不需要重複操作。',
     intgOtherFolderTitle: '任何能讀取 SKILL.md 資料夾的助理',
@@ -13243,35 +13517,33 @@ export const strings = {
     intgCopy: '複製',
     intgStep2Title: '試試看',
     intgStep2Desc: '在助理中開一個新對話，用平常說話的方式提出需求，例如：',
-    intgStep2DescBefore: '安裝好後，在助理中開一個新對話，用平常說話的方式提出需求，例如：',
     intgExample1: '把 ~/Downloads/report.md 轉成 Word 文件',
     intgExample2: '做一份 6 頁的簡報，介紹我們第三季的業績',
     intgExample3: '把 budget.xlsx 轉成 PDF，並在 Lycero Office 中開啟',
-    intgStep2Note: '助理會自行呼叫 genoffice 命令列，你不需要輸入任何指令。',
+    intgStep2Note: '助理會透過命令列或 MCP 自行呼叫 Lycero Office，你不需要輸入任何指令。',
     intgCliPartTitle: 'CLI · 命令列 + skill',
     intgCliPartDesc:
-      '適合能執行終端機指令的助理（Claude Code、Codex、Cursor 等）。安裝 skill 後，助理會自己呼叫 genoffice 命令列建立、轉換、讀取和編輯檔案，你不需要輸入任何指令。',
+      '適合能執行終端機指令的助理（Claude Code、Codex、Cursor 等）。安裝 skill 後，助理會自己呼叫 lycero-office 命令列建立、轉換、讀取和編輯檔案，你不需要輸入任何指令。',
     intgMcpPartTitle: 'MCP',
     intgMcpPartDesc:
       'MCP 是 AI 助理呼叫外部工具的通用協定。助理不能執行指令（如 Claude Desktop），或你想讓它直接操作 Lycero Office 視窗時用這條路。下面兩種接法任選一種。',
     intgMcpStdioTitle: '由助理啟動（建議）',
     intgMcpStdioDesc:
-      '助理自己啟動 genoffice mcp，不需要在這裡開任何開關，Lycero Office 也不用開著。功能與 CLI 完全相同。',
+      '助理自己啟動 lycero-office mcp，不需要在這裡開任何開關，Lycero Office 也不用開著。功能與 CLI 完全相同。',
     intgMcpHttpTitle: '本機 HTTP 服務',
     intgMcpHttpDesc:
       '在 Lycero Office 內執行，助理透過網址連線，可以看著它在 Word 編輯器裡逐步產生。需要 Lycero Office 保持開啟；目前只支援 Word。',
     intgMcpHttpAdvanced: '進階：其他位址與記錄',
-    intgMcpTryNote: '助理會透過 MCP 呼叫 Lycero Office，你不需要輸入任何指令。',
     intgMcpClaudeTitle: 'Claude Code',
     intgMcpClaudeDesc: '在終端機執行一次：',
     intgMcpOtherTitle: 'Cursor、Claude Desktop 或其他支援 MCP 的助理',
     intgMcpOtherDesc:
       '把這段加進它的 MCP 伺服器設定（一個 JSON 檔，或設定裡的「新增 MCP 伺服器」）：',
     intgMcpNote: 'skill 和 MCP 可以同時存在，助理會自行選用；兩者做的事完全相同。',
-    intgCliTitle: '進階：命令列 genoffice',
-    intgCliReady: 'genoffice {v} · 已可在終端機直接使用（{path}）',
+    intgCliTitle: '進階：命令列 lycero-office',
+    intgCliReady: 'lycero-office {v} · 已可在終端機直接使用（{path}）',
     intgCliNotOnPath:
-      'genoffice {v} · 尚未加入終端機 PATH。助理仍能透過 ~/.lycero-office/launcher 找到它，skill 不受影響。若想自己在終端機輸入 genoffice，執行一次：',
+      'lycero-office {v} · 尚未加入終端機 PATH。助理仍能透過 ~/.lycero-office/launcher 找到它，skill 不受影響。若想自己在終端機輸入 lycero-office，執行一次：',
     intgCliLauncher: '啟動器資料夾',
     intgStateOutdated: '已安裝 {v}，可更新至 {next}',
     intgStateModified: '已安裝 {v}（已被修改）',
@@ -13304,6 +13576,8 @@ export const strings = {
     setAiProvider: '模型服務商',
     setAiModelId: '模型',
     setAiModelSearch: '搜尋模型…',
+    setAiThinking: '思考強度',
+    setAiThinkingDefault: '跟隨模型預設',
     setAiApiKey: 'API Key',
     setAiKeyHint: '金鑰僅儲存在本機。',
     setAiBaseUrl: 'Base URL',
@@ -13401,6 +13675,7 @@ export const strings = {
     intgSkillsRead: '詳情',
     intgSkillsMine: '我的技能',
     intgSkillsRecommended: '推薦',
+    intgSkillsCatAll: '全部',
     intgSkillsCatOffice: '辦公',
     intgSkillsCatBusiness: '商務',
     intgSkillsCatData: '資料',
@@ -13530,7 +13805,7 @@ export const strings = {
     helpAboutSubtitle: '專業辦公套件',
     helpAboutIdentity: '產品標識',
     helpAboutLicenseTitle: '開源許可證',
-    helpAboutLicenseBody: 'Lycero Office 建構於 GenOffice（Apache-2.0），版權歸 Mainfunc, Inc. 所有。',
+    helpAboutLicenseBody: 'Lycero Office 建構於 Lycero Office（Apache-2.0），版權歸 Mainfunc, Inc. 所有。',
     helpNotices: '第三方聲明',
     helpNoticesTitle: '第三方開源組件',
     helpNoticesIntro: 'Lycero Office 使用以下開源組件：',

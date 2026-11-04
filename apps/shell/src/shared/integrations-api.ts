@@ -6,6 +6,7 @@
 import type {
   AgentId,
   AgentTarget,
+  LegacySkillCopy,
   SkillInstallState,
   SkillInstallStatus,
 } from '@lycero/cli/agent-skills'
@@ -15,10 +16,10 @@ import type { McpEntryState } from '@lycero/cli/agent-mcp'
 import type { McpLaunch } from '@lycero/cli/mcp-launch'
 export type { McpEntryState, McpLaunch }
 
-export type { AgentId, AgentTarget, SkillInstallState, SkillInstallStatus }
+export type { AgentId, AgentTarget, LegacySkillCopy, SkillInstallState, SkillInstallStatus }
 
 export interface CliStatus extends InstallOutcome {
-  /** directory holding the genoffice launcher (what `~/.lycero-office/launcher` points at) */
+  /** directory holding the lycero-office launcher (what `~/.lycero-office/launcher` points at) */
   launcherDir: string
   /** app runs from a dmg / AppImage mount: the launcher path will not survive a restart */
   ephemeral: boolean
@@ -33,6 +34,18 @@ export interface IntegrationsStatus {
   /** lowest CLI version that skill describes */
   skillNeedsCli: string
   agents: Array<AgentTarget & { state: SkillInstallState }>
+  /**
+   * the per-tool copies the shared `.agents` row replaced: still read by their
+   * tool, never updated again, and invisible in the agent rows above
+   */
+  legacy: LegacySkillCopy[]
+}
+
+export interface LegacySweepResult {
+  /** the copies this app wrote and removed */
+  removed: LegacySkillCopy[]
+  /** the copies edited by hand: left in place, for the user to judge */
+  kept: LegacySkillCopy[]
 }
 
 export interface IntegrationsApi {
@@ -42,6 +55,8 @@ export interface IntegrationsApi {
   installSkill(target: { agentId: AgentId } | { dir: string }): Promise<SkillInstallState>
   /** remove a skill this app wrote */
   uninstallSkill(agentId: AgentId): Promise<SkillInstallState>
+  /** remove the stale per-tool skill copies this app wrote */
+  sweepLegacySkillCopies(): Promise<LegacySweepResult>
   /** folder picker for "install elsewhere"; null when cancelled */
   pickSkillDir(title: string): Promise<string | null>
   /** save dialog + write of lycero-office-skill-<version>.zip; the saved path, null when cancelled */
@@ -77,6 +92,7 @@ export const INTEGRATIONS_CHANNELS = {
   removeSkill: 'integrations:remove-skill',
   installSkill: 'integrations:install-skill',
   uninstallSkill: 'integrations:uninstall-skill',
+  sweepLegacySkillCopies: 'integrations:sweep-legacy-skill-copies',
   pickSkillDir: 'integrations:pick-skill-dir',
   saveSkillZip: 'integrations:save-skill-zip',
   copyText: 'integrations:copy-text',

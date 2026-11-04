@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build GenOffice Bengali from upstream Noto Sans Bengali, hmtx-normalized to Nirmala UI.
+"""Build Lycero Office Bengali from upstream Noto Sans Bengali, hmtx-normalized to Nirmala UI.
 
 Word for Mac renders Nirmala UI (the Windows Bengali UI face, an M365 cloud
 font) for real; macOS has no Nirmala UI and Chromium's Bengali fallback
@@ -25,7 +25,7 @@ from fontTools.ttLib import TTFont
 from fontTools.ttLib.woff2 import WOFF2FlavorData
 
 DEFAULT_DIR = "apps/docs/src/renderer/fonts"
-FAMILY = "GenOffice Bengali"
+FAMILY = "Lycero Office Bengali"
 
 # ord -> advance in 1/1000 em, measured from Nirmala UI (2048 upm) for the
 # codepoints Noto Sans Bengali also maps (no Latin letters or ASCII digits).

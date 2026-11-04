@@ -52,7 +52,7 @@ test.describe('docs layout breaks menu', () => {
   let docPath: string
 
   test.beforeEach(async () => {
-    dir = realpathSync(mkdtempSync(join(tmpdir(), 'genoffice-e2e-breaks-')))
+    dir = realpathSync(mkdtempSync(join(tmpdir(), 'lycero-e2e-breaks-')))
     docPath = join(dir, 'breaks.docx')
     writeFileSync(docPath, await minimalDocx())
   })

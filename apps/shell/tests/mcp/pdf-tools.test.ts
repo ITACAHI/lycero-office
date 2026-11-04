@@ -34,7 +34,7 @@ async function buildFixturePdf(path: string): Promise<void> {
 }
 
 beforeAll(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'genoffice-mcp-pdf-'))
+  dir = await mkdtemp(join(tmpdir(), 'lycero-mcp-pdf-'))
   threePages = join(dir, 'three-pages.pdf')
   await buildFixturePdf(threePages)
   corrupt = join(dir, 'corrupt.pdf')

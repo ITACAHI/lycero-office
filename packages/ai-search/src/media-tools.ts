@@ -25,7 +25,7 @@ import {
   type LegacyAiSettings,
   type MediaBlob,
 } from '@lycero/ai-provider'
-// deep imports: the package root re-exports Electron-bound modules, and this file also runs in the genoffice CLI
+// deep imports: the package root re-exports Electron-bound modules, and this file also runs in the lycero-office CLI
 import { readGeneratedImage, storeGeneratedImage } from '@lycero/electron-utils/generated-images'
 import {
   ResponseTooLargeError,

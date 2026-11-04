@@ -10,7 +10,7 @@ import { realizedPath } from './fs'
 import { CliError, EXIT } from './result'
 
 /** The shell's Electron userData directory, located without Electron (LYCERO_USER_DATA overrides). */
-export function genofficeUserDataDir(env: NodeJS.ProcessEnv): string {
+export function lyceroUserDataDir(env: NodeJS.ProcessEnv): string {
   if (env.LYCERO_USER_DATA) return env.LYCERO_USER_DATA
   // Resolve the home from the env we were given (as os.homedir() does with process.env.HOME), so
   // an in-process caller with a substituted HOME never lands in the real user directories.
@@ -29,20 +29,20 @@ export function genofficeUserDataDir(env: NodeJS.ProcessEnv): string {
  * packaged profile, then the dev profiles.
  *
  * The dev profile has been spelled two ways. It was `<name> Dev` until
- * genoffice#1879 moved the shell to `<name>-Dev` — a space breaks XDG config
- * entries, which are meant to be one token (genoffice#1817) — and the shell renames the
+ * #1879 moved the shell to `<name>-Dev` — a space breaks XDG config
+ * entries, which are meant to be one token (#1817) — and the shell renames the
  * old directory on first run after that. Both spellings are scanned here, new
  * first, because a profile that was never migrated still has to be reachable:
  * a custom `LYCERO_USER_DATA`, a checkout whose shell has not run since the
  * rename, or a migration that could not move a busy directory.
  *
- * Both readers used to spell this list out on their own, and genoffice#1879
+ * Both readers used to spell this list out on their own, and #1879
  * changed the shell without either of them, so the CLI went on looking for a
  * directory nothing wrote to any more.
  */
-export function genofficeUserDataDirs(env: NodeJS.ProcessEnv): string[] {
+export function lyceroUserDataDirs(env: NodeJS.ProcessEnv): string[] {
   if (env.LYCERO_USER_DATA) return [env.LYCERO_USER_DATA]
-  const packaged = genofficeUserDataDir(env)
+  const packaged = lyceroUserDataDir(env)
   return [packaged, `${packaged}-Dev`, `${packaged} Dev`]
 }
 
@@ -58,7 +58,7 @@ export interface GuiOpenDocuments {
  */
 export function guiOpenDocuments(
   env: NodeJS.ProcessEnv,
-  dirs = genofficeUserDataDirs(env),
+  dirs = lyceroUserDataDirs(env),
 ): GuiOpenDocuments[] {
   const live: GuiOpenDocuments[] = []
   for (const dir of dirs) {

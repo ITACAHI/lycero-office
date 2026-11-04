@@ -17,7 +17,7 @@ import {
 } from '../src/renderer/editor/convert'
 
 /**
- * genoffice#524: inline atoms (note refs, XE marks, formulas, ruby, pictures)
+ * #524: inline atoms (note refs, XE marks, formulas, ruby, pictures)
  * used to drop their run marks on the way into the editor, so a footnote
  * reference inside a w:ins never matched its original signature; the paragraph
  * regenerated and lost the tracked change and the character style.

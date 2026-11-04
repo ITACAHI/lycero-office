@@ -69,6 +69,7 @@ describe('placeholder order helpers', () => {
 
 const paragraphs: EditParagraph[] = [{ runs: [{ text: 'hi' }] }] as unknown as EditParagraph[]
 const newSlide = {
+  partPath: 'new',
   nodes: [text('n-title', 'ctrTitle'), text('n-sub', 'subTitle')],
 } as unknown as RenderSlide
 
@@ -76,7 +77,8 @@ const api = {
   editText: vi.fn(async () => ({ nodes }) as unknown as RenderSlide),
   deleteElement: vi.fn(async () => ({ nodes: [] }) as unknown as RenderSlide),
   addBlankSlide: vi.fn(async () => ({
-    slides: [{ nodes }, newSlide] as unknown as RenderSlide[],
+    slides: [newSlide] as unknown as RenderSlide[],
+    order: ['old', 'new'],
     index: 1,
   })),
 }
@@ -127,7 +129,7 @@ describe('nextPlaceholder', () => {
       sourceIndex: 0,
       fitWidthPx: expect.any(Number),
     })
-    expect(ctx.setSlides).toHaveBeenCalledWith([{ nodes }, newSlide])
+    expect(ctx.setSlides).toHaveBeenCalledWith(expect.any(Function))
     expect(ctx.setCurrent).toHaveBeenCalledWith(1)
     expect(ctx.setSelectedSlides).toHaveBeenCalledWith([1])
     expect(ctx.setEditing).toHaveBeenCalledWith({ sourceId: 'n-title' })
@@ -137,7 +139,8 @@ describe('nextPlaceholder', () => {
 
   it('leaves edit mode with the shape selected when the new slide has no placeholder', async () => {
     api.addBlankSlide.mockResolvedValueOnce({
-      slides: [{ nodes }, { nodes: [] }] as unknown as RenderSlide[],
+      slides: [{ partPath: 'new', nodes: [] }] as unknown as RenderSlide[],
+      order: ['old', 'new'],
       index: 1,
     })
     const ctx = makeCtx({ sourceId: 'body' })

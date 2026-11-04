@@ -44,7 +44,7 @@ async function freePort(): Promise<number> {
 }
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'genoffice-mcp-pptx-'))
+  dir = await mkdtemp(join(tmpdir(), 'lycero-mcp-pptx-'))
 })
 
 afterEach(async () => {

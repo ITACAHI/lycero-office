@@ -42,7 +42,7 @@ export function createContext(base: {
 }): McpContext {
   const scratchDir =
     base.scratchDir ??
-    join(tmpdir(), `genoffice-mcp-${process.pid}-${randomBytes(4).toString('hex')}`)
+    join(tmpdir(), `lycero-mcp-${process.pid}-${randomBytes(4).toString('hex')}`)
   mkdirSync(scratchDir, { recursive: true })
   return {
     ...base,
@@ -63,7 +63,7 @@ function allowScratch(env: NodeJS.ProcessEnv, scratchDir: string): NodeJS.Proces
   return { ...env, LYCERO_ALLOWED_ROOTS: `${roots}${delimiter}${scratchDir}` }
 }
 
-/** One command, as `genoffice <argv> --json` would run it, with the JSON envelope parsed back. */
+/** One command, as `lycero-office <argv> --json` would run it, with the JSON envelope parsed back. */
 export async function runJson(argv: string[], ctx: McpContext): Promise<Outcome> {
   const out: string[] = []
   await runCli([...argv, '--json'], {
@@ -82,7 +82,7 @@ export async function runJson(argv: string[], ctx: McpContext): Promise<Outcome>
         command: argv[0] ?? null,
         code: 3,
         error: 'conversion_failed',
-        message: `genoffice printed no JSON: ${text.slice(0, 200)}`,
+        message: `lycero-office printed no JSON: ${text.slice(0, 200)}`,
       },
     }
   }

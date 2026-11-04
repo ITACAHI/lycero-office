@@ -13,19 +13,19 @@ import { CliError, EXIT } from '../result'
 export function launcherPath(): string | null {
   const packaged = packagedResourcesDir()
   if (packaged)
-    return join(packaged, 'cli', process.platform === 'win32' ? 'genoffice.cmd' : 'genoffice')
+    return join(packaged, 'cli', process.platform === 'win32' ? 'lycero-office.cmd' : 'lycero-office')
   const root = repoRoot()
-  return root ? join(root, 'packages', 'cli', 'bin', 'genoffice') : null
+  return root ? join(root, 'packages', 'cli', 'bin', 'lycero-office') : null
 }
 
 export const installCommand: CommandDef = {
   name: 'install-cli',
   summary:
-    'Put genoffice on the PATH (symlink into /usr/local/bin or ~/.local/bin, or the user PATH on Windows).',
+    'Put lycero-office on the PATH (symlink into /usr/local/bin or ~/.local/bin, or the user PATH on Windows).',
   usage: 'install-cli',
   async run() {
     const launcher = launcherPath()
-    if (!launcher) throw new CliError(EXIT.app, 'cannot locate the genoffice launcher')
+    if (!launcher) throw new CliError(EXIT.app, 'cannot locate the lycero-office launcher')
     const r = installCliLink({ launcher })
     const detail = {
       status: r.status,
@@ -35,8 +35,8 @@ export const installCommand: CommandDef = {
     }
     const onPath = (verb: string) =>
       r.pathHint
-        ? `genoffice is ${verb} linked at ${r.location}, but ${dirname(r.location ?? '')} is not on your PATH; add it with: ${r.pathHint}`
-        : `genoffice is ${verb} on the PATH (${r.location})`
+        ? `lycero-office is ${verb} linked at ${r.location}, but ${dirname(r.location ?? '')} is not on your PATH; add it with: ${r.pathHint}`
+        : `lycero-office is ${verb} on the PATH (${r.location})`
     switch (r.status) {
       case 'linked':
         return { summary: onPath('now'), detail }

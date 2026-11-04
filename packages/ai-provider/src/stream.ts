@@ -9,15 +9,23 @@ import { withOutputCapFallback } from './output-cap'
 import { streamAnthropic } from './protocols/anthropic'
 import { streamGemini } from './protocols/gemini'
 import { streamOpenAiCompatible } from './protocols/openai-compatible'
+import { streamOpenAiResponses } from './protocols/openai-responses'
 import { streamCodexAppServer } from './codex-app-server'
 import { MAX_HUB_RECONNECT_ATTEMPTS, streamHubChat } from './protocols/hub-lycero'
 import type { StreamCallbacks } from './protocols/shared'
 import { getProviderAdapter, type AiProtocol } from './registry'
+import {
+  anthropicThinkingFields,
+  geminiThinkingLevelFor,
+  openAiEffortFor,
+  toggleThinkingBodyFor,
+} from './thinking-effort'
 import type { AiProviderConfig, AiProviderId } from './types'
 
 export { streamAnthropic } from './protocols/anthropic'
 export { streamGemini } from './protocols/gemini'
 export { streamOpenAiCompatible } from './protocols/openai-compatible'
+export { streamOpenAiResponses } from './protocols/openai-responses'
 export { MAX_HUB_RECONNECT_ATTEMPTS, streamHubChat } from './protocols/hub-lycero'
 export { AiCreditsError, sseLines, throwIfCreditsNotice, parseToolInput } from './protocols/shared'
 export { AiQuotaExhaustedError, isAiQuotaExhaustedError } from './quota-error'
@@ -130,6 +138,7 @@ export async function streamForProvider(
             streamAnthropic(config, system, messages, tools, tokens, trackedCb, baseUrl, {
               headers: endpoint.headers,
               idleTimeoutMs: endpoint.idleTimeoutMs,
+              ...anthropicThinkingFields(config),
             }),
           options?.maxAttempts,
           options?.retryBaseDelayMs,
@@ -142,6 +151,7 @@ export async function streamForProvider(
               omitTemperature: endpoint.omitTemperature,
               headers: endpoint.headers,
               idleTimeoutMs: endpoint.idleTimeoutMs,
+              thinkingLevel: geminiThinkingLevelFor(config),
             }),
           options?.maxAttempts,
           options?.retryBaseDelayMs,
@@ -153,10 +163,25 @@ export async function streamForProvider(
             streamOpenAiCompatible(baseUrl, config, system, messages, tools, tokens, trackedCb, {
               omitTemperature: endpoint.omitTemperature,
               useMaxCompletionTokens: endpoint.useMaxCompletionTokens,
-              bodyExtras: endpoint.bodyExtras,
+              // a stored pick outranks the profile's own body extras
+              bodyExtras: { ...endpoint.bodyExtras, ...toggleThinkingBodyFor(config) },
               echoReasoning: endpoint.echoReasoning,
               headers: endpoint.headers,
               idleTimeoutMs: endpoint.idleTimeoutMs,
+              reasoningEffort: openAiEffortFor(config, endpoint.protocol),
+            }),
+          options?.maxAttempts,
+          options?.retryBaseDelayMs,
+        )
+      case 'openai-responses':
+        return runWithNetworkReconnect(
+          cb,
+          (trackedCb) =>
+            streamOpenAiResponses(baseUrl, config, system, messages, tools, tokens, trackedCb, {
+              bodyExtras: endpoint.bodyExtras,
+              headers: endpoint.headers,
+              idleTimeoutMs: endpoint.idleTimeoutMs,
+              reasoningEffort: openAiEffortFor(config, endpoint.protocol),
             }),
           options?.maxAttempts,
           options?.retryBaseDelayMs,

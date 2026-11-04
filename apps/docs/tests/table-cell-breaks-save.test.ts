@@ -6,7 +6,7 @@
 import { Editor } from '@tiptap/core'
 import { TextSelection } from '@tiptap/pm/state'
 import { parseDocx } from '@lycero/docx-engine'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { buildDocx } from '../../../packages/docx-engine/tests/helpers/build-docx'
 import { blocksToPmDoc, pmDocToSavePlan, type PmNode } from '../src/renderer/editor/convert'
 import { editorExtensions } from '../src/renderer/editor/extensions'
@@ -31,6 +31,14 @@ const TABLE =
   '</w:tr>' +
   '</w:tbl>'
 
+/** Editors created during the current test; destroyed in afterEach so ProseMirror's
+ * DOMObserver timers can't fire after the JSDOM environment is torn down. */
+const liveEditors: Editor[] = []
+
+afterEach(() => {
+  for (const editor of liveEditors.splice(0)) editor.destroy()
+})
+
 async function openDoc() {
   const source = await buildDocx({ bodyXml: TABLE })
   const parsed = await parseDocx(source)
@@ -39,6 +47,7 @@ async function openDoc() {
     extensions: editorExtensions,
     content: blocksToPmDoc(parsed.blocks) as never,
   })
+  liveEditors.push(editor)
   return { editor, parsed }
 }
 

@@ -5,7 +5,7 @@
  */
 // A failed run marks the error bubble with a "Sign in to Lycero" button only
 // when Lycero is the active provider — a BYOK user's failure (their own
-// provider's rate limit, say) must not advertise a Lycero sign-in (genoffice#1948).
+// provider's rate limit, say) must not advertise a Lycero sign-in (#1948).
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { act, createElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'

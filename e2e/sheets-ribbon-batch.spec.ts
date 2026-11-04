@@ -39,7 +39,7 @@ function sheetXml(workbookPath: string): string {
 
 test.describe('sheets: ribbon batch-1 features', () => {
   test('headings toggle, zoom to selection, names, watch window, calc options', async () => {
-    const scratch = await mkdtemp(join(tmpdir(), 'genoffice-ribbon-e2e-'))
+    const scratch = await mkdtemp(join(tmpdir(), 'lycero-ribbon-e2e-'))
     const workbook = join(scratch, 'ribbon-batch.xlsx')
     await copyFile(FIXTURE, workbook)
 
@@ -129,7 +129,7 @@ test.describe('sheets: ribbon batch-1 features', () => {
 
 test.describe('sheets: ribbon batch-2 features', () => {
   test('error checking, goal seek, refresh all', async () => {
-    const scratch = await mkdtemp(join(tmpdir(), 'genoffice-ribbon2-e2e-'))
+    const scratch = await mkdtemp(join(tmpdir(), 'lycero-ribbon2-e2e-'))
     const workbook = join(scratch, 'ribbon-batch2.xlsx')
     await copyFile(FIXTURE, workbook)
 
@@ -204,7 +204,7 @@ function archiveEntry(workbookPath: string, entry: string): string {
 
 test.describe('sheets: ribbon batch-3 features', () => {
   test('page breaks + preview, workbook protection, allow edit ranges, theme', async () => {
-    const scratch = await mkdtemp(join(tmpdir(), 'genoffice-ribbon3-e2e-'))
+    const scratch = await mkdtemp(join(tmpdir(), 'lycero-ribbon3-e2e-'))
     const workbook = join(scratch, 'ribbon-batch3.xlsx')
     await copyFile(FIXTURE, workbook)
     // The generated fixture ships no theme part; the theme engine needs one.

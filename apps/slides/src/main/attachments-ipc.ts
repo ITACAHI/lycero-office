@@ -134,7 +134,7 @@ function savePastedImage(
   // Renderer-driven clipboard bytes hit the temp disk: enforce the same 5MB
   // image cap as file attachments so pastes cannot fill the disk.
   if (bytes.byteLength > ATTACHMENT_IMAGE_MAX_BYTES) return { error: 'too-large' }
-  const dir = join(app.getPath('temp'), 'genoffice-pasted')
+  const dir = join(app.getPath('temp'), 'lycero-pasted')
   mkdirSync(dir, { recursive: true })
   const stamp = new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '-')
   const filePath = join(dir, `pasted-${stamp}-${++pastedImageSeq}.${cleanExt}`)

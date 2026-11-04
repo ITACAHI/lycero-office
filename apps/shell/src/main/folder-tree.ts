@@ -46,6 +46,8 @@ export const TREE_FILE_EXTENSIONS: ReadonlySet<string> = new Set([
   'ppt',
   'odt',
   'ott',
+  'hwpx',
+  'hwp',
   'odp',
   'otp',
   'pdf',
@@ -60,7 +62,7 @@ export const TREE_FILE_EXTENSIONS: ReadonlySet<string> = new Set([
 const HIDDEN_DIR_NAMES = new Set(['node_modules', '__macosx'])
 const HIDDEN_FILE_NAMES = new Set(['thumbs.db', 'desktop.ini'])
 /** the Markdown / HTML apps' image folder is app-owned when it holds this manifest */
-const MD_ASSET_MANIFEST = '.genoffice-assets.json'
+const MD_ASSET_MANIFEST = '.lycero-assets.json'
 
 export function isSupportedTreeFile(name: string): boolean {
   return TREE_FILE_EXTENSIONS.has(extname(name).slice(1).toLowerCase())

@@ -43,7 +43,7 @@ export function isInstallingUpdate(): boolean {
  * the update channel prefix (production builds only). The packaged app reads
  * that URL from resources/app-update.yml, which electron-builder bakes in
  * from the `publish` config in apps/shell/electron-builder.cjs — the URL
- * itself is injected at build time via the GENOFFICE_UPDATE_URL env var and
+ * itself is injected at build time via the LYCERO_UPDATE_URL env var and
  * is intentionally not committed to the repo.
  *
  * UX is the strong-guidance modal card (update-window.ts), not a native
@@ -54,7 +54,7 @@ export function isInstallingUpdate(): boolean {
  * replaces the .AppImage file in place, no root needed); deb installs have
  * no updater — users upgrade via `apt install ./<new>.deb`.
  *
- * Dev preview: GENOFFICE_FAKE_UPDATE=<version> in an unpacked run opens the
+ * Dev preview: LYCERO_FAKE_UPDATE=<version> in an unpacked run opens the
  * window with a simulated download so the UI can be exercised end to end.
  */
 
@@ -505,7 +505,7 @@ function manualDownloadUrlFor(info: UpdateInfo): string | null {
 let started = false
 // version the user declined this session — don't nag again until next launch
 let dismissedVersion: string | null = null
-// re-shows the GENOFFICE_FAKE_UPDATE window so the manual check is
+// re-shows the LYCERO_FAKE_UPDATE window so the manual check is
 // exercisable in dev runs too
 let fakeShowAgain: (() => void) | null = null
 let manualCheckInFlight = false
@@ -520,6 +520,12 @@ const CHANNEL_FEED: Record<UpdateChannel, string> = { stable: 'latest', beta: 'b
 // true once the packaged-run updater is configured; channel switches before
 // that (or in dev runs) must not touch electron-updater
 let updaterActive = false
+
+// The check in flight is quiet when a background timer started it: the package
+// then downloads in the background and the app installs it when it quits
+// (#2389). A check the user asked for — the Help entry, the About
+// dialog button, a channel switch — opens the update card instead.
+let quietCheck = false
 
 function log(...args: unknown[]): void {
   console.log('[updater]', ...args)
@@ -556,6 +562,8 @@ function initialState(version: string): UpdateUiState {
 export function applyUpdateChannel(channel: UpdateChannel): void {
   if (!updaterActive) return
   resetDownloadFlow?.()
+  // the user asked for this channel: it gets the card, not a quiet download
+  quietCheck = false
   autoUpdater.channel = CHANNEL_FEED[channel]
   // the channel setter unconditionally flips allowDowngrade to true; force it
   // back off since a beta user switching to stable must not downgrade
@@ -593,6 +601,8 @@ export async function checkForUpdatesNow(): Promise<void> {
       return
     }
     dismissedVersion = null
+    // the user asked for it: the card, not a quiet download
+    quietCheck = false
     let result
     try {
       result = await autoUpdater.checkForUpdates()
@@ -628,16 +638,19 @@ export async function checkForUpdatesNow(): Promise<void> {
 export function initAutoUpdater(
   getWindow: () => BrowserWindow | null,
   initialChannel: UpdateChannel = 'stable',
-  /** Settings › "Check for updates automatically"; read at every background check (genoffice#2127) */
+  /** Settings › "Check for updates automatically"; read at every background check (#2127) */
   autoCheckEnabled: () => boolean = () => true,
+  /** Settings › "Install updates silently" (off by default): a background check
+   *  downloads the package quietly and installs it on quit instead of opening the card */
+  silentInstallEnabled: () => boolean = () => false,
 ): void {
   if (started) return
   started = true
   setUpdateParentWindow(getWindow)
 
   // dev preview of the update window with a simulated download
-  if (!app.isPackaged && process.env.GENOFFICE_FAKE_UPDATE) {
-    initFakeUpdate(getWindow, process.env.GENOFFICE_FAKE_UPDATE)
+  if (!app.isPackaged && process.env.LYCERO_FAKE_UPDATE) {
+    initFakeUpdate(getWindow, process.env.LYCERO_FAKE_UPDATE)
     return
   }
   // Unpacked runs have no app-update.yml and must not hit the CDN with a
@@ -728,19 +741,23 @@ export function initAutoUpdater(
     clearUpdateState()
   }
 
+  /** Download the version on offer. The card's "Update Now" button and the
+   *  quiet background download share this path. */
+  const startDownload = (): void => {
+    if (downloadInFlight || phase === 'downloaded') return
+    downloadInFlight = true
+    setPhase({ phase: 'downloading', percent: 0 })
+    const gen = ++downloadGen
+    downloadToken = new CancellationToken()
+    autoUpdater.downloadUpdate(downloadToken).catch((err) => {
+      if (gen !== downloadGen) return
+      log('download failed:', err?.message ?? err)
+      failDownload()
+    })
+  }
+
   const actions = {
-    onDownload: () => {
-      if (phase === 'downloading' || phase === 'downloaded') return
-      downloadInFlight = true
-      setPhase({ phase: 'downloading', percent: 0 })
-      const gen = ++downloadGen
-      downloadToken = new CancellationToken()
-      autoUpdater.downloadUpdate(downloadToken).catch((err) => {
-        if (gen !== downloadGen) return
-        log('download failed:', err?.message ?? err)
-        failDownload()
-      })
-    },
+    onDownload: startDownload,
     onInstall: () => {
       closeUpdateWindow()
       if (latestSeenVersion === null) return
@@ -789,6 +806,12 @@ export function initAutoUpdater(
     latestSeenVersion = info.version
     manualDownloadUrl = manualDownloadUrlFor(info)
     log('update available:', info.version)
+    if (quietCheck && silentInstallEnabled()) {
+      // quiet path: no card, the package downloads in the background and the
+      // app installs it when it quits (#2389)
+      startDownload()
+      return
+    }
     // a periodic recheck resolving to the version the open dialog already
     // shows must not reset its phase to 'available' — that would wipe an
     // in-progress download or a terminal 'manual' fallback back to the
@@ -817,6 +840,9 @@ export function initAutoUpdater(
   const check = (): void => {
     // turned off: only an explicit check (Help › Check for Updates…, a channel switch) asks the feed
     if (!autoCheckEnabled()) return
+    // a background check is quiet: the package downloads in the background and
+    // the app installs it when it quits (#2389)
+    quietCheck = true
     autoUpdater.checkForUpdates().catch((err) => log('check failed:', err?.message ?? err))
   }
   setTimeout(check, FIRST_CHECK_DELAY_MS)
