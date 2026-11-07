@@ -970,7 +970,7 @@ dependencies = [
 
 [[package]]
 name = "xlsx-sidecar"
-version = "2.0.28"
+version = "2.0.29"
 dependencies = [
  "base64",
  "calamine",

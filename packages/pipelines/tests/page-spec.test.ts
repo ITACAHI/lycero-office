@@ -4,7 +4,14 @@
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
 import { describe, it, expect } from 'vitest'
-import { getSlideNotes, openPptx, type TextElement, type PictureElement } from '@lycero/pptx-engine'
+import {
+  getSlideAnimations,
+  getSlideNotes,
+  getSlideTransition,
+  openPptx,
+  type TextElement,
+  type PictureElement,
+} from '@lycero/pptx-engine'
 import { HeuristicMetrics } from '@lycero/pptx-render'
 import { parsePageSpec, buildPagePptx, type PageSpec } from '../src/slides/page-spec'
 
@@ -566,5 +573,87 @@ describe('buildPagePptx speaker notes & cascade line-break pinning', () => {
     const opened = await openPptx(bytes)
     const el = opened.deck.slides[0]!.elements.find((e): e is TextElement => e.type === 'text')!
     expect(el.text?.paragraphs[0]!.runs.some((r) => r.text === '\n')).toBe(true)
+  })
+
+  it('writes Open-Slide transitions, spatial card-grouped animations, Morph names, gradients, and shadows', async () => {
+    const raw = JSON.stringify({
+      backgroundGradient: { from: '#090D16', to: '#111827', angleDeg: 135 },
+      transition: 'morph',
+      elements: [
+        {
+          type: 'shape',
+          shape: 'roundRect',
+          x: 80,
+          y: 36,
+          w: 220,
+          h: 32,
+          radius: 999,
+          fill: '#38BDF822',
+          stroke: { color: '#38BDF8', widthPt: 1 },
+          paragraphs: [
+            { runs: [{ text: 'AI WORKSPACE', sizePt: 11, bold: true, color: '#38BDF8' }] },
+          ],
+        },
+        {
+          type: 'text',
+          x: 80,
+          y: 80,
+          w: 900,
+          h: 64,
+          paragraphs: [
+            {
+              runs: [{ text: 'Lycero AI Architecture', sizePt: 36, bold: true, color: '#F8FAFC' }],
+            },
+          ],
+        },
+        {
+          type: 'shape',
+          shape: 'roundRect',
+          x: 80,
+          y: 200,
+          w: 360,
+          h: 280,
+          radius: 16,
+          gradient: { from: '#1E293B', to: '#0F172A', angleDeg: 135 },
+          stroke: { color: '#334155', widthPt: 1 },
+          shadow: true,
+        },
+        {
+          type: 'text',
+          x: 104,
+          y: 228,
+          w: 312,
+          h: 48,
+          paragraphs: [
+            { runs: [{ text: 'Card 1 Heading', sizePt: 20, bold: true, color: '#F8FAFC' }] },
+          ],
+        },
+      ],
+    })
+    const parsed = parsePageSpec(raw)
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+
+    const { bytes } = await buildPagePptx(parsed.spec, deps)
+    const opened = await openPptx(bytes)
+    const slide = opened.deck.slides[0]!
+
+    expect(getSlideTransition(slide)).toBe('morph')
+    expect(slide.background?.type).toBe('gradient')
+
+    const anims = getSlideAnimations(slide)
+    expect(anims.length).toBe(4)
+    // Card 1 container and its inner heading text are grouped in the same visual unit:
+    // the inner text has trigger 'withPrev' and delayMs 0 so it glides in with the card
+    expect(anims[2]!.trigger).toBe('withPrev')
+    expect(anims[2]!.delayMs).toBeGreaterThan(0)
+    expect(anims[3]!.trigger).toBe('withPrev')
+    expect(anims[3]!.delayMs).toBe(0)
+
+    // Auto-assigned Morph continuity names
+    const names = slide.elements.map((e) => (e as TextElement).name)
+    expect(names).toContain('!!eyebrow')
+    expect(names).toContain('!!slide-title')
+    expect(names).toContain('!!card-1')
   })
 })

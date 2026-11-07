@@ -264,20 +264,25 @@ export function AnimPreviewOverlay({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Auto-advance: 350ms pause between steps; after everything plays, exit after 600ms
+  // Auto-advance: 220ms pause between steps; after everything plays, exit after 80ms
   useEffect(() => {
     if (player.playing) return
     const t = window.setTimeout(
       () => {
         if (!player.advance()) onDone()
       },
-      player.pending ? 350 : 600,
+      player.pending ? 220 : 80,
     )
     return () => window.clearTimeout(t)
   }, [player.playing, player.pending, player.advance, onDone]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="anim-preview-overlay" onClick={onDone} data-tip={t('paneAnimClickToEnd')}>
+    <div
+      className="anim-preview-overlay"
+      onPointerDown={onDone}
+      onClick={onDone}
+      data-tip={t('paneAnimClickToEnd')}
+    >
       <AnimatedSlideStage
         slide={slide}
         images={images}

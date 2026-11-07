@@ -1064,14 +1064,17 @@ export function LyceroMate({
           setActiveClarify(questions)
         })
       },
-      ...({ isCloudPageGenEnabled: async () => false, _unusedCloudCheck: async () => {
-        try {
-          return false
-        } catch {
-          return false
-        }
-      },
-      _endUnusedCloudCheck: null } as Record<string, unknown>),
+      ...({
+        isCloudPageGenEnabled: async () => false,
+        _unusedCloudCheck: async () => {
+          try {
+            return false
+          } catch {
+            return false
+          }
+        },
+        _endUnusedCloudCheck: null,
+      } as Record<string, unknown>),
       // Local single-page generation (no gsk needed, e.g. BYOK): one LLM request through the
       // app's own AI transport writes a structured JSON slide spec, and the main process builds
       // it directly into a one-slide pptx with pptx-engine primitives — no HTML intermediate.
@@ -1084,33 +1087,44 @@ export function LyceroMate({
           '## Canvas\n' +
           `${W}x${H} px, origin top-left. All x/y/w/h are integers in px. Nothing may cross the canvas edges; negative coordinates forbidden. Elements paint in array order: background/decor shapes first, then images, text last (text must never end up underneath a shape).\n` +
           '\n' +
-          '## Format\n' +
-          '{"background":"#RRGGBB","elements":[...]}\n' +
+          '## Format (Open-Slide Enhanced PageSpec)\n' +
+          '{"background":"#RRGGBB","backgroundGradient":{"from":"#RRGGBB","to":"#RRGGBB","angleDeg":135},"transition":"morph","notes":"2-4 sentences of presenter talk track for this slide","elements":[...]}\n' +
           'Element types:\n' +
-          '- Shape: {"type":"shape","shape":"roundRect","x":80,"y":120,"w":360,"h":200,"fill":"#RRGGBB or #RRGGBBAA (AA=alpha, 00 transparent)","stroke":{"color":"#RRGGBB","widthPt":1},"paragraphs":[...optional label text, vertically centered...]}\n' +
+          '- Shape: {"type":"shape","shape":"roundRect","name":"!!card-1","x":80,"y":180,"w":360,"h":380,"radius":16,"fill":"#RRGGBB or #RRGGBBAA (AA=alpha)","gradient":{"from":"#RRGGBB","to":"#RRGGBB","angleDeg":135},"stroke":{"color":"#RRGGBB","widthPt":1},"shadow":true,"anim":{"effect":"flyIn","direction":"bottom","durationMs":280},"paragraphs":[...optional centered label text...]}\n' +
           '  Allowed shape values: rect, roundRect, ellipse, triangle, rightArrow, leftArrow, upArrow, downArrow, chevron, diamond, parallelogram, trapezoid, hexagon, pentagon, pie, donut, star5, heart, cloud, line, lineArrow. line/lineArrow draw the diagonal of their box from top-left to bottom-right and need a stroke (a horizontal rule = a box with h:1).\n' +
-          '- Text: {"type":"text","x":80,"y":60,"w":800,"h":90,"valign":"top","paragraphs":[{"align":"left","lineSpacingPct":110,"spaceAfterPt":6,"bullet":false,"runs":[{"text":"...","sizePt":18,"bold":true,"italic":false,"color":"#RRGGBB","font":"Font Name"}]}]}\n' +
-          '  A paragraph may mix runs of different weight/color/size (e.g. a big number run + a small unit run in one line).\n' +
-          '- Image: {"type":"image","url":"https://...","x":660,"y":80,"w":540,"h":560} — center-cropped to fill its box (object-fit: cover).\n' +
+          '- Text: {"type":"text","name":"!!slide-title","x":80,"y":68,"w":1120,"h":84,"valign":"top","paragraphs":[{"align":"left","lineSpacingPct":115,"spaceAfterPt":6,"bullet":false,"runs":[{"text":"...","sizePt":34,"bold":true,"italic":false,"color":"#RRGGBB","font":"Font Name"}]}]}\n' +
+          '  A paragraph may mix runs of different weight/color/size (e.g. a 52pt bold metric run + a 15pt muted unit run in one line).\n' +
+          '- Image: {"type":"image","name":"!!hero-media","url":"https://...","x":680,"y":160,"w":520,"h":480} — center-cropped to fill its box (object-fit: cover).\n' +
+          '\n' +
+          '## Open-Slide Visual Architecture, Motion & Vertical Budget Math\n' +
+          '- **Vertical Budget Math**: sum(font_size * line_height * lines) + sum(gaps) + 2*padding <= 720. Keep <= 45 words per slide so cards breathe with generous whitespace.\n' +
+          '- **Layered Open-Slide Composition**: Never output flat, bare text-only pages. Compose every slide with visual depth:\n' +
+          '  1) Top-left **Eyebrow Pill Badge** (`roundRect`, x:80, y:36, w:180..260, h:30, radius:999, translucent accent fill e.g. `#38BDF822`, stroke `#38BDF866`, 11pt bold label, `name:"!!eyebrow"`).\n' +
+          '  2) **Action Title** (`name:"!!slide-title"`, sizePt 30-42, bold) + **Subtitle** (`name:"!!slide-subtitle"`, sizePt 15-18, muted color).\n' +
+          '  3) **Surface Cards & Visual Diagrams** (`roundRect` with `radius:16`, `shadow:true`, subtle 1pt `stroke`, and `fill` or `gradient`). Inside each card, layer a numbered/category pill badge (`01`, `02`, `03`), a bold card title (18-22pt), concise body copy (13-15pt), and a visual progress bar, metric callout, or architecture connector.\n' +
+          '  4) Optional **Bottom Takeaway Banner** (`roundRect`, x:80, y:628, w:1120, h:50, radius:12) highlighting the key conclusion.\n' +
+          '- **Morph Continuity & Entrance Animations**:\n' +
+          '  - Set `"transition":"morph"` on content/cover/data slides so shared elements (`"!!eyebrow"`, `"!!slide-title"`, `"!!slide-subtitle"`, `"!!card-1"`, `"!!card-2"`, `"!!card-3"`) smoothly morph across slides.\n' +
+          '  - Always include `"notes"` with 2-4 sentences of natural speaker talk track.\n' +
           '\n' +
           '## Hard layout rules\n' +
-          '- Text boxes have ZERO inner padding: the box top-left is exactly where the first glyph starts. Size every box from its content: one line is about sizePt*1.8 px tall at lineSpacingPct 110; a CJK character is about sizePt*1.35 px wide, a Latin character about sizePt*0.7 px. Text wraps at the box width — count the wrapped lines and make the box tall enough, plus one spare line.\n' +
-          '- Text must never overflow its box or overlap other text. Keep >=8px between text and card edges, >=20px between a big title and its subtitle, >=5px between stacked text blocks in the same column — self-check every pair before output.\n' +
-          '- Font sizes in pt: big titles 32-48, subtitles 18-24, body 12-15, hero KPI numbers up to 80.\n' +
-          '- Spread content across the whole page; do not cram it into the top half leaving large blank areas; make text and images as large as the layout allows.\n' +
+          '- Text boxes have ZERO inner padding: the box top-left is exactly where the first glyph starts. Size every box from its content: one line is about sizePt*1.8 px tall at lineSpacingPct 115; a CJK character is about sizePt*1.35 px wide, a Latin character about sizePt*0.7 px. Text wraps at the box width — count the wrapped lines and make the box tall enough, plus one spare line.\n' +
+          '- Text must never overflow its box or overlap other text. Keep >=16px between text and card edges, >=14px between a big title and its subtitle, >=10px between stacked text blocks in the same column — self-check every pair before output.\n' +
+          '- Font sizes in pt: big titles 30-44, subtitles 15-20, card titles 18-22, body 13-15, hero KPI numbers 48-76.\n' +
+          '- Spread content across the whole 1280x720 canvas (bottom edge of main content around y:620-670); do not cram everything into the top half.\n' +
           '\n' +
           '## Visuals and assets\n' +
           '- Photos may only use URLs from the "available images" list, at most as many image elements as URLs. With no available images, fill with typography/color blocks/shapes — never fake photos.\n' +
           '- Icon-like decoration uses the allowed shapes only (at most 4-5 per page, strongly content-related). **Never use emoji**.\n' +
-          '- Data visuals: compose bars/rings/timelines from rect/donut/line shapes with sizes proportional to the real values from the brief.\n' +
-          '- Solid colors only (alpha allowed) — no gradients. **No placeholders of any kind**: all copy comes from the brief’s real content.\n' +
+          '- Data visuals: compose bars/rings/timelines from rect/roundRect/donut/lineArrow shapes with sizes proportional to the real values from the brief.\n' +
+          '- Both solid colors (with optional `#RRGGBBAA` alpha) and subtle `gradient` / `backgroundGradient` are supported. **No placeholders of any kind**: all copy comes from the brief’s real content.\n' +
           '- **Strict Anti-Hallucination & Fact-Checking**: NEVER invent statistics, percentages, multipliers (e.g. "3–5x"), speed/latency benchmarks (e.g. "<800ms"), or unverified third-party claims/endorsements (e.g. "chuẩn McKinsey", "Gartner"). Only display numbers, benchmarks, or citations that are explicitly present in the content brief or reference material. If a numerical slot lacks user-provided data, write "[cần số liệu]" or omit the number entirely and express value through qualitative structure, workflow steps, or concrete capabilities — never fabricate figures to fill a card.\n' +
           '\n' +
           '## Anti-AI design rules (violation = unacceptable)\n' +
-          '- No thin vertical accent bar on the left of cards, no colored bar on top of cards, no small bar left of titles — express hierarchy with background color/font weight/size contrast.\n' +
+          '- No thin vertical accent bar on the left of cards, no colored bar on top of cards, no small bar left of titles — express hierarchy with surface elevation (`shadow:true`), pill badges, subtle 1pt borders, and font weight/size contrast.\n' +
           '- One primary + one secondary accent color for the whole page; even when comparing multiple entities, do not give each a different color (no rainbow cards).\n' +
           '- No decorative corner blocks/short lines; decorative elements must be consistent in position and style across the deck.\n' +
-          '- Do not turn every page into a "shape + bold subtitle + description" list; the cover must not be a flat one-line title + subtitle layout — it needs a visual anchor (large color block/geometric composition/huge number/hero image).'
+          '- Do not turn every page into a flat list; the cover must have a strong visual anchor (layered glass/gradient hero card, geometric architecture diagram, huge typographic anchor, or hero image).'
         const imgBlock = args.images.length
           ? `\nAvailable image URLs (put them into image elements; do not invent placeholder blocks):\n${args.images.map((u, i) => `${i + 1}. ${u}`).join('\n')}`
           : ''
@@ -1150,57 +1164,71 @@ export function LyceroMate({
       },
       // Cloud single-page generation (gsk slide_generate): the cloud service owns HTML writing +
       // pptx conversion; the deck-level style/outline stay local.
-      ...({ generatePageCloud: async (args: Record<string, string>) => {
-        try {
-          const briefParts = [args.brief]
-          if (args.layout) briefParts.push(`Layout intent: ${args.layout}`)
-          if (args.context)
-            briefParts.push(
-              `Reference material (all real names/figures/facts come from here; do not invent):\n${args.context.slice(0, 4000)}`,
-            )
-          const res = await (window.slidesApi as unknown as { cloudGeneratePage: (p: unknown) => Promise<{ ok: boolean; error?: string }> }).cloudGeneratePage({
-            brief: briefParts.join('\n\n'),
-            title: args.title,
-            styleSkill: args.style,
-            deckContext: {
-              ...(args.topic ? { topic: args.topic } : {}),
-              core_hook: args.coreHook,
-              page_index: args.pageIndex,
-              total_pages: args.totalPages,
-            },
-            images: ((args.images as unknown as string[]) ?? []).map((u: string) => ({ url: u })),
-            width: args.canvasW,
-            height: args.canvasH,
-          })
-          return res ?? { ok: false, error: tGlobal('aiErrUnknown') }
-        } catch (e) {
-          return { ok: false, error: e instanceof Error ? e.message : String(e) }
-        }
-      },
-      _endUnusedCloudGen: null } as Record<string, unknown>),
+      ...({
+        generatePageCloud: async (args: Record<string, string>) => {
+          try {
+            const briefParts = [args.brief]
+            if (args.layout) briefParts.push(`Layout intent: ${args.layout}`)
+            if (args.context)
+              briefParts.push(
+                `Reference material (all real names/figures/facts come from here; do not invent):\n${args.context.slice(0, 4000)}`,
+              )
+            const res = await (
+              window.slidesApi as unknown as {
+                cloudGeneratePage: (p: unknown) => Promise<{ ok: boolean; error?: string }>
+              }
+            ).cloudGeneratePage({
+              brief: briefParts.join('\n\n'),
+              title: args.title,
+              styleSkill: args.style,
+              deckContext: {
+                ...(args.topic ? { topic: args.topic } : {}),
+                core_hook: args.coreHook,
+                page_index: args.pageIndex,
+                total_pages: args.totalPages,
+              },
+              images: ((args.images as unknown as string[]) ?? []).map((u: string) => ({ url: u })),
+              width: args.canvasW,
+              height: args.canvasH,
+            })
+            return res ?? { ok: false, error: tGlobal('aiErrUnknown') }
+          } catch (e) {
+            return { ok: false, error: e instanceof Error ? e.message : String(e) }
+          }
+        },
+        _endUnusedCloudGen: null,
+      } as Record<string, unknown>),
       // ── In-tool planning: given topic+page count, the LLM produces a structured outline (batched recursion scheduled by the skill).
       // Fixes "missing pages at the input side" at the root: the main agent doesn't hand-write dozens of pages of pages JSON.
       // In-tool independent Style Skill generation: one focused LLM call thinking only about the design system.
       generateStyleSkill: async (a) => {
         const sys =
-          'You are a professional deck visual designer. Given the presentation topic and style preferences, produce a complete Style Skill (visual style guide). Output strictly in the structure below, only the Style Skill content, no explanations/markdown/code fences.\n\n' +
+          'You are a principal presentation design director (Open-Slide & Apple Keynote standard). Given the presentation topic and style preferences, produce a complete Style Skill (visual design system). Output strictly in the structure below, only the Style Skill content, no explanations/markdown/code fences.\n\n' +
+          'Open-Slide Signature Aesthetic Presets (pick or adapt the closest match to the topic/preference):\n' +
+          '  1. Apple Keynote Fluid Dark: bg #090D16 (gradient #090D16->#111827), text #F8FAFC, muted #94A3B8, accent1 #38BDF8, accent2 #6366F1, card #1E293BCC, border #334155\n' +
+          '  2. Blueprint Technical: bg #0B132B (gradient #0B132B->#1C2541), text #F8FAFC, muted #94A3B8, accent1 #06B6D4, accent2 #3B82F6, card #1C2541D9, border #334155\n' +
+          '  3. Calm Corporate Clean: bg #F8FAFC, text #0F172A, muted #475569, accent1 #2563EB, accent2 #0EA5E9, card #FFFFFF, border #E2E8F0\n' +
+          '  4. Confident Editorial: bg #FAF6F0, text #1C1917, muted #57534E, accent1 #C2410C, accent2 #D97706, card #FFFDF9, border #E7E5E4\n' +
+          '  5. Data-Forward Dashboard: bg #F1F5F9, text #0F172A, muted #475569, accent1 #0284C7, accent2 #0D9488, card #FFFFFF, border #CBD5E1\n' +
+          '  6. Emerald Sustainability: bg #06281E, text #ECFDF5, muted #A7F3D0, accent1 #10B981, accent2 #34D399, card #064E3B99, border #047857\n' +
+          '  7. Executive Gold: bg #0C0A09, text #FAFAF9, muted #A8A29E, accent1 #D97706, accent2 #F59E0B, card #1C1917CC, border #292524\n\n' +
           'Color rules (must use concrete hex values)\n' +
-          '  Main background: #hex\n' +
+          '  Main background: #hex (and optional backgroundGradient from->to)\n' +
           '  Per-page-type backgrounds:\n    cover: #hex\n    content: #hex\n    data: #hex\n    closing: #hex\n' +
           '  (Background selection principles, highest priority first):\n' +
-          '   1) Style preference first: when a tone is explicit (dark theme, a brand color family, a certain texture), the background must honor it — do not fall back to a safe light color.\n' +
-          "   2) Then topic mood: serve the content's emotion and tone (serious/playful/artistic/tech/traditional); different topics should have clearly different backgrounds. Dark colors, brand colors, and saturated light colors are all legitimate choices.\n" +
-          '   3) Light neutral backgrounds are only a fallback: use only when the topic is neutral and the style expresses no clear preference.\n' +
-          '   Constraints: content pages share one background within a deck; the main background and main text color must have sufficient contrast (light text on dark, dark text on light).\n' +
-          '  Main text color: #hex\n  Primary accent: #hex\n  Secondary accent: #hex\n' +
-          '  (Iron rule: one accent color system across the whole deck — even when comparing multiple companies/products/options, do not assign each entity a different color; distinguish entities by name and typography. Never exceed the primary + secondary accents)\n' +
-          '  Card background: #hex\n  Border color: #hex\n\n' +
+          '   1) Style preference first: when a tone is explicit (dark theme, Apple Keynote, Blueprint, brand color family), the background must honor it — do not fall back to a bland white background.\n' +
+          '   2) Then topic mood: AI/Cloud/Tech/Product Launch/Architecture default to Apple Keynote Fluid Dark (#090D16) or Blueprint Technical (#0B132B) unless light corporate is requested.\n' +
+          '   Constraints: content pages share one background within a deck; the main background and main text color must have WCAG AAA contrast.\n' +
+          '  Main text color: #hex\n  Muted text color: #hex\n  Primary accent: #hex\n  Secondary accent: #hex\n' +
+          '  (Iron rule: one cohesive accent pair across the whole deck — distinguish entities by typography, card elevation, and subtle tinting, never rainbow cards)\n' +
+          '  Card background: #hex (with subtle border #hex, radius 16px, soft elevation shadow)\n  Eyebrow pill: translucent primary accent fill + 1pt accent border\n\n' +
           'Fonts\n  CJK title font: [font name]\n  Latin title font: [font name]\n  Body font: [font name]\n  Title size: [range]px\n  Body size: [range]px\n\n' +
+          'Motion & Continuity\n  Slide transition: morph (with !!eyebrow, !!slide-title, !!slide-subtitle, !!card-1..3 continuity)\n  Entrance choreography: staggered flyIn/zoom/fade (240-280ms cubic-out)\n\n' +
           'Layout variants per page type (list at least 2 variants each, format: variant name: description)\n' +
-          '  cover variants:\n    cover_full_image_overlay: full-bleed photo background + dark overlay, centered white title, bottom metadata bar\n    cover_split_color: two color blocks side by side (60/40)\n    cover_typography_hero: pure typography, no photo, huge title (100px+)\n    cover_dark_minimal: dark background, centered large title + a little accent color\n    cover_magazine: magazine-style title taking 60% + partial imagery\n    cover_split_image: title on the left half + hero image on the right half\n' +
+          '  cover variants:\n    cover_full_image_overlay: full-bleed photo background + dark overlay, centered white title, bottom metadata bar\n    cover_split_color: two color blocks side by side (60/40)\n    cover_typography_hero: pure typography, no photo, huge title + layered glass KPI/feature cards\n    cover_dark_minimal: Apple Keynote dark gradient background, eyebrow pill, large hero title + accent card composition\n    cover_magazine: magazine-style title taking 60% + partial imagery\n    cover_split_image: title on the left half + hero image on the right half\n' +
           '  content variants:\n    left_text_right_image | three_column_cards | hero_big_number | two_column_comparison | timeline_horizontal | full_image_text_overlay (give each a one-line description)\n' +
           '  data variants:\n    kpi_cards_row: horizontal KPI cards\n    chart_with_insight: chart left + insight right\n    two_by_two_grid: 2x2 quadrants\n' +
-          '  closing variants:\n    closing_cta: centered title + contact info\n    closing_thank_you: full-bleed thank-you page\n\n' +
+          '  closing variants:\n    closing_cta: centered title + action roadmap/contact cards\n    closing_thank_you: full-bleed thank-you page\n\n' +
           'Overall style: [one sentence describing the overall design language]'
         const q = a.questionnaire ? `\nUser questionnaire answers: ${a.questionnaire}` : ''
         const hint = a.styleHint ? `\nStyle preference: ${a.styleHint}` : ''
@@ -1410,7 +1438,11 @@ export function LyceroMate({
           streamedTextRef.current = text
           patchLastAssistant({ text })
         },
-        onReasoning: (text) => patchLastAssistant((last) => ({ reasoning: (last.reasoning ?? '') + text, thinkingPhase: true })),
+        onReasoning: (text) =>
+          patchLastAssistant((last) => ({
+            reasoning: (last.reasoning ?? '') + text,
+            thinkingPhase: true,
+          })),
         onPhase: (phase) => patchLastAssistant({ thinkingPhase: phase.kind === 'thinking' }),
         onToolStart: (call) => {
           // Live "running" chip: replaced in place by onToolExecuted
@@ -2236,7 +2268,9 @@ export function LyceroMate({
                 )
               ) : entry.role === 'assistant' ? (
                 <>
-                  {entry.reasoning && <ThinkingBlock reasoning={entry.reasoning} isThinking={false} />}
+                  {entry.reasoning && (
+                    <ThinkingBlock reasoning={entry.reasoning} isThinking={false} />
+                  )}
                   <div dir="auto">
                     <Markdown text={entry.text} />
                   </div>

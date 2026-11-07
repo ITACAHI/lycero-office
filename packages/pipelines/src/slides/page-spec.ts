@@ -6,13 +6,31 @@
 import {
   addElement,
   addPicture,
+  ANIM_DIRECTIONS,
+  ANIM_EFFECTS,
+  ANIM_TRIGGERS,
   createBlankPptx,
   editPictureSrcRect,
+  elementSpid,
   openPptx,
   promoteSlideBackground,
   savePptx,
+  setElementEffects,
+  setElementFill,
+  setSlideAnimations,
+  setSlideBackground,
   setSlideNotes,
+  setSlideTransition,
+  TRANSITION_KINDS,
+  type AnimDirection,
+  type AnimEffectKind,
+  type AnimTrigger,
+  type GradientFillPatch,
   type Paragraph,
+  type Slide,
+  type SlideAnimation,
+  type SlideElement,
+  type SlideTransitionKind,
   type TextElement,
   type TextRun,
 } from '@lycero/pptx-engine'
@@ -74,18 +92,55 @@ export interface SpecParagraph {
   bullet?: boolean
 }
 
+export interface SpecGradient {
+  from: string
+  to: string
+  /** Optional intermediate stop color at 50% */
+  via?: string
+  /** Linear gradient angle in degrees (default 135) */
+  angleDeg?: number
+  /** Radial gradient when true */
+  radial?: boolean
+}
+
+export interface SpecShadow {
+  color?: string
+  blurPt?: number
+  distPt?: number
+  angleDeg?: number
+}
+
+export interface SpecAnim {
+  effect?: AnimEffectKind
+  trigger?: AnimTrigger
+  durationMs?: number
+  delayMs?: number
+  direction?: AnimDirection
+  /** Optional click-reveal step group (1, 2, 3...) for stepped reveals (<Steps>/<Step> parity) */
+  step?: number
+}
+
 interface SpecBase {
   x: number
   y: number
   w: number
   h: number
+  /** Optional Morph continuity key across slides (e.g. "!!slide-title", "!!eyebrow", "!!card-1") */
+  name?: string
+  /** Optional entrance/emphasis animation spec, or 'none'/false to skip animation */
+  anim?: SpecAnim | 'none' | false
 }
 
 export interface SpecShape extends SpecBase {
   type: 'shape'
   shape: string
   fill?: string
+  gradient?: SpecGradient
   stroke?: { color: string; widthPt: number }
+  /** Corner radius in px for roundRect (defaults to pill radius for h<=46, else 14px) */
+  radius?: number
+  /** Drop shadow on card/surface shapes (true for default open-slide elevation, or custom SpecShadow) */
+  shadow?: boolean | SpecShadow
   paragraphs?: SpecParagraph[]
   valign?: 'top' | 'middle' | 'bottom'
   /** mirror the shape horizontally (an arrow points the other way) */
@@ -109,12 +164,19 @@ export type SpecElement = SpecShape | SpecText | SpecImage
 
 export interface PageSpec {
   background?: string
+  backgroundGradient?: SpecGradient
+  /** Slide transition effect (defaults to 'morph' at build time when omitted) */
+  transition?: SlideTransitionKind
   /** Optional speaker notes (talk track for Presenter View, written into OOXML notesSlide) */
   notes?: string
   elements: SpecElement[]
 }
 
 const EMU_PER_PT = 12700
+const ANIM_EFFECT_SET = new Set<string>(ANIM_EFFECTS)
+const ANIM_TRIGGER_SET = new Set<string>(ANIM_TRIGGERS)
+const ANIM_DIRECTION_SET = new Set<string>(ANIM_DIRECTIONS)
+const TRANSITION_KIND_SET = new Set<string>(TRANSITION_KINDS)
 
 function asRecord(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' ? (v as Record<string, unknown>) : {}
@@ -131,6 +193,73 @@ function normColor(v: unknown): string | undefined {
 function num(v: unknown): number | undefined {
   const n = typeof v === 'string' ? Number(v) : v
   return typeof n === 'number' && Number.isFinite(n) ? n : undefined
+}
+
+function parseGradient(v: unknown): SpecGradient | undefined {
+  if (!v || typeof v !== 'object') return undefined
+  const rec = asRecord(v)
+  const from = normColor(rec.from ?? rec.start ?? rec.color1)
+  const to = normColor(rec.to ?? rec.end ?? rec.color2)
+  if (!from || !to) return undefined
+  const via = normColor(rec.via ?? rec.mid)
+  const angleDeg = num(rec.angleDeg ?? rec.angle)
+  return {
+    from,
+    to,
+    ...(via ? { via } : {}),
+    ...(angleDeg !== undefined ? { angleDeg: ((angleDeg % 360) + 360) % 360 } : {}),
+    ...(rec.radial === true ? { radial: true } : {}),
+  }
+}
+
+function parseShadow(v: unknown): boolean | SpecShadow | undefined {
+  if (v === true || v === 'sm' || v === 'md' || v === 'lg' || v === 'soft' || v === 'card') {
+    return true
+  }
+  if (!v || typeof v !== 'object') return undefined
+  const rec = asRecord(v)
+  const color = normColor(rec.color)
+  const blurPt = num(rec.blurPt ?? rec.blur)
+  const distPt = num(rec.distPt ?? rec.dist ?? rec.distance)
+  const angleDeg = num(rec.angleDeg ?? rec.angle ?? rec.dir)
+  return {
+    ...(color ? { color } : {}),
+    ...(blurPt !== undefined ? { blurPt: Math.min(Math.max(blurPt, 0), 64) } : {}),
+    ...(distPt !== undefined ? { distPt: Math.min(Math.max(distPt, 0), 48) } : {}),
+    ...(angleDeg !== undefined ? { angleDeg: ((angleDeg % 360) + 360) % 360 } : {}),
+  }
+}
+
+function parseAnim(v: unknown): SpecAnim | 'none' | false | undefined {
+  if (v === false || v === 'none') return 'none'
+  if (typeof v === 'string') {
+    const k = v.trim()
+    return ANIM_EFFECT_SET.has(k) ? { effect: k as AnimEffectKind } : undefined
+  }
+  if (!v || typeof v !== 'object') return undefined
+  const rec = asRecord(v)
+  if (rec.effect === 'none' || rec.enabled === false) return 'none'
+  const effectRaw = typeof rec.effect === 'string' ? rec.effect.trim() : undefined
+  const triggerRaw = typeof rec.trigger === 'string' ? rec.trigger.trim() : undefined
+  const dirRaw = typeof rec.direction === 'string' ? rec.direction.trim() : undefined
+  const durationMs = num(rec.durationMs ?? rec.duration)
+  const delayMs = num(rec.delayMs ?? rec.delay)
+  const step = num(rec.step)
+  const out: SpecAnim = {
+    ...(effectRaw && ANIM_EFFECT_SET.has(effectRaw) ? { effect: effectRaw as AnimEffectKind } : {}),
+    ...(triggerRaw && ANIM_TRIGGER_SET.has(triggerRaw)
+      ? { trigger: triggerRaw as AnimTrigger }
+      : {}),
+    ...(dirRaw && ANIM_DIRECTION_SET.has(dirRaw) ? { direction: dirRaw as AnimDirection } : {}),
+    ...(durationMs !== undefined
+      ? { durationMs: Math.round(Math.min(Math.max(durationMs, 80), 5000)) }
+      : {}),
+    ...(delayMs !== undefined
+      ? { delayMs: Math.round(Math.min(Math.max(delayMs, 0), 10000)) }
+      : {}),
+    ...(step !== undefined && step >= 0 ? { step: Math.round(Math.min(step, 20)) } : {}),
+  }
+  return Object.keys(out).length > 0 ? out : undefined
 }
 
 /**
@@ -286,7 +415,17 @@ export function parsePageSpecObject(
       warnings.push(`element ${i}: outside the ${canvasW}x${canvasH} canvas, dropped`)
       continue
     }
-    const base = { x: cx, y: cy, w: cw, h: ch }
+    const name =
+      typeof el.name === 'string' && el.name.trim() ? el.name.trim().slice(0, 80) : undefined
+    const anim = parseAnim(el.anim)
+    const base: SpecBase = {
+      x: cx,
+      y: cy,
+      w: cw,
+      h: ch,
+      ...(name ? { name } : {}),
+      ...(anim !== undefined ? { anim } : {}),
+    }
     const type = el.type
 
     if (type === 'image') {
@@ -333,14 +472,18 @@ export function parsePageSpecObject(
         shape = 'rect'
       }
       const fill = normColor(el.fill)
+      const gradient = parseGradient(el.gradient)
       const strokeRec = asRecord(el.stroke)
       const strokeColor = normColor(strokeRec.color)
       const strokeWidth = num(strokeRec.widthPt)
       const stroke = strokeColor
         ? { color: strokeColor, widthPt: Math.min(Math.max(strokeWidth ?? 1, 0.25), 24) }
         : undefined
+      const radiusRaw = num(el.radius)
+      const radius = radiusRaw !== undefined ? Math.min(Math.max(radiusRaw, 0), 999) : undefined
+      const shadow = parseShadow(el.shadow)
       const isLine = shape === 'line' || shape === 'lineArrow'
-      if (!fill && !stroke && !isLine) {
+      if (!fill && !gradient && !stroke && !isLine) {
         warnings.push(`element ${i}: shape without fill or stroke, dropped`)
         continue
       }
@@ -352,7 +495,10 @@ export function parsePageSpecObject(
           shape,
           ...base,
           ...(fill ? { fill } : {}),
+          ...(gradient ? { gradient } : {}),
           ...(stroke ? { stroke } : {}),
+          ...(radius !== undefined ? { radius } : {}),
+          ...(shadow !== undefined ? { shadow } : {}),
           ...(paragraphs.some((p) => p.runs.some((r) => r.text.trim())) ? { paragraphs } : {}),
           ...(valign === 'top' || valign === 'middle' || valign === 'bottom' ? { valign } : {}),
           ...(el.flipH === true ? { flipH: true } : {}),
@@ -377,10 +523,18 @@ export function parsePageSpecObject(
     typeof root.notes === 'string' && root.notes.trim()
       ? root.notes.trim().slice(0, MAX_TEXT_LEN)
       : undefined
+  const backgroundGradient = parseGradient(root.backgroundGradient ?? root.gradient)
+  const transitionRaw = typeof root.transition === 'string' ? root.transition.trim() : undefined
+  const transition =
+    transitionRaw && TRANSITION_KIND_SET.has(transitionRaw)
+      ? (transitionRaw as SlideTransitionKind)
+      : undefined
   return {
     ok: true,
     spec: {
       ...(normColor(root.background) ? { background: normColor(root.background) } : {}),
+      ...(backgroundGradient ? { backgroundGradient } : {}),
+      ...(transition ? { transition } : {}),
       ...(notes ? { notes } : {}),
       elements,
     },
@@ -628,6 +782,272 @@ function toEngineParagraphs(paragraphs: SpecParagraph[]): Paragraph[] {
   })
 }
 
+function toGradientPatch(g: SpecGradient): GradientFillPatch {
+  const stops = g.via
+    ? [
+        { pos: 0, color: g.from },
+        { pos: 0.5, color: g.via },
+        { pos: 1, color: g.to },
+      ]
+    : [
+        { pos: 0, color: g.from },
+        { pos: 1, color: g.to },
+      ]
+  return {
+    stops,
+    ...(g.radial ? { radial: true } : { angle: g.angleDeg ?? 135 }),
+  }
+}
+
+function resolveShadowEffect(sh: boolean | SpecShadow) {
+  if (typeof sh === 'boolean') {
+    return {
+      color: '#00000024',
+      blurRad: Math.round(18 * EMU_PER_PT),
+      dist: Math.round(6 * EMU_PER_PT),
+      dirDeg: 90,
+    }
+  }
+  return {
+    color: sh.color ?? '#00000028',
+    blurRad: Math.round((sh.blurPt ?? 16) * EMU_PER_PT),
+    dist: Math.round((sh.distPt ?? 5) * EMU_PER_PT),
+    dirDeg: sh.angleDeg ?? 90,
+  }
+}
+
+function maxFontSizePt(el: SpecElement): number {
+  if (el.type === 'image') return 0
+  const paras = el.paragraphs ?? []
+  let max = 0
+  for (const p of paras) {
+    for (const r of p.runs) {
+      if ((r.sizePt ?? 14) > max) max = r.sizePt ?? 14
+    }
+  }
+  return max
+}
+
+/**
+ * Assigns deterministic Morph continuity names (`!!slide-title`, `!!eyebrow`,
+ * `!!slide-subtitle`, `!!card-1`, etc.) to unnamed structural elements so both
+ * PowerPoint Morph (`option="byObject"`) and Lycero's `MorphStage` smoothly
+ * interpolate shared chrome and cards across slides.
+ */
+function resolveMorphNames(
+  elements: readonly SpecElement[],
+  canvasW: number,
+  canvasH: number,
+): Array<string | undefined> {
+  const names: Array<string | undefined> = elements.map((e) => e.name)
+  let hasTitle = false
+  let hasSubtitle = false
+  let hasEyebrow = false
+  let cardCount = 0
+
+  for (let i = 0; i < elements.length; i++) {
+    if (names[i]) continue
+    const el = elements[i]!
+    if (el.w * el.h >= canvasW * canvasH * 0.65) continue
+    if (
+      !hasEyebrow &&
+      el.y < 140 &&
+      el.h <= 46 &&
+      el.w <= 360 &&
+      (el.type === 'shape' || (el.type === 'text' && maxFontSizePt(el) <= 15))
+    ) {
+      names[i] = '!!eyebrow'
+      hasEyebrow = true
+      continue
+    }
+    if (!hasTitle && el.type === 'text' && el.y < 360 && maxFontSizePt(el) >= 26) {
+      names[i] = '!!slide-title'
+      hasTitle = true
+      continue
+    }
+    if (
+      hasTitle &&
+      !hasSubtitle &&
+      el.type === 'text' &&
+      el.y < 420 &&
+      maxFontSizePt(el) >= 15 &&
+      maxFontSizePt(el) < 26
+    ) {
+      names[i] = '!!slide-subtitle'
+      hasSubtitle = true
+      continue
+    }
+    if (
+      el.type === 'shape' &&
+      (el.shape === 'roundRect' || el.shape === 'rect') &&
+      el.w >= 160 &&
+      el.h >= 90 &&
+      cardCount < 6
+    ) {
+      cardCount += 1
+      names[i] = `!!card-${cardCount}`
+    }
+  }
+  return names
+}
+
+interface CreatedSlideItem {
+  specEl: SpecElement
+  slideEl: SlideElement
+}
+
+/**
+ * Open-Slide Spatial Card-Grouping Entrance Choreographer:
+ * - Groups inner text/badges/icons with the card container (`roundRect`/`rect`)
+ *   whose bounding box encloses their center, so cards and their contents
+ *   glide in together as a single cohesive unit.
+ * - Uses `withPrev` relative delays (`delayMs: 0` for members within the same
+ *   unit, `delayMs: 75` between consecutive staggered units) so `buildSteps`
+ *   and OOXML `<p:timing>` play the entire entrance sequence smoothly.
+ * - Supports explicit `el.anim` overrides and `step >= 1` click-reveal groups.
+ */
+function synthesizeSlideAnimations(
+  slide: Slide,
+  created: readonly CreatedSlideItem[],
+  canvasW: number,
+  canvasH: number,
+): SlideAnimation[] {
+  const liveIds = new Set(slide.elements.map((e) => e.id))
+  const active = created.filter(
+    ({ specEl, slideEl }) =>
+      liveIds.has(slideEl.id) && specEl.anim !== 'none' && specEl.anim !== false,
+  )
+  if (active.length === 0) return []
+
+  // Identify container shapes (cards, pills, callout boxes) that are not full-bleed background slabs
+  const containers = active
+    .map((item, idx) => ({ item, idx, area: item.specEl.w * item.specEl.h }))
+    .filter(({ item, area }) => {
+      const s = item.specEl
+      if (s.type !== 'shape') return false
+      if (s.shape === 'line' || s.shape === 'lineArrow') return false
+      return s.w >= 60 && s.h >= 22 && area < canvasW * canvasH * 0.65
+    })
+    .sort((a, b) => a.area - b.area)
+
+  const parentOf = new Map<number, number>()
+  for (let i = 0; i < active.length; i++) {
+    const el = active[i]!.specEl
+    const area = el.w * el.h
+    // Skip full-bleed background slabs unless explicitly animated
+    if (area >= canvasW * canvasH * 0.65 && !el.anim) {
+      parentOf.set(i, -1)
+      continue
+    }
+    const cx = el.x + el.w / 2
+    const cy = el.y + el.h / 2
+    for (const c of containers) {
+      if (c.idx === i) continue
+      if (area >= c.area) continue
+      const cb = c.item.specEl
+      if (cx >= cb.x - 6 && cx <= cb.x + cb.w + 6 && cy >= cb.y - 6 && cy <= cb.y + cb.h + 6) {
+        parentOf.set(i, c.idx)
+        break
+      }
+    }
+  }
+
+  // Resolve transitive container parents (e.g. text inside badge inside card -> card)
+  const rootOf = (idx: number): number => {
+    let cur = idx
+    const seen = new Set<number>()
+    while (parentOf.has(cur)) {
+      const p = parentOf.get(cur)!
+      if (p < 0) return -1
+      if (seen.has(p)) break
+      seen.add(p)
+      cur = p
+    }
+    return cur
+  }
+
+  const unitMap = new Map<number, CreatedSlideItem[]>()
+  for (let i = 0; i < active.length; i++) {
+    const r = rootOf(i)
+    if (r < 0) continue
+    const list = unitMap.get(r) ?? []
+    list.push(active[i]!)
+    unitMap.set(r, list)
+  }
+
+  interface VisualUnit {
+    lead: SpecElement
+    members: CreatedSlideItem[]
+    step: number
+    explicitAnim?: SpecAnim
+  }
+
+  const units: VisualUnit[] = []
+  for (const [, members] of unitMap) {
+    const lead = members[0]!.specEl
+    const explicitAnim = members
+      .map((m) => (typeof m.specEl.anim === 'object' && m.specEl.anim ? m.specEl.anim : undefined))
+      .find(Boolean)
+    const step = explicitAnim?.step ?? 0
+    units.push({ lead, members, step, explicitAnim })
+  }
+
+  // Sort units by step, then visual row (quantized to 40px bands), then left-to-right
+  units.sort((a, b) => {
+    if (a.step !== b.step) return a.step - b.step
+    const rowA = Math.round(a.lead.y / 40)
+    const rowB = Math.round(b.lead.y / 40)
+    if (rowA !== rowB) return rowA - rowB
+    return a.lead.x - b.lead.x
+  })
+
+  const out: SlideAnimation[] = []
+  for (let ui = 0; ui < units.length; ui++) {
+    const u = units[ui]!
+    const exp = u.explicitAnim
+    const isHeader = u.lead.y < 165 && u.lead.w * u.lead.h < canvasW * canvasH * 0.25
+    const isHeroMedia = u.lead.type === 'image' || u.lead.w * u.lead.h > canvasW * canvasH * 0.18
+    const defaultEffect: AnimEffectKind = isHeader ? 'fade' : isHeroMedia ? 'zoom' : 'flyIn'
+    const effect: AnimEffectKind = exp?.effect ?? defaultEffect
+    const direction: AnimDirection | undefined =
+      exp?.direction ?? (effect === 'flyIn' ? 'bottom' : undefined)
+    const durationMs = exp?.durationMs ?? (effect === 'fade' ? 240 : 280)
+    const prevStep = ui > 0 ? units[ui - 1]!.step : u.step
+    const startsClickStep = (ui > 0 && u.step > prevStep) || exp?.trigger === 'onClick'
+
+    for (let mi = 0; mi < u.members.length; mi++) {
+      const member = u.members[mi]!
+      const spid = elementSpid(member.slideEl)
+      if (!spid) continue
+      const memberExp =
+        typeof member.specEl.anim === 'object' && member.specEl.anim
+          ? member.specEl.anim
+          : undefined
+      const trigger: AnimTrigger =
+        mi === 0
+          ? startsClickStep
+            ? 'onClick'
+            : (exp?.trigger ?? 'withPrev')
+          : (memberExp?.trigger ?? 'withPrev')
+      const delayMs =
+        mi === 0
+          ? (exp?.delayMs ?? (ui === 0 || startsClickStep ? 0 : 75))
+          : (memberExp?.delayMs ?? 0)
+      out.push({
+        spid,
+        effect: memberExp?.effect ?? effect,
+        trigger,
+        durationMs: memberExp?.durationMs ?? durationMs,
+        delayMs,
+        ...((memberExp?.direction ?? direction)
+          ? { direction: memberExp?.direction ?? direction }
+          : {}),
+      })
+    }
+  }
+  return out
+}
+
 /**
  * Builds a one-slide PPTX from the spec. Elements are added in array order
  * (spec order = z-order); a background color becomes a full-bleed rect that
@@ -640,6 +1060,7 @@ export async function buildPagePptx(
 ): Promise<{ bytes: Uint8Array; imageFailures: string[]; imageWarnings: string[] }> {
   const opened = await openPptx(await createBlankPptx())
   const slide = opened.deck.slides[0]!
+  const canvasH = Math.round((canvasW * opened.deck.size.cy) / opened.deck.size.cx)
   const scale = opened.deck.size.cx / canvasW
   const toEmu = (px: number) => Math.round(px * scale)
   const anchorOf = (
@@ -665,7 +1086,9 @@ export async function buildPagePptx(
     }),
   )
 
-  if (spec.background) {
+  if (spec.backgroundGradient) {
+    setSlideBackground(opened, slide, toGradientPatch(spec.backgroundGradient))
+  } else if (spec.background) {
     addElement(slide, {
       kind: 'rect',
       offset: { x: 0, y: 0, cx: opened.deck.size.cx, cy: opened.deck.size.cy },
@@ -673,7 +1096,12 @@ export async function buildPagePptx(
     })
   }
 
-  for (const el of spec.elements) {
+  const morphNames = resolveMorphNames(spec.elements, canvasW, canvasH)
+  const createdItems: CreatedSlideItem[] = []
+
+  for (let i = 0; i < spec.elements.length; i++) {
+    const el = spec.elements[i]!
+    const morphName = morphNames[i]
     const offset = {
       x: toEmu(el.x),
       y: toEmu(el.y),
@@ -691,6 +1119,7 @@ export async function buildPagePptx(
         imageFailures.push(el.url)
         continue
       }
+      if (morphName) pic.name = morphName
       const dims = deps.imageDims?.(img.bytes) ?? null
       if (dims) {
         const crop = coverCropFractions(dims.width, dims.height, el.w, el.h)
@@ -700,20 +1129,32 @@ export async function buildPagePptx(
           if (warning) imageWarnings.push(warning)
         }
       }
+      createdItems.push({ specEl: el, slideEl: pic })
       continue
     }
     if (el.type === 'text') {
-      addElement(slide, {
+      const created = addElement(slide, {
         kind: 'textbox',
         offset,
+        ...(morphName ? { name: morphName } : {}),
         paragraphs: toEngineParagraphs(el.paragraphs),
         bodyPr: { wrap: 'square', anchor: anchorOf(el.valign, 't'), insetsEmu: zeroInsets },
       })
+      createdItems.push({ specEl: el, slideEl: created })
       continue
     }
-    addElement(slide, {
+    const minSidePx = Math.max(1, Math.min(el.w, el.h))
+    const defaultRadiusPx = el.h <= 46 ? minSidePx / 2 : 14
+    const targetRadiusPx = el.radius !== undefined ? Math.max(0, el.radius) : defaultRadiusPx
+    const roundRectAdj =
+      el.shape === 'roundRect'
+        ? { adj: Math.round(Math.min(0.5, targetRadiusPx / minSidePx) * 100000) }
+        : undefined
+    const created = addElement(slide, {
       kind: el.shape,
       offset,
+      ...(morphName ? { name: morphName } : {}),
+      ...(roundRectAdj ? { adjustments: roundRectAdj } : {}),
       ...(el.fill ? { fillColor: el.fill } : {}),
       ...(el.stroke
         ? {
@@ -730,9 +1171,23 @@ export async function buildPagePptx(
         ? { bodyPr: { wrap: 'square', anchor: anchorOf(el.valign, 'ctr'), insetsEmu: zeroInsets } }
         : {}),
     })
+    if (el.gradient) {
+      setElementFill(opened, slide, created.id, toGradientPatch(el.gradient))
+    }
+    if (el.shadow) {
+      setElementEffects(slide, created.id, { shadow: resolveShadowEffect(el.shadow) })
+    }
+    createdItems.push({ specEl: el, slideEl: created })
   }
 
-  promoteSlideBackground(slide, opened.deck.size)
+  if (!spec.backgroundGradient) {
+    promoteSlideBackground(slide, opened.deck.size)
+  }
+  setSlideTransition(slide, spec.transition ?? 'morph')
+  const synthesizedAnims = synthesizeSlideAnimations(slide, createdItems, canvasW, canvasH)
+  if (synthesizedAnims.length > 0) {
+    setSlideAnimations(slide, synthesizedAnims)
+  }
   if (spec.notes) {
     setSlideNotes(opened, 0, spec.notes)
   }

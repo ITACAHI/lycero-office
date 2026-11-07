@@ -61,6 +61,8 @@ export interface NewElementOptions {
   flipH?: boolean
   /** Mirror vertically (a:xfrm flipV="1") — a line runs bottom-left to top-right */
   flipV?: boolean
+  /** Optional explicit cNvPr name (e.g. for Morph continuity pairing across slides) */
+  name?: string
 }
 
 /**
@@ -138,13 +140,16 @@ function buildCxnSpXml(
   def: { prst: string; head?: boolean; tail?: boolean },
 ): string {
   const id = nextCNvPrId(slide)
-  const name = `${
-    def.prst.startsWith('bentConnector')
-      ? 'Elbow Connector'
-      : def.prst.startsWith('curvedConnector')
-        ? 'Curved Connector'
-        : 'Straight Connector'
-  } ${id}`
+  const customName = opts.name?.trim()
+  const name =
+    customName ||
+    `${
+      def.prst.startsWith('bentConnector')
+        ? 'Elbow Connector'
+        : def.prst.startsWith('curvedConnector')
+          ? 'Curved Connector'
+          : 'Straight Connector'
+    } ${id}`
   const o = opts.offset
   const stroke = opts.stroke ?? DEFAULT_LINE_STROKE
   const color = stroke.color.replace(/^#/, '').slice(0, 6).toUpperCase()
@@ -178,7 +183,8 @@ export function nextCNvPrId(slide: Slide): number {
 export function buildSpXml(slide: Slide, opts: NewElementOptions): string {
   const id = nextCNvPrId(slide)
   const isTextbox = opts.kind === 'textbox'
-  const name = isTextbox ? `TextBox ${id}` : `Shape ${id}`
+  const customName = opts.name?.trim()
+  const name = customName || (isTextbox ? `TextBox ${id}` : `Shape ${id}`)
   const o = opts.offset
   const xfrm = generateXfrmXml({
     offset: o,
@@ -213,6 +219,7 @@ export function addElement(slide: Slide, opts: NewElementOptions): TextElement {
     const el: TextElement = {
       id: `spnew_${(insertCounter++).toString(36)}_${Date.now().toString(36)}`,
       type: 'shape',
+      ...(opts.name?.trim() ? { name: opts.name.trim() } : {}),
       anchor: {
         spIndex: slide.elements.length,
         originalXml: buildCxnSpXml(slide, opts, lineDef),
@@ -243,6 +250,7 @@ export function addElement(slide: Slide, opts: NewElementOptions): TextElement {
   const el: TextElement = {
     id: `spnew_${(insertCounter++).toString(36)}_${Date.now().toString(36)}`,
     type: opts.kind === 'textbox' ? 'text' : 'shape',
+    ...(opts.name?.trim() ? { name: opts.name.trim() } : {}),
     anchor: { spIndex: slide.elements.length, originalXml: xml, range: [0, 0] },
     transform: {
       offset: { ...opts.offset },

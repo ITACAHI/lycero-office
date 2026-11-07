@@ -296,10 +296,18 @@ function applyEffect(
       st.hidden = false
       st.opacity = q
       break
-    case 'flyIn':
+    case 'flyIn': {
       st.hidden = false
-      st.dy = (1 - q) * canvasH
+      const dir = item.direction ?? 'bottom'
+      const distY = 0.1 * canvasH
+      const distX = 0.08 * canvasW
+      if (dir === 'top') st.dy = -(1 - q) * distY
+      else if (dir === 'left') st.dx = -(1 - q) * distX
+      else if (dir === 'right') st.dx = (1 - q) * distX
+      else st.dy = (1 - q) * distY
+      st.opacity = Math.min(1, q * 1.5)
       break
+    }
     case 'wipe':
     case 'wipeDown': {
       // 'wipe' is no longer always bottom-up: the engine models the direction, so a
@@ -327,8 +335,8 @@ function applyEffect(
       break
     case 'zoom':
       st.hidden = false
-      st.scale = q
-      st.opacity = Math.min(1, q * 2)
+      st.scale = 0.86 + 0.14 * q
+      st.opacity = Math.min(1, q * 1.6)
       break
     case 'pulse': {
       const s = p >= 1 ? 0 : Math.sin(Math.PI * p)

@@ -1591,9 +1591,18 @@ export function App() {
     [],
   )
 
+  const lastPreviewedSlideRef = useRef<{ path: string | null; index: number }>({
+    path: null,
+    index: -1,
+  })
+  const forcePreviewNextRef = useRef(false)
+
   const applyDeck = useCallback((all: RenderSlide[], goTo?: number) => {
     setSlides(all)
-    if (goTo != null) setCurrent(goTo)
+    if (goTo != null) {
+      forcePreviewNextRef.current = true
+      setCurrent(goTo)
+    }
     setSelectedIds([])
     setEditing(null)
     setDirty(true)
@@ -1765,7 +1774,7 @@ export function App() {
   useEffect(() => {
     if (!hasDoc) return
     void window.slidesApi.getTransition(current).then(setTransition)
-  }, [hasDoc, current, path])
+  }, [hasDoc, current, path, slide, annotationsNonce])
 
   const applyTransition = useCallback(
     (kind: TransitionKind, allSlides: boolean) =>
@@ -1794,7 +1803,23 @@ export function App() {
     }
     let cancelled = false
     void window.slidesApi.getAnimations(current).then((items) => {
-      if (!cancelled) setAnimations(items)
+      if (cancelled) return
+      setAnimations(items)
+      const slideChanged =
+        lastPreviewedSlideRef.current.path !== path ||
+        lastPreviewedSlideRef.current.index !== current
+      if (
+        items.length > 0 &&
+        (slideChanged || forcePreviewNextRef.current) &&
+        !editingActiveRef.current &&
+        !mouseDownRef.current
+      ) {
+        lastPreviewedSlideRef.current = { path, index: current }
+        forcePreviewNextRef.current = false
+        setAnimPreview((n) => n + 1)
+      } else if (slideChanged) {
+        lastPreviewedSlideRef.current = { path, index: current }
+      }
     })
     return () => {
       cancelled = true

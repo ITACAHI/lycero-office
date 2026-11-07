@@ -58,12 +58,17 @@ Before generating each page spec, verify the vertical budget on the `1280 × 720
 {
   "type": "shape",
   "shape": "roundRect",
+  "name": "!!card-1",
   "x": 80,
   "y": 120,
   "w": 360,
   "h": 200,
+  "radius": 16,
   "fill": "#1F3A5F",
+  "gradient": { "from": "#1E293B", "to": "#0F172A", "angleDeg": 135 },
   "stroke": { "color": "#FFFFFF", "widthPt": 1 },
+  "shadow": true,
+  "anim": { "effect": "flyIn", "direction": "bottom", "durationMs": 280 },
   "valign": "middle",
   "paragraphs": [
     { "align": "center", "runs": [{ "text": "Label", "sizePt": 14, "color": "#FFFFFF" }] }
@@ -71,7 +76,7 @@ Before generating each page spec, verify the vertical budget on the `1280 × 720
 }
 ```
 
-`shape` is one of `rect`, `roundRect`, `ellipse`, `triangle`, `rightArrow`, `leftArrow`, `upArrow`, `downArrow`, `chevron`, `diamond`, `parallelogram`, `trapezoid`, `hexagon`, `pentagon`, `pie`, `donut`, `star5`, `heart`, `cloud`, `line`, `lineArrow`. `line` and `lineArrow` draw the diagonal of their box from top-left to bottom-right and need a `stroke`; add `"flipV": true` to draw it from bottom-left to top-right instead, or `"flipH": true` to mirror it horizontally; a horizontal rule is a box with `h: 1`. The two flags mirror any shape — a `rightArrow` with `"flipH": true` points left. A shape needs a `fill` or a `stroke` (or both). `paragraphs` is optional label text, vertically centered unless `valign` says otherwise.
+`shape` is one of `rect`, `roundRect`, `ellipse`, `triangle`, `rightArrow`, `leftArrow`, `upArrow`, `downArrow`, `chevron`, `diamond`, `parallelogram`, `trapezoid`, `hexagon`, `pentagon`, `pie`, `donut`, `star5`, `heart`, `cloud`, `line`, `lineArrow`. `line` and `lineArrow` draw the diagonal of their box from top-left to bottom-right and need a `stroke`; add `"flipV": true` to draw it from bottom-left to top-right instead, or `"flipH": true` to mirror it horizontally; a horizontal rule is a box with `h: 1`. The two flags mirror any shape — a `rightArrow` with `"flipH": true` points left. A shape needs a `fill`, a `gradient`, or a `stroke`. `radius` sets the corner radius in px for `roundRect` (defaults to `999` for pill badges `h <= 46`, else `14` px). `shadow` (`true` or `{ "color": "#00000028", "blurPt": 16, "distPt": 5 }`) adds card elevation. `name` sets the OOXML `cNvPr` name for Morph continuity across slides (`!!eyebrow`, `!!slide-title`, `!!card-1`), and `anim` configures entrance choreography (spatial card-grouping automatically animates inner text/badges in lockstep with their parent card container). `paragraphs` is optional label text, vertically centered unless `valign` says otherwise.
 
 **Text**
 
