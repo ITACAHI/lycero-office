@@ -27,9 +27,25 @@ Decide the design system before any content and write it to `deck/style.md`; re-
 - **Fonts**: title font (Latin and CJK if the deck mixes scripts), body font, title size range, body size range. Use fonts that exist on the target machine; when unsure, leave `font` out and let the engine's default apply.
 - **Layout library** (at least two variants per page type):
   - cover: `cover_typography_hero` (huge type, no image), `cover_dark_minimal`, `cover_split_color` (60/40 color blocks), `cover_full_image_overlay` (photo plus dark overlay), `cover_magazine`, `cover_split_image` (text left, image right)
-  - content: `left_text_right_image`, `three_column_cards`, `hero_big_number`, `two_column_comparison`, `timeline_horizontal`, `full_image_text_overlay`
-  - data: `kpi_cards_row`, `chart_with_insight`, `two_by_two_grid`
+  - content: `left_text_right_image`, `three_column_cards`, `hero_big_number`, `two_column_comparison`, `timeline_horizontal`, `full_image_text_overlay`, `bento_grid` (asymmetric multi-card Bento mosaic), `before_after_split` (old way vs new way contrasting cards), `section_divider` (chapter divider with giant numeral `01`/`02` and thesis headline)
+  - data: `kpi_cards_row`, `chart_with_insight`, `two_by_two_grid`, `scorecard_table` (OKR / cohort / metric status table with status pills), `waterfall_bridge` (ARR / margin / funnel step-bars with delta callouts)
   - closing: `closing_cta`, `closing_thank_you`
+- **Open-Slide Showcase Design Systems & Card Archetypes** (pick the archetype that matches the topic):
+  1. **Quire Apple Keynote Light** (`bg: #FFFFFF`, `text: #1D1D1F`, `accent: #0071E3`, `card: #F5F5F7`, `border: #D2D2D7`, `radius: 28`, soft shadow)
+  2. **Lattice Vercel Keynote Dark** (`bg: #000000`..`#0A0A0A`, `text: #EDEDED`, `accent: #52A8FF`, `card: #111111`, `border: #1F1F1F`, `radius: 12`, subtle glow)
+  3. **Northfold Swiss Board Review** (`bg: #F3F1EC`, `text: #141414`, `accent: #E8471C`, `card: #E9E6DF`, `border: #D8D3C8`, `radius: 0`, sharp hairline rules)
+  4. **Fieldwork Notion Operating Plan** (`bg: #FFFEFC`, `text: #191919`, `accent: #E8553B`, pastel TintCards `#E7F3F8` / `#EDF3EC` / `#FBF3DB` / `#FAF1F5`, `radius: 20`, borderless)
+  5. **Marlow Bloomberg Terminal Dark** (`bg: #0B0A08`, `text: #ECE6D6`, `accent: #FFB21A`, `card: #12100C`, `border: #26211A`, `radius: 2`, tabular mono numerals)
+  6. **Pommi Neo-Brutalist Series B** (`bg: #FFF3DF`, `text: #151313`, `accent: #FF5A2C`, `card: #FFFCF6`, `border: #151313` `3pt`, `radius: 24`, `"shadow": "hard"` offset shadow)
+  7. **Aero Kinetic Volt** (`bg: #4B1DFF`, `text: #FFFFFF`, `accent: #D8FF2E`, `card: #0B0A14`, `radius: 0`, bold uppercase display)
+  8. **Halden Industrial Hardware Dark** (`bg: #08090B`, `text: #F4F3EF`, `accent: #FF7A2F`, `card: #14161B`, `border: #262932`, `radius: 24`)
+  9. **Arden CAD Engineering Blueprint** (`bg: #0F3B6E`, `text: #EEF5FF`, `accent: #8FD8FF`, `card: #0C3360`, `border: #3B6FA8`, `radius: 0`, technical grid)
+  10. **Solenne Clinical Biotech Light** (`bg: #F2F5F4`, `text: #0C1A24`, `accent: #0A8F7F`, `card: #FFFFFF`, `border: #D3DBD9`, `radius: 20`)
+  11. **Stackyard DevTool CLI** (`bg: #FBF3E2`, `text: #0B0B0B`, `accent: #3D5AFE`, `card: #141414` terminal dark + `#FFFFFF` paper, `radius: 14`, `"shadow": "hard"`)
+  12. **Ardent Editorial Luxury** (`bg: #F6F0E8`, `text: #1B0F0A`, `accent: #E0127A`, `card: #EFE7DC`, `border: #D8CBB8`, `radius: 2`, serif headlines)
+- **Stage Chrome & Header Architecture**:
+  - **Header Aside Pattern**: Place the eyebrow pill (`y: 36, h: 28, name: "!!eyebrow"`), action headline on the left (`x: 80, y: 74, w: 680, name: "!!slide-title"`), a right-aligned 2-line takeaway aside (`x: 800, y: 78, w: 400, name: "!!slide-subtitle"`), and a `1px` horizontal hairline rule (`x: 80, y: 158, w: 1120, h: 1, name: "!!header-rule"`).
+  - **Bottom Stage Footer Chrome**: On content and data slides, add a subtle footer text at `x: 80, y: 682, w: 1120, h: 22, name: "!!footer"` with the deck title on the left and page counter `02 / 10` on the right (`sizePt: 10`, muted color).
 - **Overall style**: one sentence describing the design language.
 
 ## 2. Outline, page by page

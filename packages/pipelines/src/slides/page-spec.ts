@@ -216,6 +216,9 @@ function parseShadow(v: unknown): boolean | SpecShadow | undefined {
   if (v === true || v === 'sm' || v === 'md' || v === 'lg' || v === 'soft' || v === 'card') {
     return true
   }
+  if (v === 'hard' || v === 'brutalist' || v === 'offset') {
+    return { color: '#151313', blurPt: 0, distPt: 6, angleDeg: 45 }
+  }
   if (!v || typeof v !== 'object') return undefined
   const rec = asRecord(v)
   const color = normColor(rec.color)
@@ -843,6 +846,8 @@ function resolveMorphNames(
   let hasTitle = false
   let hasSubtitle = false
   let hasEyebrow = false
+  let hasHeaderRule = false
+  let hasFooter = false
   let cardCount = 0
 
   for (let i = 0; i < elements.length; i++) {
@@ -870,11 +875,28 @@ function resolveMorphNames(
       !hasSubtitle &&
       el.type === 'text' &&
       el.y < 420 &&
-      maxFontSizePt(el) >= 15 &&
+      maxFontSizePt(el) >= 13 &&
       maxFontSizePt(el) < 26
     ) {
       names[i] = '!!slide-subtitle'
       hasSubtitle = true
+      continue
+    }
+    if (
+      !hasHeaderRule &&
+      el.type === 'shape' &&
+      el.y >= 120 &&
+      el.y < 230 &&
+      el.h <= 4 &&
+      el.w >= 400
+    ) {
+      names[i] = '!!header-rule'
+      hasHeaderRule = true
+      continue
+    }
+    if (!hasFooter && el.y >= canvasH - 64 && el.h <= 44 && el.w >= 120) {
+      names[i] = '!!footer'
+      hasFooter = true
       continue
     }
     if (
@@ -992,9 +1014,18 @@ function synthesizeSlideAnimations(
     units.push({ lead, members, step, explicitAnim })
   }
 
-  // Sort units by step, then visual row (quantized to 40px bands), then left-to-right
+  const isChromeUnit = (lead: SpecElement): boolean =>
+    (lead.y < 165 && lead.w * lead.h < canvasW * canvasH * 0.25) ||
+    (lead.y >= canvasH - 64 && lead.h <= 44) ||
+    lead.name === '!!footer' ||
+    lead.name === '!!header-rule'
+
+  // Sort units by step, then chrome/header first, then visual row (quantized to 40px bands), then left-to-right
   units.sort((a, b) => {
     if (a.step !== b.step) return a.step - b.step
+    const chromeA = isChromeUnit(a.lead) ? 0 : 1
+    const chromeB = isChromeUnit(b.lead) ? 0 : 1
+    if (chromeA !== chromeB) return chromeA - chromeB
     const rowA = Math.round(a.lead.y / 40)
     const rowB = Math.round(b.lead.y / 40)
     if (rowA !== rowB) return rowA - rowB
@@ -1005,7 +1036,7 @@ function synthesizeSlideAnimations(
   for (let ui = 0; ui < units.length; ui++) {
     const u = units[ui]!
     const exp = u.explicitAnim
-    const isHeader = u.lead.y < 165 && u.lead.w * u.lead.h < canvasW * canvasH * 0.25
+    const isHeader = isChromeUnit(u.lead)
     const isHeroMedia = u.lead.type === 'image' || u.lead.w * u.lead.h > canvasW * canvasH * 0.18
     const defaultEffect: AnimEffectKind = isHeader ? 'fade' : isHeroMedia ? 'zoom' : 'flyIn'
     const effect: AnimEffectKind = exp?.effect ?? defaultEffect

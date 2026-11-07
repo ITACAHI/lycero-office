@@ -24,8 +24,17 @@ export const LAYOUT_VARIANTS: Readonly<Record<PageType, readonly string[]>> = {
     'two_column_comparison',
     'timeline_horizontal',
     'full_image_text_overlay',
+    'bento_grid',
+    'before_after_split',
+    'section_divider',
   ],
-  data: ['kpi_cards_row', 'chart_with_insight', 'two_by_two_grid'],
+  data: [
+    'kpi_cards_row',
+    'chart_with_insight',
+    'two_by_two_grid',
+    'scorecard_table',
+    'waterfall_bridge',
+  ],
   closing: ['closing_cta', 'closing_thank_you'],
 }
 

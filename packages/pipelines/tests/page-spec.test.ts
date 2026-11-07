@@ -656,4 +656,74 @@ describe('buildPagePptx speaker notes & cascade line-break pinning', () => {
     expect(names).toContain('!!slide-title')
     expect(names).toContain('!!card-1')
   })
+
+  it('supports Neo-Brutalist hard shadow presets and auto-assigns !!header-rule and !!footer Morph names', async () => {
+    const raw = JSON.stringify({
+      background: '#FFF3DF',
+      elements: [
+        {
+          type: 'text',
+          x: 80,
+          y: 68,
+          w: 680,
+          h: 56,
+          paragraphs: [
+            {
+              runs: [{ text: 'Series B Unit Economics', sizePt: 34, bold: true, color: '#151313' }],
+            },
+          ],
+        },
+        {
+          type: 'shape',
+          shape: 'rect',
+          x: 80,
+          y: 156,
+          w: 1120,
+          h: 1,
+          fill: '#151313',
+        },
+        {
+          type: 'shape',
+          shape: 'roundRect',
+          x: 80,
+          y: 196,
+          w: 350,
+          h: 260,
+          radius: 24,
+          fill: '#FFFCF6',
+          stroke: { color: '#151313', widthPt: 3 },
+          shadow: 'hard',
+        },
+        {
+          type: 'text',
+          x: 80,
+          y: 682,
+          w: 1120,
+          h: 22,
+          paragraphs: [
+            { runs: [{ text: 'POMMI SERIES B · 04 / 12', sizePt: 10, color: '#6E665E' }] },
+          ],
+        },
+      ],
+    })
+    const parsed = parsePageSpec(raw)
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+    const cardSpec = parsed.spec.elements[2] as { shadow?: unknown }
+    expect(cardSpec.shadow).toEqual({
+      color: '#151313',
+      blurPt: 0,
+      distPt: 6,
+      angleDeg: 45,
+    })
+
+    const { bytes } = await buildPagePptx(parsed.spec, deps)
+    const opened = await openPptx(bytes)
+    const slide = opened.deck.slides[0]!
+    const names = slide.elements.map((e) => (e as TextElement).name)
+    expect(names).toContain('!!slide-title')
+    expect(names).toContain('!!header-rule')
+    expect(names).toContain('!!card-1')
+    expect(names).toContain('!!footer')
+  })
 })

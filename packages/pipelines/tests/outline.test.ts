@@ -39,6 +39,24 @@ describe('parseOutline', () => {
     expect(r.outline.core_hook).toBe('Margins fell 40% while volume grew')
   })
 
+  it('accepts Open-Slide Showcase layouts (bento_grid, before_after_split, section_divider, scorecard_table, waterfall_bridge)', () => {
+    const r = parseOutline(
+      deck([
+        page({ type: 'cover', layout: 'cover_dark_minimal', title: 'FY27 Operating Plan' }),
+        page({ type: 'content', layout: 'section_divider', title: '01 · Strategic Bets' }),
+        page({ type: 'content', layout: 'bento_grid', title: 'Four product pillars in FY27' }),
+        page({ type: 'content', layout: 'before_after_split', title: 'Legacy vs Fabric Runtime' }),
+        page({ type: 'data', layout: 'scorecard_table', title: 'Q3 OKR Scorecard' }),
+        page({ type: 'data', layout: 'waterfall_bridge', title: 'ARR Bridge Q2 to Q3' }),
+        page({ type: 'closing', layout: 'closing_cta', title: 'Decisions Needed Today' }),
+      ]),
+    )
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.issues).toEqual([])
+    expect(r.outline.pages).toHaveLength(7)
+  })
+
   it('flags unknown layouts, placeholders, repeats and a missing core hook', () => {
     const r = parseOutline(
       JSON.stringify({

@@ -1295,13 +1295,18 @@ export function AiPanel({
           '\n' +
           '## Open-Slide Visual Architecture, Motion & Vertical Budget Math\n' +
           '- **Vertical Budget Math**: sum(font_size * line_height * lines) + sum(gaps) + 2*padding <= 720. Keep <= 45 words per slide so cards breathe with generous whitespace.\n' +
-          '- **Layered Open-Slide Composition**: Never output flat, bare text-only pages. Compose every slide with visual depth:\n' +
-          '  1) Top-left **Eyebrow Pill Badge** (`roundRect`, x:80, y:36, w:180..260, h:30, radius:999, translucent accent fill e.g. `#38BDF822`, stroke `#38BDF866`, 11pt bold label, `name:"!!eyebrow"`).\n' +
-          '  2) **Action Title** (`name:"!!slide-title"`, sizePt 30-42, bold) + **Subtitle** (`name:"!!slide-subtitle"`, sizePt 15-18, muted color).\n' +
-          '  3) **Surface Cards & Visual Diagrams** (`roundRect` with `radius:16`, `shadow:true`, subtle 1pt `stroke`, and `fill` or `gradient`). Inside each card, layer a numbered/category pill badge (`01`, `02`, `03`), a bold card title (18-22pt), concise body copy (13-15pt), and a visual progress bar, metric callout, or architecture connector.\n' +
-          '  4) Optional **Bottom Takeaway Banner** (`roundRect`, x:80, y:628, w:1120, h:50, radius:12) highlighting the key conclusion.\n' +
+          '- **Layered Open-Slide Composition & Stage Chrome**: Never output flat, bare text-only pages. Compose every slide with visual depth:\n' +
+          '  1) Top-left **Eyebrow Pill Badge** (`roundRect`, x:80, y:36, w:180..260, h:28, radius:999, translucent accent fill e.g. `#38BDF822`, stroke `#38BDF866`, 11pt bold label, `name:"!!eyebrow"`).\n' +
+          '  2) **Header Aside Architecture**: **Action Title** on the left (`name:"!!slide-title"`, x:80, y:74, w:680, sizePt 30-42, bold) + **Subtitle / Takeaway Aside** (`name:"!!slide-subtitle"`, x:80, y:126, w:680 or right-aligned aside x:800, y:78, w:400, sizePt 14-17, muted color) + horizontal **Hairline Rule** (`rect`, `name:"!!header-rule"`, x:80, y:162, w:1120, h:1, subtle border fill).\n' +
+          '  3) **4 Open-Slide Card Archetypes** (match the deck Style Skill):\n' +
+          '     - *Apple/Vercel Bento Card*: `roundRect` with `radius:16..24`, `shadow:true`, subtle 1pt `stroke`, and `fill` or `gradient`.\n' +
+          '     - *Fieldwork Notion TintCard*: borderless `roundRect` with `radius:20` and soft pastel fill (`#E7F3F8`, `#EDF3EC`, `#FBF3DB`, `#FAF1F5`).\n' +
+          '     - *Northfold/Marlow Swiss Cell*: sharp `rect` (`radius:0..2`), crisp 1pt grid border, monospace/tabular KPI numerals.\n' +
+          '     - *Pommi/Stackyard Neo-Brutalist Card*: `roundRect` (`radius:16..24`), `stroke:{"color":"#151313","widthPt":3}`, `"shadow":"hard"`.\n' +
+          '     Inside each card, layer a numbered/category pill badge (`01`, `02`, `03` or status pill `ON TRACK`), a bold card title (18-22pt), concise body copy (13-15pt), and a visual progress bar, metric callout, or connector.\n' +
+          '  4) **Bottom Stage Chrome Footer**: On content/data slides, place a subtle footer bar (`type:"text"`, `name:"!!footer"`, x:80, y:682, w:1120, h:22, sizePt:10, muted color) showing `"DECK TITLE · 02 / 10"`.\n' +
           '- **Morph Continuity & Entrance Animations**:\n' +
-          '  - Set `"transition":"morph"` on content/cover/data slides so shared elements (`"!!eyebrow"`, `"!!slide-title"`, `"!!slide-subtitle"`, `"!!card-1"`, `"!!card-2"`, `"!!card-3"`) smoothly morph across slides.\n' +
+          '  - Set `"transition":"morph"` on content/cover/data slides so shared elements (`"!!eyebrow"`, `"!!slide-title"`, `"!!slide-subtitle"`, `"!!header-rule"`, `"!!footer"`, `"!!card-1"`, `"!!card-2"`, `"!!card-3"`) smoothly morph across slides.\n' +
           '  - Always include `"notes"` with 2-4 sentences of natural speaker talk track.\n' +
           '\n' +
           '## Hard layout rules\n' +
@@ -1369,30 +1374,35 @@ export function AiPanel({
         const sys =
           '[LYCERO_PIPELINE_STAGE:slide_style]\n' +
           'You are a principal presentation design director (Open-Slide & Apple Keynote standard). Given the presentation topic and style preferences, produce a complete Style Skill (visual design system). Output strictly in the structure below, only the Style Skill content, no explanations/markdown/code fences.\n\n' +
-          'Open-Slide Signature Aesthetic Presets (pick or adapt the closest match to the topic/preference):\n' +
-          '  1. Apple Keynote Fluid Dark: bg #090D16 (gradient #090D16->#111827), text #F8FAFC, muted #94A3B8, accent1 #38BDF8, accent2 #6366F1, card #1E293BCC, border #334155\n' +
-          '  2. Blueprint Technical: bg #0B132B (gradient #0B132B->#1C2541), text #F8FAFC, muted #94A3B8, accent1 #06B6D4, accent2 #3B82F6, card #1C2541D9, border #334155\n' +
-          '  3. Calm Corporate Clean: bg #F8FAFC, text #0F172A, muted #475569, accent1 #2563EB, accent2 #0EA5E9, card #FFFFFF, border #E2E8F0\n' +
-          '  4. Confident Editorial: bg #FAF6F0, text #1C1917, muted #57534E, accent1 #C2410C, accent2 #D97706, card #FFFDF9, border #E7E5E4\n' +
-          '  5. Data-Forward Dashboard: bg #F1F5F9, text #0F172A, muted #475569, accent1 #0284C7, accent2 #0D9488, card #FFFFFF, border #CBD5E1\n' +
-          '  6. Emerald Sustainability: bg #06281E, text #ECFDF5, muted #A7F3D0, accent1 #10B981, accent2 #34D399, card #064E3B99, border #047857\n' +
-          '  7. Executive Gold: bg #0C0A09, text #FAFAF9, muted #A8A29E, accent1 #D97706, accent2 #F59E0B, card #1C1917CC, border #292524\n\n' +
+          'Open-Slide Showcase Design Systems (pick or adapt the closest match to the topic/preference):\n' +
+          '  1. Apple Keynote Fluid Dark: bg #090D16 (gradient #090D16->#111827), text #F8FAFC, muted #94A3B8, accent1 #38BDF8, accent2 #6366F1, card #1E293BCC, border #334155, radius 20px, shadow true\n' +
+          '  2. Quire Apple Keynote Light: bg #FFFFFF, text #1D1D1F, muted #6E6E73, accent1 #0071E3, accent2 #34C759, card #F5F5F7, border #D2D2D7, radius 24px, shadow true\n' +
+          '  3. Lattice Vercel Dark: bg #0A0A0A (gradient #000000->#0A0A0A), text #EDEDED, muted #A1A1A1, accent1 #52A8FF, accent2 #45A557, card #111111, border #1F1F1F, radius 12px, shadow true\n' +
+          '  4. Northfold Swiss Board: bg #F3F1EC, text #141414, muted #85817A, accent1 #E8471C, accent2 #1F7A4C, card #E9E6DF, border #D8D3C8, radius 0px (sharp hairline grid)\n' +
+          '  5. Fieldwork Notion Plan: bg #FFFEFC, text #191919, muted #5F5E5B, accent1 #E8553B, accent2 #2B6CB0, pastel TintCards (#E7F3F8, #EDF3EC, #FBF3DB, #FAF1F5), radius 20px, borderless\n' +
+          '  6. Marlow Terminal Dark: bg #0B0A08, text #ECE6D6, muted #9C9484, accent1 #FFB21A, accent2 #56D08B, card #12100C, border #26211A, radius 2px (financial terminal)\n' +
+          '  7. Pommi Neo-Brutalist Series B: bg #FFF3DF, text #151313, muted #6E665E, accent1 #FF5A2C, accent2 #FFD23F, card #FFFCF6, border #151313 (3pt), radius 24px, shadow "hard"\n' +
+          '  8. Aero Kinetic Volt: bg #4B1DFF, text #FFFFFF, muted #D8D4F2, accent1 #D8FF2E, accent2 #FF4A3D, card #0B0A14, border #D8FF2E, radius 0px\n' +
+          '  9. Halden Industrial Dark: bg #08090B, text #F4F3EF, muted #8C8F96, accent1 #FF7A2F, accent2 #38BDF8, card #14161B, border #262932, radius 24px\n' +
+          '  10. Arden CAD Blueprint: bg #0F3B6E (gradient #0F3B6E->#0C3360), text #EEF5FF, muted #9DBEE0, accent1 #8FD8FF, accent2 #FFD27A, card #0C3360, border #3B6FA8, radius 0px\n' +
+          '  11. Solenne Biotech Clean: bg #F2F5F4, text #0C1A24, muted #66767F, accent1 #0A8F7F, accent2 #1D6FA5, card #FFFFFF, border #D3DBD9, radius 20px\n' +
+          '  12. Ardent Editorial Luxury: bg #F6F0E8, text #1B0F0A, muted #6E5C53, accent1 #E0127A, accent2 #FF6A13, card #EFE7DC, border #D8CBB8, radius 2px\n\n' +
           'Color rules (must use concrete hex values)\n' +
           '  Main background: #hex (and optional backgroundGradient from->to)\n' +
           '  Per-page-type backgrounds:\n    cover: #hex\n    content: #hex\n    data: #hex\n    closing: #hex\n' +
           '  (Background selection principles, highest priority first):\n' +
-          '   1) Style preference first: when a tone is explicit (dark theme, Apple Keynote, Blueprint, brand color family), the background must honor it — do not fall back to a bland white background.\n' +
-          '   2) Then topic mood: AI/Cloud/Tech/Product Launch/Architecture default to Apple Keynote Fluid Dark (#090D16) or Blueprint Technical (#0B132B) unless light corporate is requested.\n' +
+          '   1) Style preference first: when a tone is explicit (dark theme, Apple Keynote, Blueprint, Notion, Swiss, brand color family), the background must honor it — do not fall back to a bland white background.\n' +
+          '   2) Then topic mood: AI/Cloud/Tech/Product Launch default to Apple Keynote Fluid Dark (#090D16), Lattice Dark (#0A0A0A), or Quire Apple (#FFFFFF); Engineering/Infrastructure default to Arden Blueprint (#0F3B6E); Board/Finance default to Northfold Swiss (#F3F1EC) or Marlow Terminal (#0B0A08); Strategy/OKR default to Fieldwork Notion (#FFFEFC); Startup Pitch default to Pommi Series B (#FFF3DF).\n' +
           '   Constraints: content pages share one background within a deck; the main background and main text color must have WCAG AAA contrast.\n' +
           '  Main text color: #hex\n  Muted text color: #hex\n  Primary accent: #hex\n  Secondary accent: #hex\n' +
           '  (Iron rule: one cohesive accent pair across the whole deck — distinguish entities by typography, card elevation, and subtle tinting, never rainbow cards)\n' +
-          '  Card background: #hex (with subtle border #hex, radius 16px, soft elevation shadow)\n  Eyebrow pill: translucent primary accent fill + 1pt accent border\n\n' +
+          '  Card archetype & background: #hex (specify border #hex, radius px, and shadow true/"hard"/none)\n  Eyebrow pill & Stage Chrome: translucent primary accent fill + 1pt accent border, Header Aside + Hairline rule (!!header-rule), Bottom Footer (!!footer)\n\n' +
           'Fonts\n  CJK title font: [font name]\n  Latin title font: [font name]\n  Body font: [font name]\n  Title size: [range]px\n  Body size: [range]px\n\n' +
-          'Motion & Continuity\n  Slide transition: morph (with !!eyebrow, !!slide-title, !!slide-subtitle, !!card-1..3 continuity)\n  Entrance choreography: staggered flyIn/zoom/fade (240-280ms cubic-out)\n\n' +
+          'Motion & Continuity\n  Slide transition: morph (with !!eyebrow, !!slide-title, !!slide-subtitle, !!header-rule, !!footer, !!card-1..3 continuity)\n  Entrance choreography: staggered flyIn/zoom/fade (240-280ms cubic-out)\n\n' +
           'Layout variants per page type (list at least 2 variants each, format: variant name: description)\n' +
           '  cover variants:\n    cover_full_image_overlay: full-bleed photo background + dark overlay, centered white title, bottom metadata bar\n    cover_split_color: two color blocks side by side (60/40)\n    cover_typography_hero: pure typography, no photo, huge title + layered glass KPI/feature cards\n    cover_dark_minimal: Apple Keynote dark gradient background, eyebrow pill, large hero title + accent card composition\n    cover_magazine: magazine-style title taking 60% + partial imagery\n    cover_split_image: title on the left half + hero image on the right half\n' +
-          '  content variants:\n    left_text_right_image | three_column_cards | hero_big_number | two_column_comparison | timeline_horizontal | full_image_text_overlay (give each a one-line description)\n' +
-          '  data variants:\n    kpi_cards_row: horizontal KPI cards\n    chart_with_insight: chart left + insight right\n    two_by_two_grid: 2x2 quadrants\n' +
+          '  content variants:\n    left_text_right_image | three_column_cards | hero_big_number | two_column_comparison | timeline_horizontal | full_image_text_overlay | bento_grid | before_after_split | section_divider (give each a one-line description)\n' +
+          '  data variants:\n    kpi_cards_row: horizontal KPI cards\n    chart_with_insight: chart left + insight right\n    two_by_two_grid: 2x2 quadrants\n    scorecard_table: OKR / cohort / metric status table with status pills\n    waterfall_bridge: ARR / margin / funnel step-bars with delta callouts\n' +
           '  closing variants:\n    closing_cta: centered title + action roadmap/contact cards\n    closing_thank_you: full-bleed thank-you page\n\n' +
           'Overall style: [one sentence describing the overall design language]'
         const q = a.questionnaire ? `\nUser questionnaire answers: ${a.questionnaire}` : ''
@@ -1415,10 +1425,10 @@ export function AiPanel({
           '\n' +
           "## layout (choose from the Style Skill's per-page-type variant library; content pages within one deck must not repeat the same variant)\n" +
           'cover: cover_typography_hero (huge pure typography) | cover_dark_minimal (dark background, centered large title) | cover_split_color (side-by-side color blocks) | cover_full_image_overlay (full-bleed photo + dark overlay) | cover_magazine (magazine-style large title + partial imagery) | cover_split_image (text left, image right)\n' +
-          'content: left_text_right_image | three_column_cards | hero_big_number | two_column_comparison | timeline_horizontal | full_image_text_overlay\n' +
-          'data: kpi_cards_row | chart_with_insight | two_by_two_grid\n' +
+          'content: left_text_right_image | three_column_cards | hero_big_number | two_column_comparison | timeline_horizontal | full_image_text_overlay | bento_grid | before_after_split | section_divider\n' +
+          'data: kpi_cards_row | chart_with_insight | two_by_two_grid | scorecard_table | waterfall_bridge\n' +
           'closing: closing_cta | closing_thank_you\n' +
-          'Selection criteria: 3 parallel points → three_column_cards; comparison/categories → two_column_comparison/two_by_two_grid; sequence → timeline_horizontal; image+text → left_text_right_image/full_image_text_overlay; ONLY pick hero_big_number, kpi_cards_row, or chart_with_insight when verified numerical data actually exists in the user prompt or reference material.\n' +
+          'Selection criteria: 3 parallel points → three_column_cards; multi-feature mosaic → bento_grid; old vs new / problem vs solution → before_after_split; chapter opener → section_divider; comparison/categories → two_column_comparison/two_by_two_grid; sequence → timeline_horizontal; image+text → left_text_right_image/full_image_text_overlay; ONLY pick hero_big_number, kpi_cards_row, chart_with_insight, scorecard_table, or waterfall_bridge when verified numerical data or structured status rows actually exist in the user prompt or reference material.\n' +
           '\n' +
           '## brief\n' +
           'Describe in detail what goes in each region of the layout using ONLY facts from the user prompt or reference material, no "XX%" placeholders; NEVER invent statistics, percentages, multipliers ("3–5x"), latencies ("<800ms"), or unverified authority names ("McKinsey", "Gartner"). If a numerical metric is missing from the input, write "[cần số liệu]" or omit it and use qualitative comparisons, architecture/workflow steps, and concrete feature descriptions instead of fabricated metrics.\n' +
