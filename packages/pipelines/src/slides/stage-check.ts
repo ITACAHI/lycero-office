@@ -82,7 +82,7 @@ export function checkPageAgainstOutline(
     }
   }
   const text = pageText(spec)
-  const placeholder = PLACEHOLDER.exec(text)
+  const placeholder = PLACEHOLDER.exec(text) ?? (spec.notes ? PLACEHOLDER.exec(spec.notes) : null)
   if (placeholder) {
     err(
       `placeholder "${placeholder[0]}" in the page text; every figure and name comes from the material`,

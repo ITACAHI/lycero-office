@@ -8,6 +8,7 @@ import {
   openPptx,
   promoteSlideBackground,
   savePptx,
+  setSlideNotes,
 } from '@lycero/pptx-engine'
 import {
   buildPagePptx,
@@ -115,6 +116,9 @@ export async function buildDeckPptx(spec: DeckSpec, deps: BuildPageDeps): Promis
   }
   const base = await openPptx(pages[0]!)
   for (const one of pages.slice(1)) await mergeSlideFromPptx(base, one)
+  for (const [i, page] of spec.pages.entries()) {
+    if (page.notes) setSlideNotes(base, i, page.notes)
+  }
   for (const s of base.deck.slides) promoteSlideBackground(s, base.deck.size)
   return { bytes: await savePptx(base), imageFailures, imageWarnings }
 }

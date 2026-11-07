@@ -4,9 +4,10 @@
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
 import { describe, expect, it } from 'vitest'
-import { MAX_DECK_SPEC_RAW_CHARS, parseDeckSpec } from '../src/slides/deck-spec'
+import { getSlideNotes, openPptx } from '@lycero/pptx-engine'
+import { buildDeckPptx, MAX_DECK_SPEC_RAW_CHARS, parseDeckSpec } from '../src/slides/deck-spec'
 import { parsePageSpec } from '../src/slides/page-spec'
-import type { OutlinePage } from '../src/slides/outline'
+import { parseOutline, type OutlinePage } from '../src/slides/outline'
 import {
   checkPageAgainstOutline,
   offPaletteColors,
@@ -213,5 +214,75 @@ describe('staged-deck QA gate: palette agreement', () => {
     )
     expect(offPaletteColors(p.spec, new Set(['#0E1A2B']))).not.toContain('#FFFFFF')
     expect(offPaletteColors(p.spec, new Set())).toEqual([])
+  })
+})
+
+describe('speaker notes across outline and multi-slide deck build', () => {
+  it('parses speaker notes in outline.json and flags placeholder tokens inside notes', () => {
+    const clean = parseOutline(
+      JSON.stringify({
+        core_hook: 'Margins fell 40% while volume grew',
+        pages: [
+          {
+            title: 'The 40% squeeze',
+            type: 'cover',
+            layout: 'cover_typography_hero',
+            brief: 'Main title, subtitle with the period, presenter line on dark background.',
+            image_queries: [],
+            notes: 'Welcome everyone to the Q4 margin review.',
+          },
+        ],
+      }),
+    )
+    expect(clean.ok).toBe(true)
+    if (clean.ok) {
+      expect(clean.outline.pages[0]!.notes).toBe('Welcome everyone to the Q4 margin review.')
+      expect(clean.issues.filter((i) => i.level === 'error')).toEqual([])
+    }
+
+    const withPlaceholder = parseOutline(
+      JSON.stringify({
+        core_hook: 'Margins fell 40% while volume grew',
+        pages: [
+          {
+            title: 'The 40% squeeze',
+            type: 'cover',
+            layout: 'cover_typography_hero',
+            brief: 'Main title, subtitle with the period, presenter line on dark background.',
+            image_queries: [],
+            notes: 'Mention that revenue grew XX% year over year.',
+          },
+        ],
+      }),
+    )
+    expect(withPlaceholder.ok).toBe(true)
+    if (withPlaceholder.ok) {
+      expect(
+        withPlaceholder.issues.some(
+          (i) => i.level === 'error' && i.message.includes('placeholder'),
+        ),
+      ).toBe(true)
+    }
+  })
+
+  it('preserves speaker notes across all merged slides in buildDeckPptx', async () => {
+    const raw = JSON.stringify({
+      pages: [
+        { ...validPage('Cover slide'), notes: 'Cover speaker notes' },
+        { ...validPage('Second slide'), notes: 'Second slide talk track' },
+        { ...validPage('Third slide without notes') },
+      ],
+    })
+    const parsed = parseDeckSpec(raw)
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+    const built = await buildDeckPptx(parsed.spec, { fetchImage: async () => null })
+    const opened = await openPptx(built.bytes)
+    expect(opened.deck.slides).toHaveLength(3)
+    expect(getSlideNotes(opened.archive, opened.deck.slides[0]!.path)).toBe('Cover speaker notes')
+    expect(getSlideNotes(opened.archive, opened.deck.slides[1]!.path)).toBe(
+      'Second slide talk track',
+    )
+    expect(getSlideNotes(opened.archive, opened.deck.slides[2]!.path)).toBe('')
   })
 })

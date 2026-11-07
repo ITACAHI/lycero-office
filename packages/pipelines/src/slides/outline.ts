@@ -35,6 +35,8 @@ export interface OutlinePage {
   layout: string
   brief: string
   image_queries: string[]
+  /** Optional speaker notes (talk track for Presenter View) */
+  notes?: string
 }
 
 export interface DeckOutline {
@@ -109,6 +111,7 @@ function normalizePage(raw: unknown, i: number, issues: OutlineIssue[]): Outline
   const type = typeof p.type === 'string' ? (p.type.trim() as PageType) : ('' as PageType)
   const layout = typeof p.layout === 'string' ? p.layout.trim() : ''
   const brief = typeof p.brief === 'string' ? p.brief.trim() : ''
+  const notes = typeof p.notes === 'string' && p.notes.trim() ? p.notes.trim() : undefined
   const queries = Array.isArray(p.image_queries) ? p.image_queries : []
   const err = (message: string) => issues.push({ page: i, level: 'error', message })
   const warn = (message: string) => issues.push({ page: i, level: 'warning', message })
@@ -126,7 +129,8 @@ function normalizePage(raw: unknown, i: number, issues: OutlineIssue[]): Outline
   if (!brief) err('"brief" is missing: what goes in each region, with the real facts and figures')
   else if (brief.length < MIN_BRIEF)
     warn(`"brief" is thin (${brief.length} chars); name the content of every region`)
-  const placeholder = PLACEHOLDER.exec(brief) ?? PLACEHOLDER.exec(title)
+  const placeholder =
+    PLACEHOLDER.exec(brief) ?? PLACEHOLDER.exec(title) ?? (notes ? PLACEHOLDER.exec(notes) : null)
   if (placeholder)
     err(
       `placeholder "${placeholder[0]}" in the copy; every figure and name comes from the material`,
@@ -151,7 +155,7 @@ function normalizePage(raw: unknown, i: number, issues: OutlineIssue[]): Outline
     }
     image_queries.push(s)
   }
-  return { title, type, layout, brief, image_queries }
+  return { title, type, layout, brief, image_queries, ...(notes ? { notes } : {}) }
 }
 
 function checkDeck(pages: OutlinePage[], issues: OutlineIssue[]): void {

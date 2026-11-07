@@ -5,7 +5,23 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { PictureRenderNode, RenderSlide, ShapeRenderNode } from '@lycero/pptx-render'
-import { auditSlideFindings, auditSlideLayout, formatAudit } from '../src/slides/layout-audit'
+import {
+  auditSlideFindings,
+  auditSlideLayout,
+  checkDesignSystemTokens,
+  computeVerticalBudget,
+  countSlideWords,
+  formatAudit,
+} from '../src/slides/layout-audit'
+import {
+  fillEmptyLines,
+  groupAtomsIntoLines,
+  lineToRuns,
+  needsSubtreeRaster,
+  paintsBackgroundSeparately,
+  pixelRatioFor,
+  type Atom,
+} from '../src/slides/scene-measure'
 
 const W = 1280
 const H = 720
@@ -395,5 +411,215 @@ describe('auditSlideLayout issue budget', () => {
       textNode('b', 550, 320, 200, 100),
     ])
     expect(auditSlideFindings(s).map((f) => f.code)).toEqual(['text_overflow', 'overlap'])
+  })
+})
+
+describe('open-slide parity: density, bullet wrap, DesignSystem tokens, vertical budget & scene', () => {
+  it('warns with bullet_wrap when a bullet paragraph wraps onto multiple lines', () => {
+    const multiLineBullet: ShapeRenderNode = {
+      id: 'b1',
+      type: 'text',
+      box: placedBox(80, 120, 400, 120),
+      sourceId: 'b1',
+      fill: { kind: 'none' },
+      text: {
+        lines: [
+          {
+            paraStart: true,
+            top: 0,
+            height: 24,
+            runs: [
+              {
+                text: '•',
+                x: 0,
+                baselineY: 18,
+                fontFamily: 'Arial',
+                fontSizePx: 16,
+                color: '#111111',
+                bold: false,
+                italic: false,
+                underline: false,
+                widthPx: 12,
+                isBullet: true,
+              },
+              {
+                text: 'First line of bullet that is too long',
+                x: 18,
+                baselineY: 18,
+                fontFamily: 'Arial',
+                fontSizePx: 16,
+                color: '#111111',
+                bold: false,
+                italic: false,
+                underline: false,
+                widthPx: 300,
+              },
+            ],
+          },
+          {
+            paraStart: false,
+            top: 24,
+            height: 24,
+            runs: [
+              {
+                text: 'and spills onto a second line',
+                x: 18,
+                baselineY: 42,
+                fontFamily: 'Arial',
+                fontSizePx: 16,
+                color: '#111111',
+                bold: false,
+                italic: false,
+                underline: false,
+                widthPx: 220,
+              },
+            ],
+          },
+        ],
+        contentHeight: 48,
+        insets: { l: 0, t: 0, r: 0, b: 0 },
+        anchor: 'top',
+        fontScale: 1,
+        wrap: true,
+      },
+    }
+    const findings = auditSlideFindings(slide([multiLineBullet]))
+    expect(findings.some((f) => f.code === 'bullet_wrap' && f.bulletLines === 2)).toBe(true)
+  })
+
+  it('warns with text_density when total words on a slide exceed the threshold', () => {
+    const fiftyFiveWords = Array.from({ length: 55 }, (_, i) => `word${i + 1}`).join(' ')
+    const dense = textNode('dense', 80, 80, 1000, 400, { text: fiftyFiveWords })
+    const s = slide([dense])
+    expect(countSlideWords(s)).toBe(55)
+    const findings = auditSlideFindings(s)
+    expect(findings.some((f) => f.code === 'text_density' && f.wordCount === 55)).toBe(true)
+  })
+
+  it('checks DesignSystem tokens (bg, text, accent, muted) and flags off-palette colors', () => {
+    const ds = {
+      name: 'Keynote Warm',
+      palette: {
+        bg: '#F4F2EB',
+        text: '#1C1B18',
+        accent: '#8B3A1A',
+        muted: '#6E6A60',
+      },
+    }
+    const cleanNode = textNode('clean', 80, 80, 400, 80)
+    cleanNode.text!.lines[0]!.runs[0]!.color = '#1C1B18'
+    cleanNode.fill = { kind: 'solid', color: '#8B3A1A' }
+    const cleanSlide: RenderSlide = {
+      ...slide([cleanNode]),
+      background: { kind: 'solid', color: '#F4F2EB' },
+    }
+    expect(checkDesignSystemTokens(cleanSlide, ds).offTokenColors).toEqual([])
+    expect(auditSlideFindings(cleanSlide, (id) => id, { designSystem: ds })).toEqual([])
+
+    const rogueNode = textNode('rogue', 80, 200, 400, 80)
+    rogueNode.fill = { kind: 'solid', color: '#FF00FF' }
+    rogueNode.text!.lines[0]!.runs[0]!.color = '#1C1B18'
+    const dirtySlide: RenderSlide = {
+      ...cleanSlide,
+      nodes: [cleanNode, rogueNode],
+    }
+    const findings = auditSlideFindings(dirtySlide, (id) => id, { designSystem: ds })
+    expect(
+      findings.some(
+        (f) => f.code === 'design_token_mismatch' && f.offTokenColors?.includes('#FF00FF'),
+      ),
+    ).toBe(true)
+  })
+
+  it('computes vertical budget math accurately for 1280x720 slides', () => {
+    const fits = computeVerticalBudget(
+      [
+        { fontSizePx: 16, lineHeight: 1.2, lines: 1 },
+        { fontSizePx: 48, lineHeight: 1.15, lines: 2 },
+        { fontSizePx: 21, lineHeight: 1.4, lines: 2 },
+      ],
+      [12, 20],
+      64,
+      720,
+    )
+    expect(fits.usableHeightPx).toBe(592)
+    expect(fits.fits).toBe(true)
+    expect(fits.overflowPx).toBe(0)
+
+    const overflows = computeVerticalBudget(
+      [
+        { fontSizePx: 64, lineHeight: 1.2, lines: 4 },
+        { fontSizePx: 32, lineHeight: 1.4, lines: 8 },
+      ],
+      [32, 32],
+      80,
+      720,
+    )
+    expect(overflows.usableHeightPx).toBe(560)
+    expect(overflows.fits).toBe(false)
+    expect(overflows.overflowPx).toBeGreaterThan(0)
+  })
+
+  it('groups scene atoms into lines, fills empty lines, and classifies hybrid raster layers', () => {
+    const baseStyle = {
+      fontFamily: 'Inter',
+      fontSizePx: 20,
+      fontWeight: 400,
+      italic: false,
+      underline: false,
+      strike: false,
+      color: { hex: '111111', alpha: 1 },
+      letterSpacingPx: 0,
+    }
+    const atoms: Atom[] = [
+      {
+        text: 'Hello ',
+        rect: { x: 10, y: 10, w: 50, h: 24 },
+        styleKey: 'a',
+        style: baseStyle,
+        preserveSpaces: false,
+      },
+      {
+        text: 'world ',
+        rect: { x: 60, y: 10, w: 55, h: 24 },
+        styleKey: 'a',
+        style: baseStyle,
+        preserveSpaces: false,
+      },
+      {
+        text: 'wrapped',
+        rect: { x: 10, y: 58, w: 70, h: 24 },
+        styleKey: 'a',
+        style: baseStyle,
+        preserveSpaces: false,
+      },
+    ]
+    const lines = groupAtomsIntoLines(atoms)
+    expect(lines).toHaveLength(2)
+    expect(lineToRuns(lines[0]!)).toEqual([{ text: 'Hello world', style: baseStyle }])
+
+    // 48px jump vs 24px pitch when a third line is at y=82 -> fills 1 blank line between y=10 and y=58
+    const threeLines = groupAtomsIntoLines([
+      ...atoms,
+      {
+        text: 'third',
+        rect: { x: 10, y: 82, w: 50, h: 24 },
+        styleKey: 'a',
+        style: baseStyle,
+        preserveSpaces: false,
+      },
+    ])
+    const filled = fillEmptyLines(threeLines)
+    expect(filled).toHaveLength(4)
+    expect(filled[1]!.atoms).toHaveLength(0)
+
+    expect(pixelRatioFor({ w: 400, h: 300 })).toBe(2)
+    expect(needsSubtreeRaster({ filter: 'blur(12px)' })).toBe(true)
+    expect(needsSubtreeRaster({ filter: 'none' })).toBe(false)
+    expect(
+      paintsBackgroundSeparately({
+        backgroundImage: 'radial-gradient(circle, #fff, #000)',
+      }),
+    ).toBe(true)
   })
 })

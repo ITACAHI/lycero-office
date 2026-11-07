@@ -4,13 +4,13 @@ The same workflow the Lycero Office app runs when it generates a presentation, w
 
 Files of one deck, in a folder of their own (`deck/`):
 
-| Stage         | File                                                         | Check                                                                                                                      |
-| ------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| 1 style sheet | `deck/style.md`                                              | read it back before every page                                                                                             |
+| Stage         | File                                                         | Check                                                                                                                          |
+| ------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| 1 style sheet | `deck/style.md`                                              | read it back before every page                                                                                                 |
 | 2 outline     | `deck/outline.json`                                          | `lycero-office slides check deck/outline.json --json`                                                                          |
 | 3 pages       | `deck/pages/01.json`, `02.json`, … one file per outline page | `lycero-office slides check deck/pages/NN.json --json` after writing each (also against the outline entry and the style sheet) |
 | 4 build       | `deck/deck.pptx`                                             | `lycero-office create --type pptx --spec deck/pages --outline deck/outline.json --out deck/deck.pptx --json`                   |
-| 5 QC          | `deck/shots/*.png`                                           | `lycero-office slides render`, `lycero-office slides audit`, `lycero-office slides replace`                                            |
+| 5 QC          | `deck/shots/*.png`                                           | `lycero-office slides render`, `lycero-office slides audit`, `lycero-office slides replace`                                    |
 
 Never put more than one page in a file, and never write a page before its outline entry exists: the build refuses to run until every outline page has its file, and a page written in one focused step with the style sheet and its brief in front of you is what keeps a 20-page deck consistent. Keep the three files together: `slides check`, `create --spec` and `slides replace` look for `outline.json` and `style.md` beside the page files and one folder up, check every page against its outline entry (file `NN.json` is entry `pages[N-1]`) and against the style sheet's colors, and say so in `detail.notes` when either file is missing.
 
@@ -22,8 +22,8 @@ Run `lycero-office capabilities --json` once. It reads Lycero Office's own setti
 
 Decide the design system before any content and write it to `deck/style.md`; re-read that file before every page. Use this shape, with concrete values:
 
-- **Backgrounds**: main background; one per page type (cover, content, data, closing). Honor an explicit tone (dark theme, brand colors) before falling back to a light neutral. Content pages share one background.
-- **Colors**: main text, primary accent, secondary accent, card background, border, written as `#RRGGBB` values. One accent system for the whole deck: even when comparing several companies or options, do not give each its own color. Never more than the two accents. The page check reports every color a page uses that the style sheet does not name (`detail.style.offPalette`); white and black are always allowed.
+- **Backgrounds**: main background (`bg`); one per page type (cover, content, data, closing). Honor an explicit tone (dark theme, brand colors) before falling back to a light neutral. Content pages share one background.
+- **Colors (`DesignSystem` tokens)**: main background (`bg`), primary text (`text`), primary accent (`accent`), secondary/muted text (`muted`), plus optional card surface and border, written as `#RRGGBB` values. One accent system for the whole deck: even when comparing several companies or options, do not give each its own color. Never more than the two accents. The page check reports every color a page uses that the style sheet does not name (`detail.style.offPalette`); white and black are always allowed.
 - **Fonts**: title font (Latin and CJK if the deck mixes scripts), body font, title size range, body size range. Use fonts that exist on the target machine; when unsure, leave `font` out and let the engine's default apply.
 - **Layout library** (at least two variants per page type):
   - cover: `cover_typography_hero` (huge type, no image), `cover_dark_minimal`, `cover_split_color` (60/40 color blocks), `cover_full_image_overlay` (photo plus dark overlay), `cover_magazine`, `cover_split_image` (text left, image right)
@@ -46,7 +46,8 @@ Write `deck/outline.json`:
       "type": "cover | content | data | closing",
       "layout": "one variant from the style sheet's library for that type",
       "brief": "what goes in each region, with the real facts and figures",
-      "image_queries": ["English scene query or http(s) URL", "…"]
+      "image_queries": ["English scene query or http(s) URL", "…"],
+      "notes": "optional speaker notes talk track for Presenter View"
     }
   ]
 }
@@ -64,14 +65,30 @@ Then `lycero-office slides check deck/outline.json --json`: errors (unknown layo
 
 For page N: re-read `deck/style.md` and the page's outline entry, resolve its `image_queries` to files or URLs, write `deck/pages/NN.json` (two-digit, one page object, see `lycero-office guide slides spec`) echoing the entry's `title`, `type` and `layout` at the top of the object, and run `lycero-office slides check deck/pages/NN.json --json`. It builds that page alone and returns dropped elements, unreadable images and the geometry audit (out of bounds, text taller than its box, overlaps), then checks the page against outline entry N (`detail.outline.findings`: an echoed field that disagrees or placeholder copy is an error and exits 1; a title missing from the page text or a planned photo without an image element is a warning) and against the style sheet (`detail.style.offPalette`). Fix the file until `audit`, `findings` and `offPalette` are empty, then move to page N+1. Do not batch pages: one page per step, checked, is the whole point.
 
-Canvas is 1280 × 720 px, origin top-left, integers only; nothing may cross the edges. Elements paint in array order: background and decor shapes first, then images, text last.
+Canvas is 1280 × 720 px (16:9, equivalent to 1920 × 1080 at 1.5× scale), origin top-left, integers only; nothing may cross the edges. Elements paint in array order: background and decor shapes first, then images, text last.
+
+**Vertical Budget Math (mandatory before generating every page)**:
+
+- Usable vertical height after top and bottom padding: `usableHeight = 720 - 2 * padding` (for example, with `padding = 64` px top/bottom, `usableHeight = 592` px; with `padding = 80` px, `usableHeight = 560` px — equivalent to `840` px on a `1920 × 1080` canvas with `120` px padding).
+- Before placing elements on a page, verify the vertical budget formula:
+  `sum(font_size * line_height * lines) + gaps + 2 * padding <= canvasHeight` (`720` px).
+- Example vertical budget check (`padding = 64` px → `usableHeight = 592` px):
+  - Eyebrow (`12 pt ≈ 16 px × 1.2 × 1 line`): `20 px` + `12 px` gap
+  - Headline (`36 pt ≈ 48 px × 1.15 × 2 lines`): `110 px` + `20 px` gap
+  - Subtitle (`16 pt ≈ 21 px × 1.4 × 1 line`): `30 px` + `28 px` gap
+  - 3-column card row (card padding + big number + 2-line caption): `260 px`
+  - Total content + gaps = `480 px <= 592 px` usable height (`608 px <= 720 px` canvasHeight) — fits with breathing room.
+- **Split Page Rule**: If the planned content exceeds `usableHeight` (`sum(font_size * line_height * lines) + gaps + 2 * padding > 720`) or exceeds **40–50 words per page**, you **must split it into two pages (`split page`)**. Never shrink font sizes below readable thresholds, tighten line-height, or shave padding to cram excess copy onto one slide.
+- **One Idea Per Page & Single-Line Bullets**: Each slide conveys **one core message** (`One Idea Per Page`). Every bullet item must fit on **1 line** (`1 line per bullet`) — never write a bullet that wraps onto 2+ lines.
 
 **Sizing text boxes** (the boxes have zero inner padding; the top-left is where the first glyph starts):
 
 - one line is about `sizePt × 1.8` px tall at `lineSpacingPct` 110
 - a CJK character is about `sizePt × 1.35` px wide, a Latin character about `sizePt × 0.7` px
 - text wraps at the box width: count the wrapped lines, make the box that tall plus one spare line
-- the builder re-measures every plain text box and grows it to fit; it never shrinks, so undersized boxes push into what sits below them. Size correctly instead of relying on the fix.
+- the builder re-measures every plain text box with the layout engine, pins/grows undersized boxes, and cascades downward to prevent overlapping elements below; still size boxes accurately upfront instead of relying on post-build growth.
+
+**Speaker Notes (`notes`)**: Each page in `outline.json` and `pages/NN.json` may include an optional `"notes"` string (spoken talk track for Presenter View). When building `.pptx`, `notes` is written automatically into the slide's OOXML `notesSlide` part. Write `notes` as natural spoken delivery that adds context or transitions — never paste the on-screen bullets verbatim.
 
 **Spacing**: ≥ 8 px between text and a card edge, ≥ 20 px between a title and its subtitle, ≥ 5 px between stacked text blocks. Check every pair before output.
 

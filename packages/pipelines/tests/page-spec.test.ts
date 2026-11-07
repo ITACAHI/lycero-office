@@ -4,7 +4,7 @@
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
 import { describe, it, expect } from 'vitest'
-import { openPptx, type TextElement, type PictureElement } from '@lycero/pptx-engine'
+import { getSlideNotes, openPptx, type TextElement, type PictureElement } from '@lycero/pptx-engine'
 import { HeuristicMetrics } from '@lycero/pptx-render'
 import { parsePageSpec, buildPagePptx, type PageSpec } from '../src/slides/page-spec'
 
@@ -474,5 +474,97 @@ describe('buildPagePptx shape flip', () => {
     ) as TextElement | undefined
     expect(el?.transform.flipV).toBe(true)
     expect(el?.anchor.originalXml).toContain('flipV="1"')
+  })
+})
+
+describe('buildPagePptx speaker notes & cascade line-break pinning', () => {
+  const deps = { fetchImage: async () => null, fontMetrics: new HeuristicMetrics() }
+  const EMU_PER_PX = 9525
+  const px = (emu: number) => emu / EMU_PER_PX
+
+  it('parses speaker notes in parsePageSpec and writes them to OOXML notesSlide', async () => {
+    const raw = JSON.stringify({
+      background: '#0E1A2B',
+      notes: 'Welcome everyone.\nPoint out the 40% margin compression.',
+      elements: [textSpec('The 40% squeeze')],
+    })
+    const parsed = parsePageSpec(raw)
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+    expect(parsed.spec.notes).toBe('Welcome everyone.\nPoint out the 40% margin compression.')
+
+    const { bytes } = await buildPagePptx(parsed.spec, deps)
+    const opened = await openPptx(bytes)
+    expect(getSlideNotes(opened.archive, opened.deck.slides[0]!.path)).toBe(
+      'Welcome everyone.\nPoint out the 40% margin compression.',
+    )
+  })
+
+  it('cascades downward when an undersized top-anchored text box grows above a stacked element', async () => {
+    const spec: PageSpec = {
+      elements: [
+        {
+          type: 'text',
+          x: 100,
+          y: 100,
+          w: 600,
+          h: 30, // undersized: 40pt title needs ~64px, so bottom grows from 130 to ~164
+          paragraphs: [
+            {
+              runs: [
+                {
+                  text: '\u793a\u4f8b\u6807\u9898\u6587\u672c\u516b\u5b57',
+                  sizePt: 40,
+                  bold: true,
+                },
+              ],
+            },
+          ],
+        },
+        {
+          type: 'text',
+          x: 100,
+          y: 138, // originally 8px below the 130px bottom
+          w: 600,
+          h: 40,
+          paragraphs: [{ runs: [{ text: 'Subtitle right below title', sizePt: 18 }] }],
+        },
+      ],
+    }
+    const { bytes } = await buildPagePptx(spec, deps)
+    const opened = await openPptx(bytes)
+    const texts = opened.deck.slides[0]!.elements.filter((e): e is TextElement => e.type === 'text')
+    expect(texts).toHaveLength(2)
+    const titleBottomPx = px(texts[0]!.transform.offset.y + texts[0]!.transform.offset.cy)
+    const subtitleTopPx = px(texts[1]!.transform.offset.y)
+    expect(subtitleTopPx).toBeGreaterThanOrEqual(titleBottomPx + 7)
+  })
+
+  it('pins soft-wrapped lines with explicit <a:br/> runs when pinLineBreaks is enabled', async () => {
+    const spec: PageSpec = {
+      elements: [
+        {
+          type: 'text',
+          x: 80,
+          y: 80,
+          w: 220,
+          h: 120,
+          paragraphs: [
+            {
+              runs: [
+                {
+                  text: 'A deliberately long sentence that wraps across multiple visual lines inside a narrow box',
+                  sizePt: 20,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }
+    const { bytes } = await buildPagePptx(spec, { ...deps, pinLineBreaks: true })
+    const opened = await openPptx(bytes)
+    const el = opened.deck.slides[0]!.elements.find((e): e is TextElement => e.type === 'text')!
+    expect(el.text?.paragraphs[0]!.runs.some((r) => r.text === '\n')).toBe(true)
   })
 })

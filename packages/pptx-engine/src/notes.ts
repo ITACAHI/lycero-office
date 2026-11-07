@@ -82,8 +82,8 @@ export function getSlideNotes(archive: PackageArchive, slidePath: string): strin
   const tx = /<p:txBody>([\s\S]*?)<\/p:txBody>/.exec(body.xml)?.[1]
   if (!tx) return ''
   const paras = [...tx.matchAll(/<a:p>([\s\S]*?)<\/a:p>/g)].map((p) =>
-    [...p[1]!.matchAll(/<a:t(?:\s[^>]*[^/>])?>([\s\S]*?)<\/a:t>/g)]
-      .map((t) => unescapeXml(t[1]!))
+    [...p[1]!.matchAll(/<a:br\s*\/>|<a:t(?:\s[^>]*[^/>])?>([\s\S]*?)<\/a:t>/g)]
+      .map((t) => (t[0].startsWith('<a:br') ? '\n' : unescapeXml(t[1]!)))
       .join(''),
   )
   // Drop trailing empty paragraphs (PowerPoint templates often carry an empty placeholder paragraph)
@@ -91,9 +91,9 @@ export function getSlideNotes(archive: PackageArchive, slidePath: string): strin
   return paras.join('\n')
 }
 
-/** text (\n-separated) → notes txBody. */
+/** text (\n or \r\n-separated) → notes txBody. */
 function buildNotesTxBody(text: string): string {
-  const lines = text.split('\n')
+  const lines = text.split(/\r?\n/)
   const paras = lines.every((l) => l === '')
     ? '<a:p><a:endParaRPr lang="zh-CN"/></a:p>'
     : lines

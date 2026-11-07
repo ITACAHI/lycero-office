@@ -11,11 +11,17 @@ import {
   openPptx,
   promoteSlideBackground,
   savePptx,
+  setSlideNotes,
   type Paragraph,
   type TextElement,
   type TextRun,
 } from '@lycero/pptx-engine'
-import { buildRenderSlide, EMU_PER_PX_96, type FontMetricsProvider } from '@lycero/pptx-render'
+import {
+  buildRenderSlide,
+  EMU_PER_PX_96,
+  pinLaidOutParagraphs,
+  type FontMetricsProvider,
+} from '@lycero/pptx-render'
 import { coverCropFractions } from './cover-crop'
 
 export const SPEC_CANVAS_W = 1280
@@ -103,6 +109,8 @@ export type SpecElement = SpecShape | SpecText | SpecImage
 
 export interface PageSpec {
   background?: string
+  /** Optional speaker notes (talk track for Presenter View, written into OOXML notesSlide) */
+  notes?: string
   elements: SpecElement[]
 }
 
@@ -365,10 +373,15 @@ export function parsePageSpecObject(
     }
   }
   warnings.push(...duplicateTextWarnings(elements, keptRawIdx))
+  const notes =
+    typeof root.notes === 'string' && root.notes.trim()
+      ? root.notes.trim().slice(0, MAX_TEXT_LEN)
+      : undefined
   return {
     ok: true,
     spec: {
       ...(normColor(root.background) ? { background: normColor(root.background) } : {}),
+      ...(notes ? { notes } : {}),
       elements,
     },
     warnings,
@@ -448,6 +461,8 @@ export interface BuildPageDeps {
   imageDims?: (bytes: Uint8Array) => { width: number; height: number } | null
   /** Font metrics for the post-build text measurement; absent skips the box-height fix */
   fontMetrics?: FontMetricsProvider
+  /** Pin soft-wrapped line breaks with explicit <a:br/> runs after measuring (`open-slide` parity) */
+  pinLineBreaks?: boolean
 }
 
 /**
@@ -458,33 +473,134 @@ export interface BuildPageDeps {
  * landed page will render from — and grow too-short boxes to their content height.
  * Grow-only, plain text boxes only (shape label boxes are design intent); middle/bottom
  * anchored boxes shift up so the rendered glyphs stay exactly where they were.
+ * When a text box grows downward, any stacked element sitting below it in the same
+ * horizontal column is cascaded downward to prevent overlap.
  * Returns the re-saved bytes, or null when every box already fits.
  */
 async function growTextBoxesToContent(
   bytes: Uint8Array,
   metrics: FontMetricsProvider,
+  opts: { pinLineBreaks?: boolean } = {},
 ): Promise<Uint8Array | null> {
   const opened = await openPptx(bytes)
   const slide = opened.deck.slides[0]
   if (!slide) return null
   const baseWidthPx = opened.deck.size.cx / EMU_PER_PX_96 // native px → vp.scale = 1
+  const baseHeightPx = opened.deck.size.cy / EMU_PER_PX_96
   const rendered = buildRenderSlide(slide, opened.deck.size, { fitWidthPx: baseWidthPx, metrics })
   let changed = false
-  for (const node of rendered.nodes) {
+
+  const liveBoxes = new Map<string, { x: number; y: number; w: number; h: number }>()
+  for (const n of rendered.nodes) {
+    if (n.decoration) continue
+    liveBoxes.set(n.sourceId, { x: n.box.x, y: n.box.y, w: n.box.w, h: n.box.h })
+  }
+
+  const pushDownBelow = (
+    sourceId: string,
+    colX: number,
+    colW: number,
+    oldBottom: number,
+    newBottom: number,
+  ): void => {
+    if (newBottom <= oldBottom + 0.5) return
+    const candidates = rendered.nodes
+      .filter((n) => !n.decoration && n.sourceId !== sourceId)
+      .map((n) => ({ node: n, box: liveBoxes.get(n.sourceId)! }))
+      .filter(({ box }) => {
+        if (!box) return false
+        if (box.w * box.h >= baseWidthPx * baseHeightPx * 0.7) return false
+        const overlapX = Math.min(colX + colW, box.x + box.w) - Math.max(colX, box.x)
+        return overlapX > 4 && box.y >= oldBottom - 4
+      })
+      .sort((a, b) => a.box.y - b.box.y)
+
+    const frontier: Array<{ x: number; w: number; oldB: number; newB: number }> = [
+      { x: colX, w: colW, oldB: oldBottom, newB: newBottom },
+    ]
+
+    for (const { node: candNode, box: candBox } of candidates) {
+      let requiredTop = candBox.y
+      for (const f of frontier) {
+        const overlapX = Math.min(f.x + f.w, candBox.x + candBox.w) - Math.max(f.x, candBox.x)
+        if (overlapX <= 4 || candBox.y < f.oldB - 4) continue
+        const preservedGap = Math.min(Math.max(0, candBox.y - f.oldB), 8)
+        requiredTop = Math.max(requiredTop, f.newB + preservedGap)
+      }
+      if (requiredTop <= candBox.y + 0.5) continue
+      const maxTop = Math.max(candBox.y, baseHeightPx - candBox.h)
+      const nextTop = Math.min(requiredTop, maxTop)
+      if (nextTop <= candBox.y + 0.5) continue
+
+      const candEl = slide.elements.find((e) => e.id === candNode.sourceId)
+      if (!candEl || !('transform' in candEl) || !candEl.transform) continue
+      const prevBottom = candBox.y + candBox.h
+      candBox.y = nextTop
+      const nextBottom = candBox.y + candBox.h
+      candEl.transform = {
+        ...candEl.transform,
+        offset: {
+          ...candEl.transform.offset,
+          y: Math.round(nextTop * EMU_PER_PX_96),
+        },
+      }
+      candEl.dirtyTransform = true
+      changed = true
+      frontier.push({ x: candBox.x, w: candBox.w, oldB: prevBottom, newB: nextBottom })
+    }
+  }
+
+  const textNodes = rendered.nodes
+    .filter((n) => !n.decoration && n.type === 'text' && n.text)
+    .sort((a, b) => a.box.y - b.box.y)
+
+  for (const node of textNodes) {
     if (node.type !== 'text' || !node.text) continue
     const el = slide.elements.find((e) => e.id === node.sourceId)
     if (el?.type !== 'text') continue
-    const t = node.text
-    const needH = Math.max(t.contentHeight, t.inkBottom ?? 0) + t.insets.t + t.insets.b
-    const growPx = needH - node.box.h
-    if (growPx < 0.5) continue
     const tel = el as TextElement
-    const offset = { ...tel.transform.offset, cy: Math.max(1, Math.round(needH * EMU_PER_PX_96)) }
-    if (t.anchor === 'middle') offset.y -= Math.round((growPx / 2) * EMU_PER_PX_96)
-    else if (t.anchor === 'bottom') offset.y -= Math.round(growPx * EMU_PER_PX_96)
+    const t = node.text
+
+    if (
+      opts.pinLineBreaks &&
+      tel.text &&
+      tel.text.paragraphs.length > 0 &&
+      t.lines.length > tel.text.paragraphs.length
+    ) {
+      tel.text = {
+        ...tel.text,
+        paragraphs: pinLaidOutParagraphs(tel.text, t),
+      }
+      tel.dirty = true
+      changed = true
+    }
+
+    const curBox = liveBoxes.get(node.sourceId) ?? {
+      x: node.box.x,
+      y: node.box.y,
+      w: node.box.w,
+      h: node.box.h,
+    }
+    const needH = Math.max(t.contentHeight, t.inkBottom ?? 0) + t.insets.t + t.insets.b
+    const growPx = needH - curBox.h
+    if (growPx < 0.5) continue
+
+    const oldBottom = curBox.y + curBox.h
+    curBox.h = needH
+    if (t.anchor === 'middle') curBox.y -= growPx / 2
+    else if (t.anchor === 'bottom') curBox.y -= growPx
+    const newBottom = curBox.y + curBox.h
+
+    const offset = {
+      ...tel.transform.offset,
+      y: Math.round(curBox.y * EMU_PER_PX_96),
+      cy: Math.max(1, Math.round(needH * EMU_PER_PX_96)),
+    }
     tel.transform = { ...tel.transform, offset }
     tel.dirtyTransform = true
     changed = true
+
+    pushDownBelow(node.sourceId, curBox.x, curBox.w, oldBottom, newBottom)
   }
   return changed ? savePptx(opened) : null
 }
@@ -617,8 +733,16 @@ export async function buildPagePptx(
   }
 
   promoteSlideBackground(slide, opened.deck.size)
+  if (spec.notes) {
+    setSlideNotes(opened, 0, spec.notes)
+  }
   let bytes = await savePptx(opened)
-  if (deps.fontMetrics) bytes = (await growTextBoxesToContent(bytes, deps.fontMetrics)) ?? bytes
+  if (deps.fontMetrics) {
+    bytes =
+      (await growTextBoxesToContent(bytes, deps.fontMetrics, {
+        ...(deps.pinLineBreaks ? { pinLineBreaks: true } : {}),
+      })) ?? bytes
+  }
   return { bytes, imageFailures, imageWarnings }
 }
 

@@ -3,13 +3,22 @@
 The designed-deck path (`lycero-office guide slides design`) keeps one page per file:
 
 ```
-deck/pages/01.json   { "title": "The 40% squeeze", "type": "cover", "layout": "cover_typography_hero", "background": "#0E1A2B", "elements": [ ... ] }
-deck/pages/02.json   { "title": "Where the margin went", "type": "content", "layout": "three_column_cards", "background": "#FFFFFF", "elements": [ ... ] }
+deck/pages/01.json   { "title": "The 40% squeeze", "type": "cover", "layout": "cover_typography_hero", "background": "#0E1A2B", "notes": "Welcome everyone. Today we look at why margins compressed 40% despite record volume.", "elements": [ ... ] }
+deck/pages/02.json   { "title": "Where the margin went", "type": "content", "layout": "three_column_cards", "background": "#FFFFFF", "notes": "Three cost drivers explain the entire drop: fuel, wages, and spot rate normalization.", "elements": [ ... ] }
 ```
 
-`title`, `type` and `layout` echo the page's outline entry; the builder ignores them, the checks compare them. `lycero-office slides check deck/pages/01.json` builds and audits one file, then checks it against `outline.json` and `style.md` (looked up beside the file and one folder up, or `--outline <file>`): file `NN.json` is outline entry `pages[N-1]`; an echoed field that disagrees or placeholder copy exits 1, a missing title or a planned photo without an image is a warning, and colors the style sheet does not name are listed in `detail.style.offPalette`. `lycero-office create --type pptx --spec deck/pages [--outline deck/outline.json] --out deck.pptx` takes every `*.json` in the folder in name order (`01`, `02`, … `10`), one slide each, runs the same checks on every file and refuses to build when the page count differs from the outline or a page disagrees with its entry. `lycero-office slides replace deck.pptx --slide n --spec deck/pages/NN.json` rebuilds slide n from its file after checking it against entry n.
+`title`, `type` and `layout` echo the page's outline entry; the builder ignores them, the checks compare them. Optional `notes` (Speaker Notes) is written directly into the slide's OOXML `notesSlide` part for Presenter View (`apps/slides/src/main/presenter-show.ts`). `lycero-office slides check deck/pages/01.json` builds and audits one file, then checks it against `outline.json` and `style.md` (looked up beside the file and one folder up, or `--outline <file>`): file `NN.json` is outline entry `pages[N-1]`; an echoed field that disagrees or placeholder copy exits 1, a missing title or a planned photo without an image is a warning, and colors the style sheet does not name are listed in `detail.style.offPalette`. `lycero-office create --type pptx --spec deck/pages [--outline deck/outline.json] --out deck.pptx` takes every `*.json` in the folder in name order (`01`, `02`, … `10`), one slide each, runs the same checks on every file and refuses to build when the page count differs from the outline or a page disagrees with its entry. `lycero-office slides replace deck.pptx --slide n --spec deck/pages/NN.json` rebuilds slide n from its file after checking it against entry n.
 
-`--spec` also accepts one file holding the whole deck, `{ "pages": [ {...}, {...} ] }`, a bare array of pages, or a single page object. Up to 60 pages. Every page becomes one 16:9 slide; the canvas is **1280 × 720 px**, origin top-left, all `x` `y` `w` `h` integers in px. Elements paint in array order (first = bottom). Colors are `#RRGGBB` or `#RRGGBBAA` (`AA` alpha, `00` transparent).
+`--spec` also accepts one file holding the whole deck, `{ "pages": [ {...}, {...} ] }`, a bare array of pages, or a single page object. Up to 60 pages. Every page becomes one 16:9 slide; the canvas is **1280 × 720 px** (equivalent to `1920 × 1080` at 1.5× scale), origin top-left, all `x` `y` `w` `h` integers in px. Elements paint in array order (first = bottom). Colors are `#RRGGBB` or `#RRGGBBAA` (`AA` alpha, `00` transparent) and should follow the deck's `DesignSystem` palette tokens (`bg`, `text`, `accent`, `muted`).
+
+## Vertical Budget Math & Density Discipline
+
+Before generating each page spec, verify the vertical budget on the `1280 × 720` canvas:
+
+- **Usable height**: `usableHeight = 720 - 2 * padding` (e.g. `padding = 64..80` px → `usableHeight = 560..592` px; equivalent to `840` px on a `1920 × 1080` canvas with `120` px padding).
+- **Mandatory formula**: `sum(font_size * line_height * lines) + gaps + 2 * padding <= canvasHeight` (`720`).
+- **Split page rule**: If content exceeds `usableHeight` or exceeds **40–50 words per page**, split into 2 pages (`split page`). Never shrink fonts below readable bounds or cram text.
+- **One Idea Per Page & Single-Line Bullets**: Each slide communicates 1 core message (`One Idea Per Page`). Every bullet (`"bullet": true`) must fit on a single line (`1 line per bullet`).
 
 ## Outline
 
@@ -32,13 +41,14 @@ deck/pages/02.json   { "title": "Where the margin went", "type": "content", "lay
       "type": "content",
       "layout": "three_column_cards",
       "brief": "Three cards: fuel +31%, wages +18%, spot rates -22% (2024 vs 2022), one source line each.",
-      "image_queries": ["container port cranes at dawn"]
+      "image_queries": ["container port cranes at dawn"],
+      "notes": "Walk through the three cards from left to right, emphasizing that spot rate drops hurt more than cost inflation."
     }
   ]
 }
 ```
 
-`type` is `cover`, `content`, `data` or `closing`; `layout` is one of that type's variants from the design guide's layout library. `image_queries` holds an English scene query per photo slot or a ready `http(s)` URL; `[]` for a page without photos. Errors from the check: unknown type or layout, missing title, brief, core hook or image_queries entries, placeholder copy (`XX%`, `lorem`, `TBD`), a content or data layout repeated on consecutive pages. Warnings: a thin brief, a non-English query, fewer than three layout variants across the body pages, a first page that is not a cover, a last page that is not a closing page.
+`type` is `cover`, `content`, `data` or `closing`; `layout` is one of that type's variants from the design guide's layout library. `image_queries` holds an English scene query per photo slot or a ready `http(s)` URL; `[]` for a page without photos. Optional `notes` holds the speaker talk track for Presenter View. Errors from the check: unknown type or layout, missing title, brief, core hook or image_queries entries, placeholder copy (`XX%`, `lorem`, `TBD`), a content or data layout repeated on consecutive pages. Warnings: a thin brief, a non-English query, fewer than three layout variants across the body pages, a first page that is not a cover, a last page that is not a closing page.
 
 ## Element types
 

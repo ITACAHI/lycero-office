@@ -3,13 +3,18 @@
  * Copyright © 2026 ITAC AI Heavy Industries.
  * Original work Copyright © 2026 Mainfunc, Inc. (GenOffice, Apache-2.0).
  */
-import type {
-  GroupRenderNode,
-  PictureRenderNode,
-  RenderNode,
-  RenderSlide,
-  ShapeRenderNode,
+import {
+  computeVerticalBudget,
+  type GroupRenderNode,
+  type PictureRenderNode,
+  type RenderNode,
+  type RenderSlide,
+  type ShapeRenderNode,
+  type VerticalBudgetBlock,
+  type VerticalBudgetResult,
 } from '@lycero/pptx-render'
+
+export { computeVerticalBudget, type VerticalBudgetBlock, type VerticalBudgetResult }
 
 /**
  * Deterministic layout audit (modeled on the Google Slides add-in review_google_slides_addin geometry-only checks):
@@ -29,6 +34,10 @@ interface AuditEntry {
   h: number
   hasText: boolean
   preview: string
+  fullText: string
+  wordCount: number
+  /** Max lines a single bullet paragraph wraps across in this element (1 = single-line bullet, >1 = wrapped bullet) */
+  wrappedBulletLines: number
   /** Pixels by which the text content height exceeds the box height (only meaningful when >0) */
   overflowPx: number
   /** Pixels by which the widest laid-out line exceeds the box inner width (wrap=false lines, over-wide tokens) */
@@ -40,6 +49,33 @@ interface AuditEntry {
 }
 
 const PREVIEW_MAX = 18
+export const DEFAULT_MAX_WORDS_PER_SLIDE = 50
+
+const CJK_CHAR_RE = /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]/g
+
+/**
+ * Count words in slide copy: each CJK ideograph/kana counts as 1 word, and each
+ * whitespace-delimited Latin/Hangul/number token counts as 1 word.
+ */
+export function countTextWords(text: string): number {
+  if (!text) return 0
+  const cjk = text.match(CJK_CHAR_RE)?.length ?? 0
+  const nonCjk = text.replace(CJK_CHAR_RE, ' ').trim()
+  const words = nonCjk ? nonCjk.split(/\s+/).filter(Boolean).length : 0
+  return cjk + words
+}
+
+function nodeFullText(node: ShapeRenderNode): string {
+  return (node.text?.lines ?? [])
+    .map((l) =>
+      l.runs
+        .filter((r) => !r.isBullet)
+        .map((r) => r.text)
+        .join(''),
+    )
+    .join(' ')
+    .trim()
+}
 
 function textPreview(node: ShapeRenderNode): string {
   const t = (node.text?.lines ?? [])
@@ -47,6 +83,67 @@ function textPreview(node: ShapeRenderNode): string {
     .join(' ')
     .trim()
   return t.length > PREVIEW_MAX ? `${t.slice(0, PREVIEW_MAX)}…` : t
+}
+
+/**
+ * Check if any bullet paragraph (`isBullet` on its `paraStart` line) wraps onto
+ * continuation lines (`!paraStart`). Returns the maximum line count of a wrapped
+ * bullet paragraph in the node, or 0 when no bullet wraps.
+ */
+function maxWrappedBulletLines(node: ShapeRenderNode): number {
+  const lines = node.text?.lines ?? []
+  if (lines.length < 2) return 0
+  let maxWrapped = 0
+  let inBulletPara = false
+  let curBulletLines = 0
+  for (const ln of lines) {
+    if (ln.paraStart) {
+      if (inBulletPara && curBulletLines > 1) {
+        maxWrapped = Math.max(maxWrapped, curBulletLines)
+      }
+      inBulletPara = ln.runs.some((r) => r.isBullet)
+      curBulletLines = inBulletPara && ln.runs.some((r) => !r.isBullet && r.text.trim()) ? 1 : 0
+    } else if (inBulletPara && ln.runs.some((r) => r.text.trim())) {
+      curBulletLines += 1
+    }
+  }
+  if (inBulletPara && curBulletLines > 1) {
+    maxWrapped = Math.max(maxWrapped, curBulletLines)
+  }
+  return maxWrapped
+}
+
+/**
+ * Total word count across all non-decoration text/shape elements on a slide.
+ * When `deduplicateRepeatedNodes` is true, identical repeated placeholder text
+ * strings across synthetic nodes are counted once.
+ */
+export function countSlideWords(
+  slide: RenderSlide,
+  opts: { deduplicateRepeatedNodes?: boolean } = {},
+): number {
+  let total = 0
+  const seenTexts = new Set<string>()
+  const visit = (nodes: RenderNode[]): void => {
+    for (const n of nodes) {
+      if (n.decoration) continue
+      if (n.type === 'group') {
+        visit((n as GroupRenderNode).children)
+        continue
+      }
+      if (n.type === 'shape' || n.type === 'text') {
+        const full = nodeFullText(n as ShapeRenderNode)
+        if (!full) continue
+        if (opts.deduplicateRepeatedNodes) {
+          if (seenTexts.has(full)) continue
+          seenTexts.add(full)
+        }
+        total += countTextWords(full)
+      }
+    }
+  }
+  visit(slide.nodes)
+  return total
 }
 
 /** Collect the top-level nodes that take part in the audit (skip master/layout decoration; a group counts as one box). */
@@ -57,25 +154,22 @@ function collectEntries(nodes: RenderNode[]): AuditEntry[] {
     const { x, y, w, h } = n.box
     let hasText = false
     let preview = ''
+    let fullText = ''
+    let wordCount = 0
+    let wrappedBulletLines = 0
     let overflowPx = 0
     let overflowXPx = 0
     if (n.type === 'shape' || n.type === 'text') {
       const sn = n as ShapeRenderNode
       preview = textPreview(sn)
+      fullText = nodeFullText(sn)
+      wordCount = countTextWords(fullText)
+      wrappedBulletLines = maxWrappedBulletLines(sn)
       hasText = preview.length > 0
       if (sn.text && hasText) {
         const inner = h - sn.text.insets.t - sn.text.insets.b
         overflowPx = Math.round(sn.text.contentHeight - inner)
         const innerW = w - sn.text.insets.l - sn.text.insets.r
-        // Laid-out right edge of the widest line (run.x already includes marL/indent/alignment,
-        // so the content-area comparison below is exact). Catches wrap=false lines and
-        // unbreakable tokens wider than the box -- the height-only check misses both, and
-        // the text then overlaps whatever sits next to it.
-        // Vertical text (vert/vert270/eaVert/wordArtVert) keeps horizontal layout
-        // convention in the renderer's lines, so run.x/widthPx mix axes — the width
-        // check would false-positive on every vertical box; skip it (the height
-        // check above still applies via contentHeight, which the renderer computes
-        // correctly for both orientations).
         if (sn.text.vert) {
           overflowXPx = 0
         } else {
@@ -105,6 +199,9 @@ function collectEntries(nodes: RenderNode[]): AuditEntry[] {
       h,
       hasText,
       preview,
+      fullText,
+      wordCount,
+      wrappedBulletLines,
       overflowPx,
       overflowXPx,
       rotationDeg: n.box.rotationDeg,
@@ -164,15 +261,128 @@ export type AuditCode =
   | 'text_overflow_width'
   | 'overlap'
   | 'picture_distorted'
+  | 'text_density'
+  | 'bullet_wrap'
+  | 'design_token_mismatch'
 
 export interface PictureSize {
   w: number
   h: number
 }
 
+/**
+ * Core palette tokens of an `open-slide`-compatible `DesignSystem`.
+ */
+export interface DesignSystemPalette {
+  bg: string
+  text: string
+  accent: string
+  muted?: string
+  /** Optional extra allowed hex colors (e.g. secondary accent, card surface, border) */
+  extra?: readonly string[]
+}
+
+/**
+ * `open-slide`-compatible DesignSystem specification for deck-wide visual consistency.
+ */
+export interface DesignSystem {
+  name?: string
+  palette: DesignSystemPalette
+  fonts?: { display?: string; body?: string; mono?: string }
+  typeScale?: { hero?: number; h1?: number; h2?: number; body?: number; caption?: number }
+  radius?: number
+}
+
 export interface AuditOptions {
   /** Natural pixel size of a top-level picture's bitmap by node source id; undefined skips the distortion check. */
   pictureSize?: (sourceId: string) => PictureSize | undefined
+  /** Maximum words allowed on a single slide before emitting a `text_density` warning (default: 50). */
+  maxWordsPerSlide?: number
+  /** DesignSystem or palette tokens (`bg`, `text`, `accent`, `muted`) to validate slide colors against. */
+  designSystem?: DesignSystem | DesignSystemPalette
+}
+
+function normalizeHex6(raw: string | undefined): string | null {
+  if (typeof raw !== 'string') return null
+  let hex = raw.trim().replace(/^#/, '').toUpperCase()
+  if (/^[0-9A-F]{3}$/.test(hex)) hex = [...hex].map((c) => c + c).join('')
+  if (/^[0-9A-F]{8}$/.test(hex)) hex = hex.slice(0, 6)
+  return /^[0-9A-F]{6}$/.test(hex) ? `#${hex}` : null
+}
+
+export interface DesignSystemTokenReport {
+  validTokens: boolean
+  missingTokens: string[]
+  allowedPalette: Set<string>
+  offTokenColors: Array<{ el: string; color: string }>
+}
+
+const NEUTRAL_HEX = new Set(['#FFFFFF', '#000000'])
+
+/**
+ * Validate `DesignSystem` tokens (`bg`, `text`, `accent`, `muted`) and check whether
+ * all colors rendered on `slide` belong to the design system's token palette.
+ */
+export function checkDesignSystemTokens(
+  slide: RenderSlide,
+  designSystem: DesignSystem | DesignSystemPalette,
+): DesignSystemTokenReport {
+  const palette: DesignSystemPalette =
+    'palette' in designSystem ? designSystem.palette : designSystem
+  const missingTokens: string[] = []
+  const allowedPalette = new Set<string>(NEUTRAL_HEX)
+
+  for (const key of ['bg', 'text', 'accent', 'muted'] as const) {
+    const val = palette[key]
+    if (val === undefined || val === '') {
+      if (key !== 'muted') missingTokens.push(key)
+      continue
+    }
+    const norm = normalizeHex6(val)
+    if (!norm) {
+      missingTokens.push(key)
+    } else {
+      allowedPalette.add(norm)
+    }
+  }
+  for (const extra of palette.extra ?? []) {
+    const norm = normalizeHex6(extra)
+    if (norm) allowedPalette.add(norm)
+  }
+
+  const offTokenColors: Array<{ el: string; color: string }> = []
+  const checkColor = (elId: string, raw: string | undefined): void => {
+    const norm = normalizeHex6(raw)
+    if (!norm || allowedPalette.has(norm)) return
+    if (!offTokenColors.some((o) => o.el === elId && o.color === norm)) {
+      offTokenColors.push({ el: elId, color: norm })
+    }
+  }
+
+  if (slide.background?.kind === 'solid') {
+    checkColor('slide_bg', slide.background.color)
+  }
+
+  for (const n of slide.nodes) {
+    if (n.decoration) continue
+    if (n.type === 'shape' || n.type === 'text') {
+      const sn = n as ShapeRenderNode
+      if (sn.fill?.kind === 'solid') checkColor(sn.sourceId, sn.fill.color)
+      if (sn.stroke?.color) checkColor(sn.sourceId, sn.stroke.color)
+      for (const ln of sn.text?.lines ?? []) {
+        for (const r of ln.runs) {
+          if (r.color) checkColor(sn.sourceId, r.color)
+        }
+      }
+    }
+  }
+
+  return {
+    validTokens: missingTokens.length === 0,
+    missingTokens,
+    allowedPalette,
+    offTokenColors,
+  }
 }
 
 export interface AuditBox {
@@ -205,6 +415,13 @@ export interface AuditFinding {
   expected_ratio?: number
   actual_ratio?: number
   distortion_pct?: number
+  /** text_density: measured slide word count and active word budget */
+  wordCount?: number
+  maxWords?: number
+  /** bullet_wrap: number of lines the bullet item wrapped across */
+  bulletLines?: number
+  /** design_token_mismatch: off-palette #RRGGBB colors detected */
+  offTokenColors?: string[]
   suggest?: AuditSuggest
 }
 
@@ -438,6 +655,78 @@ export function auditSlideFindings(
       if (findings.length >= budgetFor(0)) break
     }
     if (findings.length >= budgetFor(0)) break
+  }
+
+  // 4a. Multi-line bullet wrap check (open-slide rule: each bullet must fit on 1 line)
+  for (const e of entries) {
+    if (findings.length >= MAX_ISSUES) break
+    if (e.wrappedBulletLines > 1) {
+      findings.push({
+        code: 'bullet_wrap',
+        level: 'warning',
+        el: idOf(e.id),
+        message: `Bullet wrap: ${label(e, idOf)} bullet item wraps onto ${e.wrappedBulletLines} lines (keep each bullet to 1 line or split the slide)`,
+        box: boxOf(e),
+        bulletLines: e.wrappedBulletLines,
+      })
+    }
+  }
+
+  // 4b. Slide word density check (open-slide rule: <= 40-50 words per slide; split page if exceeded)
+  if (findings.length < MAX_ISSUES) {
+    const maxWords = opts.maxWordsPerSlide ?? DEFAULT_MAX_WORDS_PER_SLIDE
+    const totalWords = countSlideWords(slide, {
+      deduplicateRepeatedNodes: opts.maxWordsPerSlide === undefined,
+    })
+    if (totalWords > maxWords) {
+      const densest =
+        entries.filter((e) => e.hasText).sort((a, b) => b.wordCount - a.wordCount)[0] ?? entries[0]
+      if (densest) {
+        findings.push({
+          code: 'text_density',
+          level: 'warning',
+          el: idOf(densest.id),
+          message: `Text density: slide has ${totalWords} words (limit ${maxWords}; split into 2 pages instead of shrinking fonts or cramming copy)`,
+          box: boxOf(densest),
+          wordCount: totalWords,
+          maxWords,
+        })
+      }
+    }
+  }
+
+  // 4c. DesignSystem token consistency check (`bg`, `text`, `accent`, `muted`)
+  if (opts.designSystem && findings.length < MAX_ISSUES) {
+    const report = checkDesignSystemTokens(slide, opts.designSystem)
+    if (!report.validTokens && findings.length < MAX_ISSUES) {
+      const anchor = entries[0]
+      findings.push({
+        code: 'design_token_mismatch',
+        level: 'warning',
+        el: anchor ? idOf(anchor.id) : 'slide',
+        message: `DesignSystem tokens missing or invalid: ${report.missingTokens.join(', ')} (expected valid #RRGGBB for bg, text, accent, muted)`,
+        box: anchor ? boxOf(anchor) : { x: 0, y: 0, w: W, h: H },
+      })
+    }
+    const byEl = new Map<string, string[]>()
+    for (const item of report.offTokenColors) {
+      const list = byEl.get(item.el) ?? []
+      list.push(item.color)
+      byEl.set(item.el, list)
+    }
+    for (const [rawElId, colors] of byEl) {
+      if (findings.length >= MAX_ISSUES) break
+      const entry = entries.find((e) => e.id === rawElId)
+      const elLabel = entry ? label(entry, idOf) : rawElId
+      findings.push({
+        code: 'design_token_mismatch',
+        level: 'warning',
+        el: entry ? idOf(entry.id) : rawElId,
+        message: `DesignSystem token mismatch: ${elLabel} uses off-palette color(s) ${colors.join(', ')} (not in DesignSystem bg/text/accent/muted tokens)`,
+        box: entry ? boxOf(entry) : { x: 0, y: 0, w: W, h: H },
+        offTokenColors: colors,
+      })
+    }
   }
 
   return findings.slice(0, MAX_ISSUES)

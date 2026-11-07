@@ -1894,3 +1894,277 @@ function layoutAll(
   }
   return { lines: outLines, contentHeight: y, inkBottom }
 }
+
+// ── Scene Atom Line Grouping & Line-Break Pinning (open-slide parity) ────────
+
+/** Style attributes carried by a measured DOM/scene text atom. */
+export interface AtomStyle {
+  fontFamily: string
+  fontSizePx: number
+  fontWeight: number
+  italic: boolean
+  underline: boolean
+  strike: boolean
+  color: { hex: string; alpha: number }
+  letterSpacingPx: number
+  baselineShiftPct?: number
+  href?: string
+  codeBg?: { hex: string; alpha: number }
+}
+
+/** A measured inline text range (word or character) with its bounding box in slide px. */
+export interface Atom {
+  text: string
+  rect: { x: number; y: number; w: number; h: number }
+  styleKey: string
+  style: AtomStyle
+  preserveSpaces: boolean
+}
+
+/** A visual line formed by grouping inline `Atom`s that sit on the same row. */
+export interface AtomLine {
+  atoms: Atom[]
+  top: number
+  bottom: number
+  left: number
+  right: number
+  sizePx: number
+}
+
+/** Merged styled run within a visual `AtomLine`. */
+export interface AtomRun {
+  text: string
+  style: AtomStyle
+}
+
+const ATOM_HORIZONTAL_TOLERANCE = 3
+const ATOM_VERTICAL_TOLERANCE = 2
+const SUPERSCRIPT_MAX_WIDTH = 30
+const SUPERSCRIPT_VERTICAL_FACTOR = 0.5
+
+/**
+ * Group measured inline atoms into visual lines (`open-slide` `text-lines.ts` algorithm).
+ * Detects soft wraps when an atom's x retreats left of the previous atom's right edge or its
+ * y drops below the previous atom's bottom, while keeping superscripts/subscripts on the same line.
+ */
+export function groupAtomsIntoLines(atoms: Atom[]): AtomLine[] {
+  const lines: AtomLine[] = []
+  let cur: AtomLine | null = null
+  let prev: Atom | null = null
+
+  for (const atom of atoms) {
+    if (!cur || !prev) {
+      cur = {
+        atoms: [atom],
+        top: atom.rect.y,
+        bottom: atom.rect.y + atom.rect.h,
+        left: atom.rect.x,
+        right: atom.rect.x + atom.rect.w,
+        sizePx: atom.style.fontSizePx,
+      }
+      lines.push(cur)
+      prev = atom
+      continue
+    }
+
+    const movedLeft = atom.rect.x < prev.rect.x + prev.rect.w - ATOM_HORIZONTAL_TOLERANCE
+    const movedBelow = atom.rect.y >= prev.rect.y + prev.rect.h - ATOM_VERTICAL_TOLERANCE
+    const isSuperscriptLike =
+      atom.rect.w < SUPERSCRIPT_MAX_WIDTH &&
+      !movedLeft &&
+      atom.rect.y < prev.rect.y + prev.rect.h * SUPERSCRIPT_VERTICAL_FACTOR
+    const newLine = !isSuperscriptLike && (movedLeft || movedBelow)
+
+    if (newLine) {
+      cur = {
+        atoms: [atom],
+        top: atom.rect.y,
+        bottom: atom.rect.y + atom.rect.h,
+        left: atom.rect.x,
+        right: atom.rect.x + atom.rect.w,
+        sizePx: atom.style.fontSizePx,
+      }
+      lines.push(cur)
+    } else {
+      cur.atoms.push(atom)
+      cur.top = Math.min(cur.top, atom.rect.y)
+      cur.bottom = Math.max(cur.bottom, atom.rect.y + atom.rect.h)
+      cur.left = Math.min(cur.left, atom.rect.x)
+      cur.right = Math.max(cur.right, atom.rect.x + atom.rect.w)
+      cur.sizePx = Math.max(cur.sizePx, atom.style.fontSizePx)
+    }
+    prev = atom
+  }
+  return lines
+}
+
+/**
+ * Insert empty placeholder lines when the vertical gap between consecutive `AtomLine`s
+ * is a multiple (`k >= 2`) of the single-line pitch (e.g., blank lines in `pre` or `<br><br>`).
+ */
+export function fillEmptyLines(lines: AtomLine[]): AtomLine[] {
+  if (lines.length < 2) return lines
+  const pitches: number[] = []
+  for (let i = 1; i < lines.length; i++) {
+    const d = lines[i]!.top - lines[i - 1]!.top
+    if (d > 2) pitches.push(d)
+  }
+  if (pitches.length === 0) return lines
+  const base = Math.min(...pitches)
+  if (base < 4) return lines
+
+  const out: AtomLine[] = [lines[0]!]
+  for (let i = 1; i < lines.length; i++) {
+    const prev = lines[i - 1]!
+    const cur = lines[i]!
+    const d = cur.top - prev.top
+    const k = Math.round(d / base)
+    if (k >= 2 && Math.abs(d - k * base) < base * 0.35) {
+      const h = prev.bottom - prev.top
+      for (let m = 1; m < k; m++) {
+        const y = prev.top + m * base
+        out.push({
+          atoms: [],
+          top: y,
+          bottom: y + h,
+          left: prev.left,
+          right: prev.left,
+          sizePx: prev.sizePx,
+        })
+      }
+    }
+    out.push(cur)
+  }
+  return out
+}
+
+/**
+ * Merge adjacent atoms with identical `styleKey` on a line into `AtomRun`s,
+ * normalizing whitespace for non-preformatted atoms and trimming trailing line spaces.
+ */
+export function lineToRuns(line: AtomLine): AtomRun[] {
+  const merged: Array<{ text: string; style: AtomStyle; key: string }> = []
+  for (const a of line.atoms) {
+    const text = a.preserveSpaces ? a.text.replace(/\r?\n/g, '') : a.text.replace(/\s+/g, ' ')
+    if (!text) continue
+    const last = merged[merged.length - 1]
+    if (last && last.key === a.styleKey) {
+      last.text += text
+    } else {
+      merged.push({ text, style: a.style, key: a.styleKey })
+    }
+  }
+  if (merged.length > 0 && !line.atoms[0]?.preserveSpaces) {
+    merged[0]!.text = merged[0]!.text.replace(/^ +/, '')
+    const last = merged[merged.length - 1]!
+    last.text = last.text.replace(/ +$/, '')
+  }
+  return merged.filter((m) => m.text.length > 0).map(({ text, style }) => ({ text, style }))
+}
+
+/**
+ * Pin soft-wrapped line breaks from a measured `RenderTextLayout` back into `Paragraph[]`
+ * by inserting explicit `<a:br/>` sentinel runs (`{ text: '\n' }`) between wrapped lines.
+ * This guarantees PowerPoint breaks lines at the exact same token boundaries as `layoutText`.
+ */
+export function pinLaidOutParagraphs(body: TextBody, layout: RenderTextLayout): Paragraph[] {
+  // Group laid-out lines by paragraph (each paragraph starts at a line with paraStart === true)
+  const groups: TextLine[][] = []
+  for (const ln of layout.lines) {
+    if (ln.paraStart || groups.length === 0) {
+      groups.push([ln])
+    } else {
+      groups[groups.length - 1]!.push(ln)
+    }
+  }
+  if (groups.length !== body.paragraphs.length) return body.paragraphs
+
+  return body.paragraphs.map((p, idx) => {
+    const paraLines = groups[idx]!
+    if (paraLines.length <= 1) return p
+
+    const pinnedRuns: TextRun[] = []
+    paraLines.forEach((ln, li) => {
+      const contentRuns = ln.runs.filter((r) => !r.isBullet)
+      for (const gr of contentRuns) {
+        if (!gr.text) continue
+        const srcIdx = gr.srcRunIdx ?? 0
+        const src = p.runs[srcIdx] ?? p.runs[0] ?? { text: '' }
+        const prev = pinnedRuns[pinnedRuns.length - 1]
+        const prevSrcIdx = (prev as (TextRun & { __srcIdx?: number }) | undefined)?.__srcIdx
+        if (prev && prev.text !== '\n' && prevSrcIdx === srcIdx) {
+          prev.text += gr.text
+        } else {
+          const nextRun: TextRun & { __srcIdx?: number } = {
+            ...src,
+            rawXml: undefined,
+            text: gr.text,
+            __srcIdx: srcIdx,
+          }
+          pinnedRuns.push(nextRun)
+        }
+      }
+      if (li < paraLines.length - 1) {
+        pinnedRuns.push({ text: '\n' })
+      }
+    })
+
+    // Strip internal tracking property
+    const cleanRuns: TextRun[] = pinnedRuns.map((r) => {
+      const copy = { ...(r as TextRun & { __srcIdx?: number }) }
+      delete copy.__srcIdx
+      return copy
+    })
+    return cleanRuns.length > 0 ? { ...p, runs: cleanRuns } : p
+  })
+}
+
+export interface VerticalBudgetBlock {
+  fontSizePx: number
+  lineHeight?: number
+  lines: number
+}
+
+export interface VerticalBudgetResult {
+  canvasHeightPx: number
+  paddingPx: number
+  usableHeightPx: number
+  contentHeightPx: number
+  totalHeightPx: number
+  fits: boolean
+  overflowPx: number
+}
+
+/**
+ * Evaluate the `open-slide` Vertical Budget Math formula:
+ * `sum(font_size * line_height * lines) + gaps + 2 * padding <= canvasHeight`
+ */
+export function computeVerticalBudget(
+  blocks: readonly VerticalBudgetBlock[],
+  gapsPx: number | readonly number[],
+  paddingPx = 64,
+  canvasHeightPx = 720,
+): VerticalBudgetResult {
+  const usableHeightPx = Math.max(0, canvasHeightPx - 2 * paddingPx)
+  const textHeight = blocks.reduce(
+    (sum, b) => sum + b.fontSizePx * (b.lineHeight ?? 1.2) * Math.max(1, b.lines),
+    0,
+  )
+  const gapSum =
+    typeof gapsPx === 'number'
+      ? Math.max(0, gapsPx)
+      : gapsPx.reduce((sum, g) => sum + Math.max(0, g), 0)
+  const contentHeightPx = Math.round((textHeight + gapSum) * 100) / 100
+  const totalHeightPx = Math.round((contentHeightPx + 2 * paddingPx) * 100) / 100
+  const fits = totalHeightPx <= canvasHeightPx
+  const overflowPx = fits ? 0 : Math.round((totalHeightPx - canvasHeightPx) * 100) / 100
+  return {
+    canvasHeightPx,
+    paddingPx,
+    usableHeightPx,
+    contentHeightPx,
+    totalHeightPx,
+    fits,
+    overflowPx,
+  }
+}

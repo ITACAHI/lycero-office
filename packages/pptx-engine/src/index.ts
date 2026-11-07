@@ -286,6 +286,7 @@ export {
   type ChartDataTable,
 } from './chart'
 export { parseChartExXml } from './chartex'
+import { getSlideNotes, setSlideNotes } from './notes'
 export { getSlideNotes, setSlideNotes, notesPathForSlide, unescapeXml } from './notes'
 export {
   getSlideComments,
@@ -2204,6 +2205,8 @@ export interface MergeSlideSource {
   media: Array<{ path: string; bytes: Uint8Array }>
   /** Source layout→master→theme chain parts (used only when the target has no layout) */
   layoutChain: Array<{ path: string; bytes: Uint8Array; rels?: Uint8Array }>
+  /** Speaker notes text from the source slide's notesSlide part, if present */
+  notes?: string
 }
 
 /** Async half of the merge: unzip the source and extract everything the sync half needs. Pure read. */
@@ -2233,7 +2236,8 @@ export async function extractMergeSlideSource(
     const relsBytes = src.readBytes(relsPathFor(p))
     layoutChain.push({ path: p, bytes, ...(relsBytes ? { rels: relsBytes } : {}) })
   }
-  return { srcSlidePath, slideXml, rels, media, layoutChain }
+  const notes = getSlideNotes(src, srcSlidePath)
+  return { srcSlidePath, slideXml, rels, media, layoutChain, ...(notes ? { notes } : {}) }
 }
 
 /** Sync half of the merge: land an extracted source into the target deck (appended at the end). */
@@ -2302,7 +2306,11 @@ export function mergeSlideFromSource(
   archive.entries.set(relsPathFor(newPath), Buffer.from(relsXml, 'utf8'))
 
   // Register with the package: Content_Types Override + new sldId/rId in presentation.xml(.rels), inserted at the end
-  return registerNewSlide(target, deck.slides.length - 1, newPath)
+  const merged = registerNewSlide(target, deck.slides.length - 1, newPath)
+  if (merged && source.notes) {
+    setSlideNotes(target, deck.slides.length - 1, source.notes)
+  }
+  return merged
 }
 
 /** Starting from an empty deck: move the source single slide's layout→master→theme chain into the target verbatim (rare branch). */

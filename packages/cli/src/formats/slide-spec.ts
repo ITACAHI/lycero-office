@@ -269,7 +269,11 @@ export async function buildDeckFromDir(
   let kept = 0
   for (let i = 0; i < pages.length; i++) {
     if (dropped.has(i)) continue
-    const f = stageFindings(pages[i], parsed.spec.pages[kept++]!, i, stage)
+    const specPage = parsed.spec.pages[kept++]!
+    if (!specPage.notes && outline?.pages[i]?.notes) {
+      specPage.notes = outline.pages[i]!.notes
+    }
+    const f = stageFindings(pages[i], specPage, i, stage)
     outlineFindings.push(...f.outline.map((o) => ({ ...o, ...named(i) })))
     if (f.offPalette.length) offPalette.push({ ...named(i), colors: f.offPalette })
   }
@@ -373,6 +377,9 @@ export async function replaceSlideFromSpec(
   stage?: StageContext,
 ): Promise<{ warnings: string[]; imageFailures: string[]; stage?: StageFindings }> {
   const one = parseOnePage(text, source, 'replace takes')
+  if (!one.spec.notes && stage?.outline?.outline.pages[index]?.notes) {
+    one.spec.notes = stage.outline.outline.pages[index]!.notes
+  }
   const findings = stage ? stageFindings(one.raw, one.spec, index, stage) : undefined
   const errors = findings?.outline.filter((o) => o.level === 'error') ?? []
   if (errors.length) {
